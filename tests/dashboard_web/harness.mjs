@@ -11,7 +11,7 @@ const { JSDOM } = req('jsdom')
 const data = JSON.parse(readFileSync(process.argv[2], 'utf8'))
 const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/' })
 const calls = []
-let summaryCalls = 0
+let summaryCalls = 0, seqCalls = 0
 const el = tag => props => React.createElement(tag, Object.fromEntries(Object.entries(props).filter(([k]) => !['variant', 'size'].includes(k))))
 const SDK = {
   React, hooks: { useState: React.useState, useEffect: React.useEffect, useCallback: React.useCallback, useMemo: React.useMemo, useRef: React.useRef },
@@ -21,6 +21,8 @@ const SDK = {
     const path = url.replace('/api/plugins/pit-crew', '').split('?')[0]
     // data.__fail_summary_after = N: the backend answers N summaries and then stops (a crashed/restarted Hermes)
     if (path === '/summary' && data.__fail_summary_after !== undefined && ++summaryCalls > data.__fail_summary_after) throw new Error('502 Bad Gateway')
+    // data.__summary_sequence: successive /summary answers (the last one repeats), to play out the car changing over time
+    if (path === '/summary' && data.__summary_sequence) return data.__summary_sequence[Math.min(seqCalls++, data.__summary_sequence.length - 1)]
     if (!(path in data)) throw new Error('404: ' + path)
     return data[path]
   },

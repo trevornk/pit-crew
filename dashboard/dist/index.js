@@ -67,10 +67,23 @@
       open_trunk: sec.trunk_open === true && "Trunk is already open", open_frunk: sec.frunk_open === true && "Frunk is already open",
       sentry_on: sec.sentry_on === true && "Sentry is already on", sentry_off: sec.sentry_on === false && "Sentry is already off",
       climate_on: cli.climate_on === true && "Climate is already on", climate_off: cli.climate_on === false && "Climate is already off",
-      charge_start: charging ? "Already charging" : chg.plugged_in === false && "Not plugged in",
+      charge_start: charging ? "Already charging" : chg.plugged_in === false && "Not plugged in: plug the car in first",
       charge_stop: chg.charging_state !== undefined && !charging && "Not charging right now",
     };
     return map[id] || null;
+  }
+
+  // The parts of the car's state a command can change. A result panel is only true while this is unchanged.
+  function stateSig(st) {
+    st = st || {};
+    const sec = st.security || {}, chg = st.charging || {}, cli = st.climate || {};
+    return JSON.stringify([sec.locked, sec.windows_open, sec.trunk_open, sec.frunk_open, sec.sentry_on, cli.climate_on, chg.charging_state, chg.plugged_in]);
+  }
+  const OUTDATED = "This result is out of date: the car’s state has changed since. Close this and look at the current state.";
+  // "Nothing new" next to open alerts reads as all clear, so always say how many are still open.
+  function checkSummary(raised, stillOpen) {
+    const n = Number(raised) || 0, total = stillOpen + n;
+    return "Checked the car: " + (n ? n + " new alert" + (n === 1 ? "" : "s") : "No new alerts") + (total ? " · " + total + (n ? " open" : " still open") : " · all clear") + ".";
   }
 
   function whereText(z) {
@@ -222,14 +235,14 @@
         h("div", { style: row },
           open.length > 1 ? h(C.Button, { size: "sm", variant: "ghost", onClick: function () { ack("all"); } }, "Acknowledge all") : null,
           h(C.Button, { size: "sm", variant: "outline", disabled: !!props.down, onClick: function () {
-            api("/alerts/check", {}).then(function (r) { note[1](r.ok ? (r.raised ? "Checked the car: " + r.raised + " new alert" + (r.raised === 1 ? "" : "s") + "." : "Checked the car: nothing new.") : (r.error || "Could not check the car.")); props.reload(); },
+            api("/alerts/check", {}).then(function (r) { note[1](r.ok ? checkSummary(r.raised, open.length) : (r.error || "Could not check the car.")); props.reload(); },
               function (e) { note[1]("Check failed: " + (e && e.message || e)); });
           } }, "Check now"))),
       note[0] ? h("div", { style: dim }, note[0]) : null,
       shown.length === 0 ? h("div", { style: dim }, props.down ? "Can’t check yet: Pit Crew isn’t connected to your car." : "All clear. Nothing needs your attention right now.")
         : shown.map(function (a) {
           return h("div", { key: a.id, style: Object.assign({}, tile, { gap: 4, opacity: a.state === "acked" ? 0.6 : 1 }) },
-            h("div", { style: between }, h("strong", { style: { fontSize: 13 } }, cleanTitle(a.title)), h("span", { style: dim }, when(a.when))),
+            h("div", { style: between }, h("strong", { style: { fontSize: 13 } }, cleanTitle(a.title)), h("span", { style: dim, title: props.simulated ? "The simulator’s clock, which Fast-forward moves. History below uses real time." : "" }, (props.simulated ? "simulated " : "") + when(a.when))),
             h("div", { style: { fontSize: 12 } }, a.body),
             h("div", { style: between }, h("span", { style: { fontSize: 12 } }, plainSuggestion(a)),
               h("div", { style: row }, fix(a), a.state === "acked" ? h("span", { style: dim }, "acknowledged") : h(C.Button, { size: "sm", variant: "ghost", onClick: function () { ack(String(a.id)); } }, "Got it"))));
@@ -255,9 +268,11 @@
       }
     }, [ext && ext.n]);
     const seq = useRef(0), inflight = useRef(false), busy = useState(false);
+    const base = useState(null);                         // the car's state right after the command; a later change outdates the result
+    const outdated = !!msg[0] && base[0] !== null && base[0] !== stateSig(st);
     function preview(c) {
       const mine = ++seq.current;                       // a slow answer for an earlier pick must not show under this one
-      pick[1](c); pf[1](null); msg[1]("");
+      pick[1](c); pf[1](null); msg[1](""); base[1](null);
       api("/preflight", { command: c[0], args: c[2] || {} }).then(function (r) { if (seq.current === mine) pf[1](r); },
         function (e) { if (seq.current === mine) pf[1]({ ok: false, message: String(e && e.message || e) }); });
     }
@@ -267,7 +282,8 @@
       const c = pick[0];
       busy[1](true);
       return api("/command", { command: c[0], args: c[2] || {}, confirmed: true, reason: "Pit Crew web page" })
-        .then(function (r) { msg[1](r.message || (r.ok ? "Done." : "Not sent.")); props.reload(); }, function (e) { msg[1]("Failed: " + (e && e.message || e)); })
+        .then(function (r) { msg[1](r.message || (r.ok ? "Done." : "Not sent.")); return Promise.resolve(props.reload()).then(function (d) { base[1](d && d.status ? stateSig(d.status) : null); }); },
+          function (e) { msg[1]("Failed: " + (e && e.message || e)); })
         .then(function () { inflight.current = false; busy[1](false); });
     }
     function goLiveAnd(next) {
@@ -296,17 +312,17 @@
           !risky && q && q.ok && armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: run }, "Send command") : null,
           !risky && q && q.ok && !armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: function () { goLiveAnd(run); } }, "Go live for " + props.hours + " h & send") : null,
           q && q.ok && !armed ? h(C.Button, { size: "sm", variant: "outline", disabled: busy[0], onClick: run }, "Practice run") : null,
-          h(C.Button, { size: "sm", variant: "ghost", onClick: function () { pick[1](null); pf[1](null); msg[1](""); } }, "Close")),
-        msg[0] ? h("span", { style: { fontSize: 12 } }, msg[0]) : null) : null;
+          h(C.Button, { size: "sm", variant: "ghost", onClick: function () { pick[1](null); pf[1](null); msg[1](""); base[1](null); } }, "Close")),
+        msg[0] ? h("span", { style: { fontSize: 12 } }, outdated ? OUTDATED : msg[0]) : null) : null;
     return h("section", { id: "pit-crew-controls", style: box },
       h("div", { style: between }, h("strong", null, "Controls"), h(C.Badge, { variant: armed ? "destructive" : "outline" }, armed ? "Live" : "Practice mode · nothing is sent")),
-      h("div", { style: dim }, armed ? "Every command is safety-checked, recorded, and confirmed by re-reading the car. Greyed-out buttons are already in that state."
-        : "Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. Greyed-out buttons are already in that state."),
+      h("div", { style: dim }, armed ? "Every command is safety-checked, recorded, and confirmed by re-reading the car. A greyed-out button says why, right under its label."
+        : "Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. A greyed-out button says why, right under its label."),
       panel,
       h("div", { style: g }, EVERYDAY.map(function (c) { return btn(c, false); })),
       h("div", { style: { borderTop: "1px solid rgba(128,128,128,.3)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 } },
-        h("strong", { style: { fontSize: 12 } }, "Goes through Hermes’ approvals"),
-        h("div", { style: dim }, "For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button. Check the rules here, then say it to Hermes: your Hermes approval setting decides."),
+        h("strong", { style: { fontSize: 12 } }, "Asked in chat, under your Hermes approval setting"),
+        h("div", { style: dim }, "Unlock, trunk, frunk, vent, Sentry off, honk and flash are requested in chat, not sent by these buttons. They follow your Hermes approval setting: with approvals on (manual or smart) Hermes asks you first; with approvals off it sends without asking and its reply says so. Check the rules here, then say it to Hermes."),
         h("div", { style: g }, RISKY.map(function (c) { return btn(c, true); }))));
   }
 
@@ -320,7 +336,7 @@
     const th = { textAlign: "left", padding: "4px 8px", fontSize: 11, opacity: 0.6, whiteSpace: "nowrap" };
     const td = { padding: "5px 8px", fontSize: 12, whiteSpace: "nowrap", borderTop: "1px solid rgba(128,128,128,.25)" };
     return h("section", { style: box },
-      h("div", { style: between }, h("strong", null, "History of commands"), h("span", { style: dim }, "every attempt, newest first")),
+      h("div", { style: between }, h("strong", null, "History of commands"), h("span", { style: dim }, props.simulated ? "every attempt, newest first · real clock time" : "every attempt, newest first")),
       rows == null ? h("div", { style: dim }, "Loading…") : rows.length === 0 ? h("div", { style: dim }, "Nothing yet. Commands you or Hermes try will be recorded here.")
         : h("div", { style: { overflowX: "auto" } }, h("table", { style: { borderCollapse: "collapse", width: "100%" } },
           h("thead", null, h("tr", null, ["When", "Who", "What", "Outcome", "Approval"].map(function (c) { return h("th", { key: c, style: th }, c); }))),
@@ -388,8 +404,8 @@
   function PitCrewPage() {
     const sum = useState(null), err = useState(null), log = useState(null), got = useState(null);
     const load = useCallback(function (refresh) {
-      api("/summary" + (refresh ? "?refresh=true" : "")).then(function (d) { sum[1](d); err[1](null); got[1](Date.now()); }, function (e) { err[1](String(e && e.message || e)); });
       api("/log?limit=25").then(function (d) { log[1](d.rows || []); }, function () { /* the table keeps its last rows */ });
+      return api("/summary" + (refresh ? "?refresh=true" : "")).then(function (d) { sum[1](d); err[1](null); got[1](Date.now()); return d; }, function (e) { err[1](String(e && e.message || e)); return null; });
     }, []);
     useEffect(function () { load(false); const t = setInterval(function () { if (!document.hidden) load(false); }, 15000);   // no polling while the tab is hidden
        return function () { clearInterval(t); }; }, [load]);
@@ -413,16 +429,16 @@
           h(ModeSwitch, { armed: armed, hours: hours, simulated: s.simulated, reload: load })),
         h(C.Button, { variant: "ghost", size: "sm", onClick: function () { load(true); } }, "Refresh")),
       s.simulated ? h("section", { style: Object.assign({}, box, { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }) },
-        h("span", { style: { fontSize: 13 } }, h("strong", null, "This is a simulated car. "), "Everything works, nothing real happens. Try “Drive 20 mi away” then “Leave it unlocked” below and watch the alert appear.")) : null,
+        h("span", { style: { fontSize: 13 } }, h("strong", null, "This is a simulated car. "), "The simulator pretends to be a car: it reports state, accepts commands and raises alerts, but no real car is touched. Try “Drive 20 mi away” then “Leave it unlocked” below and watch the alert appear.")) : null,
       down ? h(Connect, { connection: s.connection })
         : h(React.Fragment, null, h(Hero, { st: st }),
           (st.warnings || []).length ? h("section", { style: box }, h("strong", null, "Heads up"), Array.from(new Set(st.warnings)).map(function (w, i) { return h("div", { key: i, style: { fontSize: 13 } }, w); })) : null),
       h(Readiness, { settings: s.settings, down: down }),
-      h(Alerts, { alerts: s.alerts, reload: load, down: down, onFix: function (cmd) { ext[1]({ cmd: cmd, n: Date.now() }); } }),
+      h(Alerts, { alerts: s.alerts, simulated: !!s.simulated, reload: load, down: down, onFix: function (cmd) { ext[1]({ cmd: cmd, n: Date.now() }); } }),
       down ? null : h(Tiles, { st: st }),
       down ? h("section", { style: box }, h("strong", null, "Controls"), h("span", { style: dim }, "Commands are unavailable until Pit Crew can read your car."))
         : h(Commands, { st: st, armed: !!armed.armed, hours: hours, reload: load, external: ext[0] }),
-      h(AuditLog, { rows: log[0] }),
+      h(AuditLog, { rows: log[0], simulated: !!s.simulated }),
       s.simulated ? h(Sim, { reload: load }) : null,
       h("div", { style: dim }, "Settings: Hermes Desktop has a form under Settings → Plugins → Pit Crew; otherwise edit plugins.entries.pit-crew.settings in config.yaml (`hermes config edit`). Changes apply immediately."));
   }

@@ -16,15 +16,27 @@ export const StatusDot = () => h('span')
 export const Switch = () => h('input')
 export const ROUTES_AREA = 'routes', SIDEBAR_NAV_AREA = 'nav', STATUSBAR_AREAS = { right: 'r' }
 export const host = { notify() {}, navigate() {}, composer: { async insertText() { return true }, focus() {} } }
-export const queryClient = { invalidateQueries() {} }
+// A small TanStack-like cache: queries register themselves, invalidateQueries({queryKey}) refetches every query under that
+// prefix and resolves when they are done, getQueryData reads what the last fetch stored.
+const cache = new Map(), live = new Map()
+const under = (key, prefix) => prefix.every((p, i) => key[i] === p)
+export const queryClient = {
+  invalidateQueries({ queryKey } = {}) {
+    return Promise.all([...live.values()].filter(q => under(q.key, queryKey || [])).map(q => q.refetch()))
+  },
+  getQueryData(queryKey) { return cache.get(JSON.stringify(queryKey)) }
+}
 export function useQuery({ queryKey, queryFn, enabled = true }) {
   const k = JSON.stringify(queryKey)
   const [s, set] = useState({ data: undefined, isLoading: true, isError: false })
   useEffect(() => {
     if (!enabled) return
     let on = true
-    queryFn().then(d => on && set({ data: d, isLoading: false, isError: false }), e => on && set({ isError: true, isLoading: false, error: e }))
-    return () => { on = false }
+    const refetch = () => queryFn().then(d => { cache.set(k, d); if (on) set({ data: d, isLoading: false, isError: false }) },
+      e => { if (on) set({ isError: true, isLoading: false, error: e }) })
+    live.set(k, { key: queryKey, refetch })
+    refetch()
+    return () => { on = false; live.delete(k) }
   }, [k, enabled])
   return { ...s, isFetching: false }
 }

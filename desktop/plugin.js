@@ -42,6 +42,12 @@ const S = {
 // ----------------------------------------------------------------------------- helpers
 const api = (path, opts) => CTX.rest(path, opts)
 const refresh = () => queryClient.invalidateQueries({ queryKey: QK })
+// The parts of the car's state a command can change. A result panel is only true while this is unchanged.
+const stateSig = status => {
+  const st = status || {}, sec = st.security || {}, chg = st.charging || {}, cli = st.climate || {}
+  return JSON.stringify([sec.locked, sec.windows_open, sec.trunk_open, sec.frunk_open, sec.sentry_on, cli.climate_on, chg.charging_state, chg.plugged_in])
+}
+const OUTDATED = 'This result is out of date: the car’s state has changed since. Close this and look at the current state.'
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(d) : '—')
 // Humane ages: "just now", "7 min ago", "5 h ago", "3 days ago" (never "4.8 h").
 const ageText = s => {
@@ -350,7 +356,7 @@ function inapplicable(id, v) {
     case 'sentry_off': return sec.sentry_on === false ? 'Sentry is already off' : null
     case 'climate_on': return cli.climate_on === true ? 'Climate is already on' : null
     case 'climate_off': return cli.climate_on === false ? 'Climate is already off' : null
-    case 'charge_start': return charging ? 'Already charging' : chg.plugged_in === false ? 'Not plugged in' : null
+    case 'charge_start': return charging ? 'Already charging' : chg.plugged_in === false ? 'Not plugged in: plug the car in first' : null
     case 'charge_stop': return chg.charging_state !== undefined && !charging ? 'Not charging right now' : null
     default: return null
   }
@@ -388,9 +394,12 @@ async function askHermes(text) {
 }
 
 function SafetyDialog({ request, summary, onClose }) {
+  const sigNow = stateSig(summary && summary.status)
   const cancelRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
+  const [resultSig, setResultSig] = useState(null)
+  const outdated = !!result && resultSig !== null && resultSig !== sigNow
   const q = useQuery({
     queryKey: [...QK, 'preflight', request && request.command, JSON.stringify((request && request.args) || {})],
     queryFn: () => api('/preflight', { method: 'POST', body: { command: request.command, args: request.args || {} } }),
@@ -406,7 +415,10 @@ function SafetyDialog({ request, summary, onClose }) {
       const res = await api('/command', { method: 'POST', body: { command: request.command, args: request.args || {}, confirmed: true, reason: 'Pit Crew page' } })
       setResult(res)
       toast(res.ok ? 'info' : 'error', res.message || 'Done')
-      refresh()
+      // Remember the state right after this command, so a later, different state marks this result outdated.
+      try { await refresh() } catch (e) { /* the next poll will do */ }
+      const fresh = queryClient.getQueryData([...QK, 'summary'])
+      setResultSig(stateSig(fresh && fresh.status))
     } catch (err) {
       setResult({ ok: false, message: String((err && err.message) || err) })
     } finally {
@@ -438,9 +450,10 @@ function SafetyDialog({ request, summary, onClose }) {
         h(DialogTitle, null, result ? 'Result' : viaHermes ? `${label(request.command)}: Hermes will ask you` : `${label(request.command)}?`),
         h(DialogDescription, null, result ? '' : q.isError ? 'Could not check the safety rules.' : (pf && pf.summary) || 'Checking the safety rules…')),
       result ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-        h(Badge, { variant: result.ok ? (result.status === 'confirmed' ? 'success' : 'warn') : 'destructive' }, cap(result.status || (result.ok ? 'done' : 'failed'))),
-        h('div', { style: { fontSize: 13 } }, result.message),
-        result.readback ? h('div', { style: S.tiny }, `Read-back: ${result.readback.status} — ${result.readback.detail || ''}`) : null)
+        !outdated ? h(Badge, { variant: result.ok ? (result.status === 'confirmed' ? 'success' : 'warn') : 'destructive' }, cap(result.status || (result.ok ? 'done' : 'failed'))) : null,
+        outdated ? h(Badge, { variant: 'muted' }, 'Outdated') : null,
+        h('div', { style: { fontSize: 13 } }, outdated ? OUTDATED : result.message),
+        !outdated && result.readback ? h('div', { style: S.tiny }, `Read-back: ${result.readback.status} — ${result.readback.detail || ''}`) : null)
         : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
           q.isLoading ? h(Skeleton, { style: { height: 60 } }) : null,
           q.isError ? h('div', { style: { fontSize: 13 } }, `${String((q.error && q.error.message) || 'The backend did not answer')}. Nothing was sent. Close this and try again.`) : null,
@@ -448,7 +461,7 @@ function SafetyDialog({ request, summary, onClose }) {
             h('div', { style: S.row },
               h(Badge, { variant: live ? 'warn' : 'muted' }, live ? 'LIVE: this will be sent' : 'Practice mode: nothing is sent'),
               h(Badge, { variant: 'outline' }, cap(pf.risk || 'unknown'))),
-            viaHermes ? h('div', { style: S.small }, 'For your safety this kind of command is never sent from a button. Hermes decides in chat under your approval setting: it asks you when its approvals are on. The checks below are what it will enforce.') : null,
+            viaHermes ? h('div', { style: S.small }, 'This kind of command is requested in chat, not sent by the button. It follows your Hermes approval setting: with approvals on (manual or smart) Hermes asks you; with approvals off it sends without asking and its reply says so. The checks below are what it will enforce.') : null,
             !live && !viaHermes ? h('div', { style: S.small }, 'Practice mode is on, so nothing is sent unless you go live.') : null,
             pf.policy ? h('ul', { style: { margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 } },
               ...pf.policy.checks.map((c, i) => h('li', { key: i, style: { ...S.small, display: 'flex', gap: 6, color: c.ok ? T.secondary : T.primary } },
@@ -493,13 +506,13 @@ function Commands({ summary, v, onPick }) {
   return h(Section, { title: 'More controls',
     right: h(Badge, { variant: armed ? 'warn' : 'muted' }, armed ? 'Live' : 'Practice mode · nothing is sent') },
     h('div', { style: S.tiny }, armed
-      ? 'Every command is safety-checked, recorded, and confirmed by re-reading the car. Greyed-out buttons are already in that state.'
-      : 'Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. Greyed-out buttons are already in that state.'),
+      ? 'Every command is safety-checked, recorded, and confirmed by re-reading the car. A greyed-out button says why, right under its label.'
+      : 'Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. A greyed-out button says why, right under its label.'),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
       h('span', { style: S.label }, 'Everyday'), h('div', { style: grid }, ...group('everyday'))),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: `1px solid ${T.stroke}`, paddingTop: 10 } },
-      h('div', { style: S.row }, h(Codicon, { name: 'shield', style: { color: T.tertiary } }), h('span', { style: S.label }, 'Goes through Hermes’ approvals')),
-      h('div', { style: S.tiny }, 'For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button: this drafts the request in chat and your Hermes approval setting decides.'),
+      h('div', { style: S.row }, h(Codicon, { name: 'shield', style: { color: T.tertiary } }), h('span', { style: S.label }, 'Asked in chat, under your Hermes approval setting')),
+      h('div', { style: S.tiny }, 'Unlock, trunk, frunk, vent, Sentry off, honk and flash are requested in chat, not sent by these buttons. They follow your Hermes approval setting: with approvals on (manual or smart) Hermes asks you first; with approvals off it sends without asking and its reply says so.'),
       h('div', { style: grid }, ...group('risky'))))
 }
 
@@ -555,6 +568,12 @@ function Readiness({ summary, onPick }) {
 }
 
 // ----------------------------------------------------------------------------- alerts
+// "Nothing new" next to open alerts reads as all clear, so always say how many are still open.
+const checkSummary = (raised, stillOpen) => {
+  const n = Number(raised) || 0, total = stillOpen + n
+  const head = n ? `${n} new alert${n === 1 ? '' : 's'}` : 'No new alerts'
+  return `Checked the car: ${head}${total ? ` · ${total} ${n ? 'open' : 'still open'}` : ' · all clear'}.`
+}
 const SEV_ORDER = { high: 0, medium: 1, low: 2, info: 3 }
 const cleanTitle = t => String(t || '').replace(/^\[Simulated\]\s*/, '')
 function Alerts({ summary, onPick, v }) {
@@ -566,7 +585,7 @@ function Alerts({ summary, onPick, v }) {
   const ack = async id => { await attempt('Acknowledge', () => api('/alerts/ack', { method: 'POST', body: { id } })); refresh() }
   const check = async () => {
     const r = await attempt('Check', () => api('/alerts/check', { method: 'POST', body: {} }))
-    if (r) toast(r.ok ? 'info' : 'error', r.ok ? (r.raised ? `Checked the car: ${r.raised} new alert${r.raised === 1 ? '' : 's'}.` : 'Checked the car: nothing new.') : (r.error || 'Could not check the car.'))
+    if (r) toast(r.ok ? 'info' : 'error', r.ok ? checkSummary(r.raised, open.length) : (r.error || 'Could not check the car.'))
     refresh()
   }
   const sev = { high: 'destructive', medium: 'warn', low: 'muted', info: 'muted' }
@@ -587,7 +606,7 @@ function Alerts({ summary, onPick, v }) {
         ...shown.map(a => h('div', { key: a.id, style: { ...S.tile, gap: 4, opacity: a.state === 'acked' ? 0.6 : 1 } },
           h('div', { style: S.between },
             h('div', { style: S.row }, h(Badge, { variant: sev[a.severity] || 'muted' }, cap(a.severity)), h('strong', { style: { fontSize: 13 } }, cleanTitle(a.title))),
-            h('span', { style: S.tiny }, when(a.when))),
+            h('span', { style: S.tiny, title: summary.simulated ? 'The simulator’s clock, which Fast-forward moves. History below uses real time.' : '' }, (summary.simulated ? 'simulated ' : '') + when(a.when))),
           h('div', { style: S.small }, a.body),
           h('div', { style: S.between }, h('span', { style: { ...S.small, color: T.primary } }, userSuggestion(a)),
             h('div', { style: S.row }, fix(a),
@@ -606,12 +625,12 @@ const WHO = { tool: 'Hermes (chat)', slash: '/car', desktop: 'Pit Crew page', we
 const OUTCOME = { confirmed: ['✓ Car confirmed', 'success'], sent_unconfirmed: ['Sent, not confirmed yet', 'warn'], dry_run: ['Practice run', 'muted'],
   blocked: ['Refused', 'destructive'], failed: ['Failed', 'destructive'], unknown_outcome: ['Unclear if it was sent', 'warn'], rate_limited: ['Too many commands', 'warn'], duplicate: ['Skipped (repeat)', 'muted'] }
 const APPROVAL = { confirmed: 'You approved', hermes_auto: 'Approved by Hermes (no prompt)', denied: 'You declined', not_required: 'Not needed', missing: 'Not given', unattended: 'No one to ask' }
-function AuditLog() {
+function AuditLog({ simulated }) {
   const q = useQuery({ queryKey: [...QK, 'log'], queryFn: () => api('/log?limit=25'), refetchInterval: 15000 })
   const rows = (q.data && q.data.rows) || []
   const th = { textAlign: 'left', padding: '4px 8px', fontSize: 11, color: T.tertiary, fontWeight: 500, whiteSpace: 'nowrap' }
   const td = { padding: '5px 8px', fontSize: 12, color: T.secondary, whiteSpace: 'nowrap', borderTop: `1px solid ${T.stroke}` }
-  return h(Section, { title: 'History of commands', right: h('span', { style: S.tiny }, 'every attempt, newest first') },
+  return h(Section, { title: 'History of commands', right: h('span', { style: S.tiny }, simulated ? 'every attempt, newest first · real clock time' : 'every attempt, newest first') },
     q.isLoading ? h(Skeleton, { style: { height: 80 } })
       : q.isError ? h(EmptyState, { title: 'Could not load the history', description: String((q.error && q.error.message) || 'The backend did not answer.') })
       : rows.length === 0 ? h(EmptyState, { title: 'Nothing yet', description: 'Commands you or Hermes try will be recorded here.' })
@@ -693,7 +712,7 @@ function SimControls({ firstRun }) {
 
 function SimBanner() {
   return h('section', { style: { ...S.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', padding: 12 } },
-    h('div', { style: { fontSize: 13 } }, h('strong', null, 'This is a simulated car. '), 'Everything works, nothing real happens. Try “Drive 20 mi away” then “Leave it unlocked” below and watch the alert appear.'),
+    h('div', { style: { fontSize: 13 } }, h('strong', null, 'This is a simulated car. '), 'The simulator pretends to be a car: it reports state, accepts commands and raises alerts, but no real car is touched. Try “Drive 20 mi away” then “Leave it unlocked” below and watch the alert appear.'),
     h(Button, { size: 'sm', variant: 'default', onClick: openSettings }, 'Connect my real car'))
 }
 
@@ -719,7 +738,7 @@ function Page() {
     h('div', { style: S.grid2 }, h(Readiness, { summary, onPick: setRequest }), h(Alerts, { summary, onPick: setRequest, v })),
     h(Tiles, { v }),
     h(Commands, { summary, v, onPick: setRequest }),
-    h(AuditLog, null),
+    h(AuditLog, { simulated: summary.simulated }),
     h(Settings, { summary }),
     summary.simulated ? h(SimControls, { firstRun: true }) : null,
     h(SafetyDialog, { key: request ? `${request.command}:${JSON.stringify(request.args || {})}:${request.n || 0}` : 'closed', request, summary, onClose: () => setRequest(null) }),

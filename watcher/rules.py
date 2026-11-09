@@ -41,6 +41,9 @@ class RuleContext:
     memo: Dict[str, Any]              # this rule's persistent scratch memory (engine saves it between polls)
     readiness: Optional[Callable[..., Dict[str, Any]]] = None
     last_moving_ts: Optional[float] = None   # when the car was last seen moving (the engine keeps it across polls)
+    #: live commands Pit Crew itself sent in the last half hour (audit rows: command, args, status); lets a rule tell
+    #: "the car did what we asked" from "something happened to the car"
+    recent_commands: Optional[List[Dict[str, Any]]] = None
 
     @property
     def trusted(self) -> List[str]:
@@ -180,6 +183,24 @@ def _plugged_not_charging(c: RuleContext) -> List[Finding]:
     return []
 
 
+def _we_stopped_it(c: RuleContext, soc: Any) -> bool:
+    """True when Pit Crew itself recently told the car to stop charging (``charge_stop``) or lowered the limit to or below
+    the current charge (``charge_limit``): then the stop is the car obeying, not an incident. Only the audit trail of this
+    plugin counts; a stop caused by anything else (the car, the wall, the app) still alerts."""
+    for r in c.recent_commands or ():
+        if r.get("status") == "failed":
+            continue
+        if r.get("command") == "charge_stop":
+            return True
+        if r.get("command") == "charge_limit" and isinstance(soc, (int, float)):
+            try:
+                if float((r.get("args") or {}).get("percent")) <= float(soc) + 2:
+                    return True
+            except (TypeError, ValueError):
+                pass
+    return False
+
+
 def _charging_stopped_unexpectedly(c: RuleContext) -> List[Finding]:
     st = c.state
     soc, limit = st.value("battery_pct"), st.value("charge_limit_pct")
@@ -189,6 +210,9 @@ def _charging_stopped_unexpectedly(c: RuleContext) -> List[Finding]:
     elif now_state in ("complete", "disconnected"):
         c.memo["was_charging"] = False
     stopped = now_state in ("stopped", "no_power") and st.value("plugged_in") is True
+    if stopped and _we_stopped_it(c, soc):
+        c.memo["was_charging"] = False       # an intended stop: forget the charging session so it cannot fire later
+        return []
     if (c.memo.get("was_charging") and stopped and isinstance(soc, (int, float))
             and (limit is None or soc < float(limit) - 2)):
         return [Finding("charge_interrupted", "Charging stopped before it finished",

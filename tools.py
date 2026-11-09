@@ -172,6 +172,8 @@ def car_rules(args: Dict[str, Any], **kwargs: Any) -> str:
             return _error(f"unknown rule '{rule}'", rules=sorted(RULES_BY_ID))
         except ValueError as exc:
             return _error(str(exc))
+        except (OSError, RuntimeError) as exc:      # e.g. a managed install: the setting can't be written
+            return _error(f"couldn't save the rule to your Hermes settings ({type(exc).__name__}: {exc})")
         return _json({"ok": True, "rule": rule, "now": cfg})
     except Exception as exc:
         logger.exception("car_rules failed")

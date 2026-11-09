@@ -279,6 +279,8 @@ def set_rule(rule_id: str, body: dict) -> Dict[str, Any]:
         return _err(f"unknown rule {rule_id}")
     except ValueError as exc:
         return _err(str(exc))
+    except (OSError, RuntimeError) as exc:      # e.g. a managed install: the setting can't be written
+        return _err(f"couldn't save the rule to your Hermes settings ({type(exc).__name__}: {exc})")
     return {"ok": True, "rule": rule_id, "now": cfg}
 
 

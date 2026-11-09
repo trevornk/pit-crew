@@ -161,6 +161,13 @@ class Settings:
             try:
                 from hermes_cli.plugins_state import save_plugin_setting
             except ImportError:
+                try:
+                    import hermes_cli  # noqa: F401
+                except ImportError:
+                    pass       # not running inside Hermes (tests, standalone): hold the edit in memory
+                else:
+                    raise RuntimeError("this Hermes version has no settings writer the page can use; "
+                                       "change the rule in Settings -> Plugins -> Pit Crew instead") from None
                 merged = {r: dict(v) for r, v in (self.get("rules") or {}).items() if isinstance(v, dict)}
                 merged.setdefault(rule_id, {})[key] = value
                 self._overrides["rules"] = merged

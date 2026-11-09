@@ -4,9 +4,16 @@
 - **Tire pressure.** Per-tire pressure (psi) and the car's recommended pressure are part of the normalized state, mapped for Home
   Assistant `tesla_fleet` (the four *Tire pressure* sensors), Teslemetry/Tessie (`tpms_pressure_*`, with per-tire freshness),
   BMW and Kia/Hyundai, and the simulator (temperature-aware, with leak / low-tire / pump-up controls). Shown in `car_status`,
-  `/car`, the Desktop page and the web dashboard. Two new alerts (eleven in all): *a tire is low on air* (your psi, else 90% of the
+  `/car`, the Desktop page and the web dashboard. Three new alerts (twelve in all): *the car reports a tire warning* (its own TPMS warning: Home Assistant `tesla_fleet` *Tire pressure warning* sensors, Teslemetry/Tessie `tpms_*_warning_*`), *a tire is low on air* (your psi, else 90% of the
   car's recommended pressure, else 38 psi for a Tesla / 30 psi for anything else) and *a tire is losing air fast* (a drop of N psi
   within a window). Stale, unavailable, implausible or non-finite readings never alert.
+- **Review fixes.** Trips no longer lose miles when Home Assistant refreshes the odometer less often than Pit Crew polls; a tire
+  cooling after a drive is no longer reported as a leak (60 min cool-down, documented); one sleeping tire sensor no longer silences the
+  rules for the other three; rule settings have sane minimums (a 0 psi drop can't fire on any two readings); on the Kia/Hyundai profile
+  a "P" gear no longer proves "parked" from hours-old cloud data (its data time comes from *Last Updated At*); CI actions are pinned to
+  commit SHAs and `hermes plugins validate` is retried only on network errors.
+- **Go live now lasts 1 hour by default** (was 8; the 15 min - 72 h limits are unchanged). `/car help` and an unknown subcommand name the
+  running Pit Crew version. README: update-and-restart steps for Desktop, the dashboard and the gateway.
 - **Disabled-by-default Home Assistant entities** (Odometer, Shift state, Speed, tire pressures, Kia's hazard-light buttons) are now
   explained: `/car discover`, `/car`, `car_status` and the rule list say exactly which to enable. The `tesla_fleet` odometer mapping
   was confirmed against Home Assistant core (`sensor.<slug>_odometer`, miles, disabled by default).

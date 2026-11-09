@@ -53,8 +53,11 @@ Pit Crew page in Hermes Desktop
 - Desktop on ANOTHER machine (connected to this Hermes remotely): the app loads its page from ITS OWN ~/.hermes/desktop-plugins/pit-crew/,
   so install the Desktop half there. In that Desktop app: Capabilities -> Plugins -> Install from Git -> `trevornk/pit-crew`
   with the Desktop target checked (or open hermes://plugin/install?repo=trevornk/pit-crew). Then toggle it on, and use Rescan after updates.
+- After updating the plugin: `hermes plugins update pit-crew` (reloads the dashboard and the gateway), then in Desktop run
+  "Reload desktop plugins" (Cmd+K). `install --force` over an enabled plugin does not reload on Hermes 0.23: restart `hermes dashboard`
+  and the gateway. Press Enter, not Tab, on `/car`.
 - No Desktop? `hermes dashboard` has a Pit Crew tab served by this Hermes, and `/car` works in any chat.
-More: README -> "Desktop on another machine"."""
+More: README -> "Update and restart" and "Desktop on another machine"."""
 
 
 def _status_card(svc: Any) -> str:

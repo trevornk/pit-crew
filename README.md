@@ -38,7 +38,9 @@ hermes plugins install trevornk/pit-crew
 hermes plugins enable pit-crew
 ```
 
-Restart Hermes (and Hermes Desktop, if you use it). Then open **Pit Crew** in the sidebar, or type `/car` in any chat.
+Restart Hermes (and Hermes Desktop, if you use it). Then open **Pit Crew** in the sidebar, or type `/car` in any chat
+(press **Enter**, not Tab, on `/car`: Tab can complete it to a similarly named skill). Updating later? See
+[Update and restart](#update-and-restart).
 
 Take the simulated car for a spin, by buttons on the page (**Try it: simulator controls**) or by typing:
 
@@ -138,6 +140,21 @@ year of trips and charges (safe to repeat; only read-only requests are ever made
 `teslamate` to read it live. Not needed for anything else.
 </details>
 
+### Update and restart
+
+Hermes runs `/car` in whichever process owns your chat: **Hermes Desktop and the web dashboard chats use the
+`hermes dashboard` process; messaging apps (Telegram and so on) use the gateway.** Both import the plugin's code when they
+start, so an update only takes effect once both have reloaded it.
+
+```bash
+hermes plugins update pit-crew       # updates, then reloads the plugin in the dashboard and the gateway
+```
+
+* `hermes plugins install --force` over an already-enabled plugin does **not** reload it on Hermes 0.23: restart
+  `hermes dashboard` and the gateway (`hermes gateway restart`) afterwards, or use `update` instead.
+* Then, in Hermes Desktop, run **Reload desktop plugins** (⌘K). That also refreshes the `/car` autocomplete.
+* Not sure which version is running? `/car help` (or any unknown subcommand) prints it: "Pit Crew 0.2.0".
+
 ### Hermes Desktop on a different machine
 
 Desktop loads the Pit Crew page from **its own machine's** plugin folder. Installing on the Hermes server doesn't put the
@@ -147,7 +164,8 @@ page into a Desktop app that connects to it remotely.
 2. In the Desktop app: **Capabilities → Plugins → Install from Git**, repo `trevornk/pit-crew`, *Desktop* target checked
    (or open `hermes://plugin/install?repo=trevornk/pit-crew`). Toggle *Pit Crew* on.
 3. Open **Pit Crew** in the sidebar. If it says it isn't running, step 1 isn't complete or the server wasn't restarted.
-4. After updating the plugin on the server, press **Rescan** on the Desktop machine.
+4. After updating the plugin on the server, update it in the Desktop app too (Capabilities → Plugins → Pit Crew → Update), then
+   press **Rescan** and reload the window. Updating the server does not update the page on another machine.
 
 `/car desktop-install` prints these steps. No Desktop? `hermes dashboard` has a Pit Crew tab, and `/car` works in any chat.
 
@@ -190,7 +208,7 @@ Full details and the threat model: [docs/SAFETY.md](docs/SAFETY.md).
 | **History** | Trips, charging sessions, cost, efficiency by temperature, week-over-week trend, battery health, all recorded by Pit Crew itself. |
 | **Readiness** | "Will I be ready?": the charge you need (your efficiency + margin + reserve) versus what you'll have, and what to do about it. |
 | **Commands** | One gated command tool; shortcuts `/car lock`, `/car warm [°F]`; everything else in plain language. |
-| **Watcher** | Eleven toggleable alerts: left unlocked away from home, unlocked at home at night, window/door/trunk open, plugged in but not charging, charging stopped early, not enough charge for tomorrow, Sentry off away from home, cabin dangerously hot/cold with someone inside, a low tire, a tire losing air fast, software update. Stale or missing readings never raise an alert. |
+| **Watcher** | Twelve toggleable alerts: left unlocked away from home, unlocked at home at night, window/door/trunk open, plugged in but not charging, charging stopped early, not enough charge for tomorrow, Sentry off away from home, cabin dangerously hot/cold with someone inside, a low tire, a tire losing air fast, the car's own tire warning, software update. Stale or missing readings never raise an alert. |
 | **Surfaces** | `/car`, the Pit Crew page in Hermes Desktop (with a status-bar chip), the web dashboard tab, three one-command automations (morning brief, warm up before you leave, nightly lock check), and a bundled skill that teaches the agent to use it well. |
 
 ## What has and hasn't been verified
@@ -203,7 +221,7 @@ Honesty matters more than a long feature list.
   safety engine are tested thoroughly; the first live command is still ahead.
 * **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
   v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
-  and the plugin loading in real Hermes. See `tests/` (about 590 tests, no network; CI fails if any is skipped).
+  and the plugin loading in real Hermes. See `tests/` (about 620 tests, no network; CI fails if any is skipped).
 * **Checked against source, not run on a car:** the Kia/Hyundai profile (the `kia_uvo` HACS integration, v4) and the BMW profile
   (Home Assistant's last version of the since-removed integration), against each project's entity names and test data.
   The tire-pressure and odometer entities of `tesla_fleet` are checked against Home Assistant core's source.
@@ -229,8 +247,9 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 |---|---|
 | Page says *Connect your car* | Open Settings → Plugins → Pit Crew and fill in the section for your connection (or the config.yaml/.env lines above). The page shows exactly what's missing. |
 | *Pit Crew isn't running on this Hermes* | `hermes plugins enable pit-crew`, restart Hermes. Desktop on another machine: see above. |
+| `/car` says "Unknown subcommand" for something that should exist | The process answering still runs old code: `hermes plugins update pit-crew`, or restart `hermes dashboard` and the gateway (see [Update and restart](#update-and-restart)). The reply names the running version. |
 | Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
-| Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer* and the *Tire pressure* sensors (`/car` shows the steps). |
+| Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer*, the *Tire pressure* sensors and the *Tire pressure warning* sensors (`/car` shows the steps). |
 | Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |
 | Alerts show on the page but never reach your phone | `/car notify here` in that chat, `allow_gateway_injection: true`, and keep the gateway running. `/car notify status` shows the last attempt. |
 | "Practice run" when you wanted to send | You're in practice mode: **Go live** (page) or `/car live`. |

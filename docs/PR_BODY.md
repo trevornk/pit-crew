@@ -5,7 +5,7 @@
 
 ## Add Pit Crew (`pit-crew`) — proactive, safety-gated car agent
 
-Live car state, a "will I be ready for tomorrow?" planner, a background watcher with eleven toggleable rules (including low tire pressure and fast air loss), and commands
+Live car state, a "will I be ready for tomorrow?" planner, a background watcher with twelve toggleable rules (including low tire pressure, fast air loss and the car's own tire warning), and commands
 that only run through safety checks enforced in code. Works with Home Assistant (any brand with an HA integration; the
 `tesla_fleet` mapping is built and tested against sanitized recordings of a real car; commands have not been run on a real car yet), direct Teslemetry/Tessie, read-only TeslaMate, or a built-in **simulated
 car** so a reviewer can try everything with no car. Ships a Desktop page, a web-dashboard page, a `/car` command, three cron
@@ -54,5 +54,5 @@ README quickstart.
   integrations' source and fixtures, not run on a real car (BMW's integration was removed from HA core in March 2026; the Kia
   profile targets the kia_uvo HACS custom integration); the direct Tesla adapter is tested against mocks only; the live approval
   round-trip has been exercised on the CLI and in CI through Hermes' real approval pipeline, not yet on every gateway surface.
-* 593 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
+* 622 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
   scanner `safe`.

@@ -221,3 +221,30 @@ Notable choices made while building, newest last. Format: decision — why.
 * **CI runs the real thing.** Hermes v0.23.0 from its lockfile on Python 3.14 (its own requirement; its `uv.lock` is the reviewed
   dependency set, installed with `uv sync --frozen`), Node 22 with exact pins, and a no-skips gate. The quarantine (`--exclude-newer
   "3 days"`) still applies to the test tooling we resolve ourselves.
+
+
+## Review pass 2 (0.2.0)
+
+* **Odometer rate is judged over the time the reading held its old value** (`ots`, like `rts` for range). Home Assistant refreshes
+  the odometer every ~10 min while we snapshot every 2, so a jump of 10 mi in one interval is normal; the 150 mph glitch filter now
+  divides by the time since the odometer last changed. A real glitch (600 mi in a fresh interval) is still refused.
+* **Fast air loss has a 60 min cool-down after the car last moved**, kept by the engine (`last_moving_ts`, independent of whether
+  any tire rule ran while driving), and discards samples taken before the drive. Chosen over comparing with a pre-drive baseline
+  because it needs no extra state and tires are back to ambient within that hour. Cost: a leak that starts in that hour is caught by
+  the low-pressure rule and the car's own TPMS warning instead. Cars that report no motion get no cool-down (nothing to key it on).
+* **Per-tire freshness.** For `requires_any` rules the engine skips only when every input is stale; each rule ignores its stale
+  inputs, and an open alert is only kept (not resolved) when it names a tire that is stale right now.
+* **Rule minimums** (`RULE_MINIMUMS`): `drop_psi` 0.5, `window_min` 1, `trip_mi` 1, `within_hours` 1, `below_pct` 1..100,
+  `min_psi` 0 (auto) or 5..120. `set_rule` refuses lower values; `rule_config` raises a lower stored value to the floor.
+* **Kia/Hyundai data time.** Profile fields may carry `data_time_entity` (and `data_time_required`). The field's freshness becomes
+  the older of HA's stamp and that timestamp sensor. `shift_state` is required to have it (fails closed to unavailable); lock,
+  location and plug fall back to HA's stamp when the sensor is missing, because dropping them would break far more than motion.
+* **The car's own tire warning** is `tire_warn_{fl,fr,rl,rr}` (bool). Home Assistant: `binary_sensor.<slug>_tire_pressure_warning_
+  <position>` (tesla_fleet key `vehicle_state_tpms_soft_warning_*`; HA core exposes only the soft warning; disabled by default per the
+  owner's brief, which could not be re-checked against `binary_sensor.py` since only `sensor.py` and `strings.json` were at hand).
+  Teslemetry/Tessie: soft OR hard warning. Rule `tire_car_warning` (high severity, 5 min hold, fresh readings only).
+  Simulator: the warning is on below 70% of the placard.
+* **Go live defaults to 1 hour** (`arm_default_hours`); existing explicit settings are kept. The limits (15 min - 72 h) did not move.
+* **Version**: `constants.VERSION` is read from `plugin.yaml` (one place); `/car help` and the unknown-subcommand reply print it.
+* **CI**: actions pinned to commit SHAs (tag in a comment, resolved with `gh api` reads); the validate retry only repeats when the
+  output shows a network/5xx/timeout-class error.

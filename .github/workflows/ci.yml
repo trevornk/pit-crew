@@ -68,7 +68,7 @@ jobs:
         # --install-deps asks GitHub/PyPI to resolve Hermes' own dependency set, which can fail transiently (a 504 was seen).
         # Only a failure whose output shows a network / 5xx / timeout problem is retried; a real validation failure fails at once.
         run: |
-          transient='HTTP (status )?(5[0-9][0-9])|(^|[^0-9])50[234]([^0-9]|$)|timed out|timeout|Connection (reset|refused|aborted)|Temporary failure|Could not resolve|Network is unreachable|Bad Gateway|Service Unavailable|Gateway Time-out|TLS|SSL'
+          transient='HTTP (status )?(5[0-9][0-9])|(^|[^0-9])50[234]([^0-9]|$)|timed out|Connection (reset|refused|aborted)|Temporary failure|Could not resolve|Network is unreachable|Bad Gateway|Service Unavailable|Gateway Time-out'
           for attempt in 1 2 3; do
             rm -rf "$RUNNER_TEMP/hermes-home" && mkdir -p "$RUNNER_TEMP/hermes-home"
             if HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps > "$RUNNER_TEMP/validate.log" 2>&1; then

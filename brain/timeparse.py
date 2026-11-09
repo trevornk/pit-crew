@@ -17,6 +17,7 @@ _MONTHS = {m: i + 1 for i, m in enumerate(
 _MONTH_DAY = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b"
                         r"|\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b")
 _ORDINAL = re.compile(r"\b\d{1,2}(?:st|nd|rd|th)\b")
+_RELATIVE = re.compile(r"\bin\s+(\d+(?:\.\d+)?)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d)\b")
 _DOT_TIME = re.compile(r"\b(\d{1,2})\.(\d{2})\s*(am|pm|a\.m\.|p\.m\.)", re.I)
 
 
@@ -47,6 +48,17 @@ def parse_when(text: str, now: datetime) -> datetime:
         raise
     except ValueError:
         pass
+    rel = _RELATIVE.search(raw.lower())
+    if rel:                                                   # "in 2 hours": NOT "02:00 tomorrow"
+        amount = float(rel.group(1))
+        unit = rel.group(2)
+        delta = timedelta(minutes=amount) if unit.startswith("m") else timedelta(hours=amount) if unit.startswith("h") \
+            else timedelta(days=amount)
+        if delta <= timedelta(0) or delta > timedelta(days=14):
+            raise WhenError(f"'{text}' is not a sensible time from now")
+        return (now + delta).replace(second=0, microsecond=0) + timedelta(minutes=1)
+    if re.search(r"\bin\s+(an?|half)\b|\b\d+\s*(hours?|hrs?|minutes?|mins?)\s+(from\s+now|later)\b", raw.lower()):
+        raise WhenError(f"'{text}': say a clock time like '7:30 AM' or '2 hours' as 'in 2 hours'")
     s = _DOT_TIME.sub(r"\1:\2 \3", raw.lower())             # "7.30am" is 7:30 am
     explicit_date: Optional[Tuple[int, int]] = None
     md = _MONTH_DAY.search(s)

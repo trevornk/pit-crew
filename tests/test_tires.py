@@ -205,13 +205,18 @@ def test_thresholds_prefer_user_then_recommended_then_default(stub):
     assert tires.low_threshold_psi(st, "rear", 0) == tires.DEFAULT_MIN_PSI             # 2.9 is not a plausible psi
     assert tires.low_threshold_psi(st, "front", 30) == 30.0                            # the user's number wins
     assert tires.low_threshold_psi(st, "front", "garbage") == pytest.approx(32.4)
-    assert tires.low_threshold_psi(VehicleState("x", "x", 1.0), "rear", None) == 38.0
+    assert tires.low_threshold_psi(VehicleState("x", "x", 1.0), "rear", None) == 30.0           # nothing known: conservative
+    tesla = VehicleState("x", "x", 1.0, hints={"tire_min_psi": 38.0})
+    assert tires.low_threshold_psi(tesla, "rear", None) == 38.0                                 # model default from the adapter
+    assert tires.low_threshold_psi(tesla, "rear", 33) == 33.0                                   # the user still wins
+    assert tires.low_threshold_psi(VehicleState("x", "x", 1.0, hints={"tire_min_psi": "x"}), "rear", None) == 30.0
 
 
 # -- watcher rules ---------------------------------------------------------------------------------------------------
 @pytest.fixture
 def svc(stub_service, stub):
     stub.values.update(tire_psi_fl=42.0, tire_psi_fr=42.0, tire_psi_rl=41.0, tire_psi_rr=41.0)
+    stub.hints = {"tire_min_psi": 38.0}            # a Tesla-like car: the adapter says its model default is 38 psi
     return stub_service(armed=False, watcher_enabled=True)
 
 
@@ -381,3 +386,40 @@ def test_web_page_shows_a_tires_tile(service, tmp_path):
     mod, summary = backend_summary(service)
     out = render_web(tmp_path, {"/summary": summary, "/log": {"ok": True, "rows": []}})
     assert "Tires" in out["html"] and "31 psi lowest" in out["html"] and "RR 31" in out["html"]
+
+
+def test_generic_cars_without_a_recommendation_use_the_conservative_30_psi_default(svc, stub, clock):
+    """A Kia/Hyundai/other car reports no recommended pressure: its 35 psi placard must not be a standing 'low tire'."""
+    stub.hints = {}
+    stub.values.update(tire_psi_fl=35.0, tire_psi_fr=35.0, tire_psi_rl=34.0, tire_psi_rr=34.0)
+    for _ in range(4):
+        assert poll(svc)["raised"] == []
+        clock.advance(11 * 60)
+    stub.values["tire_psi_rl"] = 27.0
+    poll(svc); clock.advance(11 * 60)
+    raised = poll(svc)["raised"]
+    assert raised and "rear left 27 psi" in raised[0]["body"] and "below 30 psi" in raised[0]["body"]
+
+
+def test_home_assistant_tesla_profile_and_tesla_api_supply_the_tesla_default():
+    from pit_crew.adapters.tesla_direct import tesla_data_to_state
+    assert load_profile("tesla_fleet")["tire_min_psi_default"] == 38
+    assert tesla_data_to_state({"vehicle_state": {}}, 1_790_000_000.0, name="t").hints["tire_min_psi"] == 38.0
+    ha = FakeHA(ha_states([]))
+    try:
+        assert adapter(ha).fetch_state(NOW).hints["tire_min_psi"] == 38.0
+    finally:
+        ha.stop()
+    bad = load_profile("tesla_fleet")
+    bad["tire_min_psi_default"] = 3
+    assert any("tire_min_psi_default" in p for p in validate_profile(bad))
+
+
+def test_fast_loss_ignores_readings_taken_while_driving(svc, stub, clock):
+    """A tire that is hot from the road and cools after the stop is not a leak: moving samples are not recorded."""
+    poll(svc)
+    stub.values.update(moving=True, speed_mph=65.0, shift_state="D", tire_psi_rr=45.0)
+    clock.advance(120); poll(svc)
+    stub.values.update(moving=False, speed_mph=0.0, shift_state="P", tire_psi_rr=41.0)
+    clock.advance(120); poll(svc)
+    assert [a for a in svc.alerts(("new", "surfaced")) if a["rule"] == "tire_fast_loss"] == []

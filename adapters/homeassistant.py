@@ -340,7 +340,10 @@ class HomeAssistantAdapter(CarAdapter):
         self._confirm_while_online(fields)
         for name in FIELD_NAMES:
             fields.setdefault(name, FieldValue(None, None, False))
-        return VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields)
+        hints: Dict[str, Any] = {}
+        if self._profile.get("tire_min_psi_default"):
+            hints["tire_min_psi"] = float(self._profile["tire_min_psi_default"])
+        return VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields, hints=hints)
 
     # -- capabilities ---------------------------------------------------------------------
     def capabilities(self) -> Capabilities:

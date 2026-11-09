@@ -264,6 +264,16 @@ async def _supervised(get_service: Callable[[], Any], stop_evt: threading.Event,
     await asyncio.gather(_watch_stop(), run_watcher(get_service, aio_stop, initial_delay_s))
 
 
+def _stopper(stop_evt: threading.Event) -> Callable[[], None]:
+    """Unload handler: stop the watcher AND forget it, so re-registering in the same process (reload / update) starts a new one
+    instead of answering 'already' with nothing running."""
+    def stop() -> None:
+        stop_evt.set()
+        with _started_lock:
+            _started.clear()
+    return stop
+
+
 def start_watcher(ctx: Any, get_service: Callable[[], Any], initial_delay_s: float = 20.0) -> str:
     """Start the watcher once per process. Returns 'task' | 'thread' | 'already'.
 
@@ -285,7 +295,7 @@ def start_watcher(ctx: Any, get_service: Callable[[], Any], initial_delay_s: flo
                 if not isinstance(exc, RuntimeError):
                     logger.warning("ctx.spawn_task failed (%s); using the plugin's own watcher thread", type(exc).__name__)
             else:
-                ctx.on_unload(stop_evt.set)
+                ctx.on_unload(_stopper(stop_evt))
                 _started["mode"] = "task"
                 return "task"
 
@@ -296,7 +306,7 @@ def start_watcher(ctx: Any, get_service: Callable[[], Any], initial_delay_s: flo
                 logger.exception("pit-crew watcher thread crashed")
 
         threading.Thread(target=_thread_main, name="pit-crew-watcher", daemon=True).start()
-        ctx.on_unload(stop_evt.set)
+        ctx.on_unload(_stopper(stop_evt))
         _started["mode"] = "thread"
         return "thread"
 

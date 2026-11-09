@@ -13,7 +13,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .constants import DB_FILENAME, PLUGIN_ID
 
@@ -268,6 +268,16 @@ class Store:
             cur = self.execute(f"UPDATE alerts SET state = ?, {col} = ? WHERE id = ?", (state, time.time(), alert_id))
         else:
             cur = self.execute("UPDATE alerts SET state = ? WHERE id = ?", (state, alert_id))
+        return cur.rowcount > 0
+
+    def alert_transition(self, alert_id: int, new_state: str, only_from: Tuple[str, ...]) -> bool:
+        """Move an alert to ``new_state`` only if it is still in one of ``only_from`` (so a slow push can't resurrect
+        an alert that was resolved, or acknowledged by the human, while it was being delivered)."""
+        col = {"surfaced": "delivered_ts", "acked": "acked_ts", "resolved": "resolved_ts"}.get(new_state)
+        marks = ",".join("?" for _ in only_from)
+        sets = f"state = ?, {col} = ?" if col else "state = ?"
+        params: list = [new_state] + ([time.time()] if col else []) + [alert_id, *only_from]
+        cur = self.execute(f"UPDATE alerts SET {sets} WHERE id = ? AND state IN ({marks})", tuple(params))
         return cur.rowcount > 0
 
     def alert_claim_push(self, alert_id: int, now: float, stale_s: float = 300.0) -> bool:

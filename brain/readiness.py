@@ -113,7 +113,9 @@ def evaluate(state: VehicleState, departure: datetime, now: datetime, *, trip_mi
     eff = estimate_efficiency(drives, temp)
     distance = trip_mi * (2 if round_trip else 1)
     trip_pct = distance * eff["wh_per_mi"] / 1000.0 / battery_kwh * 100.0
-    required = min(100.0, trip_pct * (1.0 + safety_factor) + reserve_pct)
+    required_raw = trip_pct * (1.0 + safety_factor) + reserve_pct
+    required = min(100.0, required_raw)
+    impossible = required_raw > 100.0          # more than a full battery: no amount of charging at home makes it
 
     limit = state.value("charge_limit_pct")
     limit_f = float(limit) if isinstance(limit, (int, float)) else 100.0
@@ -150,7 +152,13 @@ def evaluate(state: VehicleState, departure: datetime, now: datetime, *, trip_mi
     recs: List[Dict[str, Any]] = []
     issues: List[str] = []
 
-    if projected_now >= required + TIGHT_MARGIN_PCT:
+    if impossible:
+        verdict = "not_ready"                  # a full pack must not satisfy `projected >= required` for a trip it can't make
+        issues.append(f"this trip needs about {required_raw:.0f}% of a full battery; the car can't do it on one charge, "
+                      "so it needs a charging stop on the way")
+        recs.append({"action": "plan_charging_stop", "command": None, "args": {},
+                     "why": "plan a fast-charging stop, or shorten the trip"})
+    elif projected_now >= required + TIGHT_MARGIN_PCT:
         verdict = "ready"
     elif projected_now >= required:
         verdict = "tight"
@@ -205,8 +213,8 @@ def evaluate(state: VehicleState, departure: datetime, now: datetime, *, trip_mi
         "hours_until_departure": round(hours, 1),
         "battery_now_pct": round(soc, 0),
         "projected_at_departure_pct": round(projected_now, 0),
-        "needed_pct": round(required, 0),
-        "margin_pct": round(margin, 0),
+        "needed_pct": round(required_raw, 0),
+        "margin_pct": round(projected_now - required_raw, 0),
         "trip": {"miles": round(distance, 1), "round_trip": round_trip, "energy_pct": round(trip_pct, 0),
                  "wh_per_mi": eff["wh_per_mi"]},
         "charging": {"plugged_in": bool(plugged), "charging_now": bool(charging_now), "limit_pct": limit_f if limit is not None else None,
@@ -218,7 +226,7 @@ def evaluate(state: VehicleState, departure: datetime, now: datetime, *, trip_mi
                         "reserve_pct": reserve_pct},
         "issues": issues,
         "recommendations": recs,
-        "summary": _summary(verdict, soc, projected_now, required, departure, issues, recs),
+        "summary": _summary(verdict, soc, projected_now, required_raw, departure, issues, recs),
     }
 
 

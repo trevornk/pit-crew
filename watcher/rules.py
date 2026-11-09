@@ -106,6 +106,8 @@ def _place(zone: Any) -> str:
 # ---------------------------------------------------------------------------------------------
 def _left_unlocked_away(c: RuleContext) -> List[Finding]:
     st = c.state
+    if st.motion() is True:
+        return []                      # a car being driven is unlocked and away on purpose
     if st.value("locked") is False and c.at_trusted() is False:
         mins = float(c.cfg["minutes"])
         zone = st.at_zone()
@@ -202,7 +204,8 @@ def _soc_below_tomorrow(c: RuleContext) -> List[Finding]:
         return []
     rec = res["recommendations"][0] if res.get("recommendations") else None
     sug = {"raise_charge_limit": "Raise the charge limit?", "start_charging": "Start charging?",
-           "plug_in": "Plug the car in.", "charge_elsewhere_or_leave_later": "Charge faster, or leave later."}.get(
+           "plug_in": "Plug the car in.", "charge_elsewhere_or_leave_later": "Charge faster, or leave later.",
+           "plan_charging_stop": "Plan a charging stop, or shorten the trip."}.get(
         rec["action"] if rec else "", "Check the charging plan.")
     return [Finding("tomorrow:" + str(res["departure"])[:10], "The car may not be ready for tomorrow",
                     res["summary"], sug, severity="high", data={"readiness": {k: res[k] for k in
@@ -211,6 +214,8 @@ def _soc_below_tomorrow(c: RuleContext) -> List[Finding]:
 
 def _sentry_off_away(c: RuleContext) -> List[Finding]:
     st = c.state
+    if st.motion() is True:
+        return []                      # Sentry is off while driving; the rule is about a PARKED car
     if st.value("sentry_on") is False and c.at_trusted() is False:
         mins = float(c.cfg["minutes"])
         return [Finding("sentry_off_away", "Sentry mode is off away from home",
@@ -299,7 +304,7 @@ RULES: List[Rule] = [
          {"enabled": True, "hot_f": 100, "cold_f": 25, "cooldown_min": 30}, ("user_present", "cabin_temp_f"), _cabin_extreme),
     Rule("tire_pressure_low", "Low tire pressure",
          "Alert when a tire is below the low-pressure threshold (yours, or 90% of what the car recommends, "
-         "or 38 psi when the car doesn't say).",
+         "or the model's default: 38 psi for a Tesla, otherwise 30 psi).",
          {"enabled": True, "min_psi": 0, "minutes": 10, "cooldown_min": 720}, (), _tire_low,
          requires_any=tuple(tires.TIRES)),
     Rule("tire_fast_loss", "Tire losing air fast",

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from typing import Any, Dict, List, Optional
 
 from ..brain.models import VehicleState
@@ -19,6 +20,7 @@ OPENING_FIELDS = ("doors_open", "windows_open", "trunk_open", "frunk_open")
 class RuleEngine:
     def __init__(self, service: Any) -> None:
         self._svc = service
+        self._eval_lock = threading.Lock()      # a forced poll and the watcher's poll must not both raise the same alert
 
     # -- configuration --------------------------------------------------------------------
     def rule_config(self, rule: Rule) -> Dict[str, Any]:
@@ -84,6 +86,10 @@ class RuleEngine:
     # -- evaluation -----------------------------------------------------------------------
     def evaluate(self, state: VehicleState, now: float) -> List[Dict[str, Any]]:
         """Run all enabled rules; return the alerts newly raised by this evaluation."""
+        with self._eval_lock:
+            return self._evaluate(state, now)
+
+    def _evaluate(self, state: VehicleState, now: float) -> List[Dict[str, Any]]:
         svc = self._svc
         store = svc.store
         settings = svc.settings.snapshot()

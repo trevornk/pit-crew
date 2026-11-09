@@ -31,6 +31,8 @@ MIN_SNAPSHOT_SPACING_S = 60.0
 MAX_INTERVAL_S = 6 * 3600.0        # a longer gap is a blackout, not an interval
 MERGE_GAP_S = 20 * 60.0
 RANGE_DROP_MI_PER_H = 15.0
+MAX_PLAUSIBLE_MPH = 150.0         # faster than this between two readings is a sensor glitch, not a drive
+SPOT_SPEED_MAX_S = 600.0
 SNAPSHOT_RETENTION_S = 30 * 86400.0
 CHARGE_EFFICIENCY = 0.92
 KV_LAST = "rec_last"
@@ -95,7 +97,9 @@ class Recorder:
             self._close_open(None, only="charges")
             self._extend_drive(prev, cur, dt)
         else:
-            self._close_open(None)
+            # Idle: a short stop (lights, a drive-through, a pause in charging) must not split the trip or session in
+            # two; only an episode quiet for MERGE_GAP_S is over. (Readers hide an open row until then anyway.)
+            self._close_stale(cur["ts"])
 
     # -- classification ---------------------------------------------------------------------------
     @staticmethod
@@ -130,10 +134,13 @@ class Recorder:
     @staticmethod
     def _drive_miles(prev: Dict[str, Any], cur: Dict[str, Any], dt: float) -> Tuple[float, str]:
         if prev["odo"] is not None and cur["odo"] is not None and cur["odo"] >= prev["odo"]:
-            return cur["odo"] - prev["odo"], "odometer"
+            miles = cur["odo"] - prev["odo"]
+            if dt <= 0 or miles / (dt / 3600.0) <= MAX_PLAUSIBLE_MPH:        # a 600-mile 'trip' in an hour is a glitch
+                return miles, "odometer"
         speeds = [x for x in (prev["speed"], cur["speed"]) if x is not None]
         if speeds and max(speeds) > 1.0:
-            return sum(speeds) / len(speeds) * dt / 3600.0, "speed"
+            # two spot speeds say little about a long gap: integrate over at most 10 minutes
+            return sum(speeds) / len(speeds) * min(dt, SPOT_SPEED_MAX_S) / 3600.0, "speed"
         if prev["range_mi"] is not None and cur["range_mi"] is not None and prev["range_mi"] > cur["range_mi"]:
             return prev["range_mi"] - cur["range_mi"], "range"
         return 0.0, "unknown"
@@ -169,6 +176,11 @@ class Recorder:
     def _extend_charge(self, prev: Dict[str, Any], cur: Dict[str, Any], dt: float) -> None:
         powers = [x for x in (prev["power_kw"], cur["power_kw"]) if isinstance(x, (int, float))]
         used = (sum(powers) / len(powers) * dt / 3600.0) if powers else 0.0
+        if used and prev["pct"] is not None and cur["pct"] is not None and cur["pct"] >= prev["pct"]:
+            # Sparse polling: if the session ended inside a long gap, power x time overshoots badly (17 kWh "used" for 2%).
+            # The battery percentage bounds what can have gone in (+1 point of rounding slack, +30% for losses).
+            ceiling = (cur["pct"] - prev["pct"] + 1.0) / 100.0 * float(self._kwh()) / CHARGE_EFFICIENCY * 1.3
+            used = min(used, ceiling)
         t = cur["outside_f"]
         row = self._open_row("charges")
         if row is not None and prev["ts"] - row["end_ts"] > MERGE_GAP_S:
@@ -207,6 +219,12 @@ class Recorder:
             if row["start_pct"] is not None and row["end_pct"] is not None and row["start_pct"] - row["end_pct"] >= 2:
                 kwh = (row["start_pct"] - row["end_pct"]) / 100.0 * cap
             self._store.execute("UPDATE drives SET kwh=? WHERE id=?", (kwh, row["id"]))
+
+    def _close_stale(self, now: float) -> None:
+        for table in ("drives", "charges"):
+            row = self._open_row(table)
+            if row is not None and now - row["end_ts"] >= MERGE_GAP_S:
+                self._close_open(None, only=table)
 
     def _close_open(self, end_ts: Optional[float], only: Optional[str] = None) -> None:
         for table in ("drives", "charges"):
@@ -287,6 +305,8 @@ class OwnHistory(HistoryProvider):
             "SELECT start_pct, end_pct, kwh_used FROM charges WHERE source='recorded' AND open=0 "
             "AND end_pct - start_pct >= 25 AND kwh_used > 0 ORDER BY start_ts DESC LIMIT 12")
         est = [r["kwh_used"] * CHARGE_EFFICIENCY / ((r["end_pct"] - r["start_pct"]) / 100.0) for r in rows]
+        nominal = float(self._kwh())
+        est = [e for e in est if 0.5 * nominal <= e <= 1.5 * nominal]       # a pack can't be half or 1.5x its rating
         if len(est) < 3:
             return None
         return BatteryHealth(current_capacity_kwh=round(statistics.median(est), 1))

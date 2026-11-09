@@ -390,7 +390,9 @@ class SimulatorAdapter(CarAdapter):
             st["plugged_in"] = False  # you unplug to drive; plug back in with the plug_in control
             st["charging_enabled"] = True
             st["trips"] = (st["trips"] + [{"at": st["last_tick"], "miles": miles, "kwh": round(kwh, 2)}])[-20:]
-            return f"drove {miles:g} mi to {dest}"
+            minutes = miles / 35.0 * 60.0              # a drive takes time (35 mph average), so history sees a plausible speed
+            st["offset_s"] += minutes * 60.0
+            return f"drove {miles:g} mi to {dest} (took about {minutes:.0f} min)"
         if action == "park_home":
             st["zone"] = "home"
             return "parked at home"

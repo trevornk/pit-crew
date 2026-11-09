@@ -111,6 +111,8 @@ class VehicleState:
     captured_at: float
     fields: Dict[str, FieldValue] = field(default_factory=dict)
     simulated: bool = False
+    #: facts about the car that are not readings (e.g. ``tire_min_psi``: the low-pressure default for this model)
+    hints: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for fname in FIELD_NAMES:
@@ -157,7 +159,7 @@ class VehicleState:
         return VehicleState(
             name=self.name, source=self.source, captured_at=self.captured_at,
             fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at) for k, v in self.fields.items()},
-            simulated=self.simulated,
+            simulated=self.simulated, hints=dict(self.hints),
         )
 
     # -- derived --------------------------------------------------------------------------

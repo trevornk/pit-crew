@@ -71,10 +71,11 @@ def summarize_charges(charges: Sequence[ChargeRecord]) -> Dict[str, Any]:
     used = sum(c.kwh_used for c in charges if c.kwh_used is not None)
     cost = sum(c.cost for c in charges if c.cost is not None)
     with_cost = [c for c in charges if c.cost is not None and c.kwh_used]
+    with_used = [c for c in charges if c.kwh_used]          # efficiency compares like with like (mixed sources otherwise exceed 300%)
     out: Dict[str, Any] = {
         "sessions": len(charges), "kwh_added": _r(added, 1), "kwh_from_wall": _r(used, 1) if used else None,
         "avg_session_kwh": _r(added / len(charges), 1),
-        "charging_efficiency_pct": _r(added / used * 100.0, 0) if used else None,
+        "charging_efficiency_pct": _r(sum(c.kwh_added for c in with_used) / used * 100.0, 0) if used else None,
         "total_cost_usd": _r(cost, 2) if with_cost else None,
         "avg_cost_per_kwh_usd": _r(sum(c.cost for c in with_cost) / sum(c.kwh_used for c in with_cost), 3) if with_cost else None,
         "avg_start_pct": _r(_avg([c.start_pct for c in charges]), 0),

@@ -20,7 +20,7 @@ from ..constants import ENV_HA_TOKEN
 from ..redact import scrub
 from .base import AdapterError, AdapterUnavailable, BuildContext, CarAdapter, CommandNotSupported, CommandResult
 from .http import json_request, normalize_base_url
-from .profile import entity_ids_for_field, load_profile
+from .profile import disabled_field_names, enable_instructions, entity_ids_for_field, load_profile
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +233,29 @@ class HomeAssistantAdapter(CarAdapter):
             return []
         return ["Unlock, trunk, frunk and window-vent are blocked until the car's motion can be confirmed. "
                 + self.motion_hint() + " Missing entities: " + ", ".join(absent) + "."]
+
+    def _missing_disabled(self, fields: Optional[Any] = None) -> List[str]:
+        """Disabled-by-default fields whose entity is absent from Home Assistant (a disabled entity has no state)."""
+        if not self._have_states:
+            return []
+        out = []
+        for name in disabled_field_names(self._profile, fields):
+            ids = entity_ids_for_field(self._profile["fields"][name], self._slug, self._overrides.get(name))
+            if not any(i in self._states for i in ids):
+                out.append(name)
+        return out
+
+    def disabled_entity_hint(self, fields: Optional[Any] = None) -> str:
+        missing = self._missing_disabled(fields)
+        return enable_instructions(self._profile, missing) if missing else ""
+
+    def setup_warnings(self) -> List[str]:
+        """Entities the profile wants that Home Assistant ships disabled (motion ones are covered by motion_warnings)."""
+        missing = [n for n in self._missing_disabled() if n not in ("shift_state", "speed_mph")]
+        if not missing:
+            return []
+        titles = ", ".join(str(self._profile["fields"][n].get("enable_as") or n) for n in missing)
+        return [f"Not reported yet: {titles}. " + enable_instructions(self._profile, missing)]
 
     def fetch_state(self, now: float) -> VehicleState:
         states = self._refresh_states()

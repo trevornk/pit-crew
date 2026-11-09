@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from ..brain.models import ACTIVELY_CHARGING, VehicleState
+from ..brain import tires
 from ..brain.timeparse import fmt_clock
 from ..settings import parse_hhmm, zones_list
 
@@ -66,6 +67,8 @@ class Rule:
     defaults: Mapping[str, Any]
     requires: Tuple[str, ...]
     check: Callable[[RuleContext], List[Finding]]
+    #: the rule can run when at least one of these is available (e.g. any one of four tire sensors)
+    requires_any: Tuple[str, ...] = ()
 
 
 def _mins(seconds: float) -> str:
@@ -83,7 +86,8 @@ def _in_night(local: datetime, start: str, end: str) -> bool:
 
 # friendly names for rule settings (used by the pages and /car rules)
 RULE_LABELS = {"minutes": "after (min)", "cooldown_min": "don't repeat for (min)", "hot_f": "hotter than (°F)",
-               "cold_f": "colder than (°F)", "below_pct": "below (%)", "trip_mi": "trip (mi)", "within_hours": "within (h)"}
+               "cold_f": "colder than (°F)", "below_pct": "below (%)", "trip_mi": "trip (mi)", "within_hours": "within (h)",
+               "min_psi": "low below (psi, 0 = auto)", "drop_psi": "loses at least (psi)", "window_min": "within (min)"}
 
 _SAFE = re.compile(r"[^A-Za-z0-9 _-]")
 
@@ -237,6 +241,36 @@ def _software_update(c: RuleContext) -> List[Finding]:
     return []
 
 
+def _tire_low(c: RuleContext) -> List[Finding]:
+    stale_after = float(c.settings.get("stale_after_s") or 900)
+    low = tires.low_tires(c.state, c.now, stale_after, c.cfg.get("min_psi"))
+    if not low:
+        return []
+    mins = float(c.cfg["minutes"])
+    worst = min(low, key=lambda t: t[1] / t[2])
+    parts = ", ".join(f"{pos} {psi:.0f} psi" for pos, psi, _ in low)
+    key = "tire_low:" + "|".join(sorted(pos.replace(" ", "_") for pos, _, _ in low))
+    return [Finding(key, "A tire is low on air",
+                    f"Low tire pressure: {parts} (below {worst[2]:g} psi), seen at {fmt_clock(c.local)}.",
+                    "Add air soon (or look the tire over); I can't do that from here.",
+                    hold_s=mins * 60, severity="high" if worst[1] < worst[2] * 0.8 else "medium",
+                    data={"tires": {pos: round(psi, 1) for pos, psi, _ in low}})]
+
+
+def _tire_fast_loss(c: RuleContext) -> List[Finding]:
+    window_s = float(c.cfg["window_min"]) * 60.0
+    tires.track(c.memo, c.state, c.now, window_s)
+    lost = tires.fast_losses(c.memo, c.now, window_s, float(c.cfg["drop_psi"]))
+    if not lost:
+        return []
+    parts = ", ".join(f"{pos} fell {drop:g} psi ({start:g} to {end:g})" for pos, drop, start, end in lost)
+    key = "tire_loss:" + "|".join(sorted(pos.replace(" ", "_") for pos, *_ in lost))
+    return [Finding(key, "A tire is losing air fast",
+                    f"{parts.capitalize()} within {c.cfg['window_min']:g} min, seen at {fmt_clock(c.local)}.",
+                    "Check that tire before you drive: it may have a puncture or a leaking valve.",
+                    severity="high", data={"tires": {pos: end for pos, _, _, end in lost}})]
+
+
 RULES: List[Rule] = [
     Rule("left_unlocked_away", "Left unlocked away from home",
          "Alert when the car has been unlocked outside a trusted zone for N minutes.",
@@ -263,6 +297,15 @@ RULES: List[Rule] = [
     Rule("cabin_extreme", "Cabin very hot or cold with someone inside",
          "Alert when the cabin is dangerously hot or cold and the car reports an occupant.",
          {"enabled": True, "hot_f": 100, "cold_f": 25, "cooldown_min": 30}, ("user_present", "cabin_temp_f"), _cabin_extreme),
+    Rule("tire_pressure_low", "Low tire pressure",
+         "Alert when a tire is below the low-pressure threshold (yours, or 90% of what the car recommends, "
+         "or 38 psi when the car doesn't say).",
+         {"enabled": True, "min_psi": 0, "minutes": 10, "cooldown_min": 720}, (), _tire_low,
+         requires_any=tuple(tires.TIRES)),
+    Rule("tire_fast_loss", "Tire losing air fast",
+         "Alert when a tire drops by N psi within a short window (a puncture or leaking valve).",
+         {"enabled": True, "drop_psi": 3, "window_min": 30, "cooldown_min": 120}, (), _tire_fast_loss,
+         requires_any=tuple(tires.TIRES)),
     Rule("software_update", "Software update available",
          "Gentle heads-up when the car has a software update waiting.",
          {"enabled": True, "cooldown_min": 10080}, ("software_update_available",), _software_update),

@@ -131,7 +131,9 @@
   }
 
   function Tiles(props) {
-    const st = props.st, sec = st.security || {}, chg = st.charging || {}, cli = st.climate || {}, sw = st.software || {};
+    const st = props.st, sec = st.security || {}, chg = st.charging || {}, cli = st.climate || {}, sw = st.software || {}, tires = st.tires || {};
+    const psi = [["FL", "front_left_psi"], ["FR", "front_right_psi"], ["RL", "rear_left_psi"], ["RR", "rear_right_psi"]].filter(function (p) { return tires[p[1]] != null; });
+    const lowest = psi.length ? Math.min.apply(null, psi.map(function (p) { return tires[p[1]]; })) : null;
     const fr = st.freshness || {}, stale = fr.stale_fields || {}, unavailable = fr.unavailable_fields || [];
     const newest = fr.newest_update_age_s;
     function fresh(fields) {
@@ -150,6 +152,7 @@
       h(Tile, { label: "Frunk", value: flag(sec.frunk_open, "Open", "Closed"), fresh: fresh(["frunk_open"]) }),
       h(Tile, { label: "Sentry", value: flag(sec.sentry_on, "On", "Off"), fresh: fresh(["sentry_on"]) }),
       h(Tile, { label: "Charging", value: chg.charging_state ? (CHARGE_WORDS[chg.charging_state] || cap(chg.charging_state)) : "—", fresh: fresh(["charging_state"]) }),
+      h(Tile, { label: "Tires", value: lowest != null ? num(lowest) + " psi lowest" : "—", sub: psi.length ? psi.map(function (p) { return p[0] + " " + num(tires[p[1]]); }).join(" · ") : null, fresh: fresh(["tire_psi_fl", "tire_psi_fr", "tire_psi_rl", "tire_psi_rr"]) }),
       h(Tile, { label: "Software", value: sw.software_update_available ? "Update waiting" : "Up to date", sub: sw.software_version || null }));
   }
 
@@ -323,7 +326,7 @@
   }
 
   const SIM = [["Fast-forward 30 min", "advance", { minutes: 30 }], ["Drive 20 mi away", "drive", { miles: 20, to: "away" }], ["Park at home", "park_home"],
-    ["Plug in", "plug_in"], ["Unplug", "unplug"], ["Leave it unlocked", "leave_unlocked"], ["Leave a door open", "open_door"], ["Close everything", "close_doors"],
+    ["Plug in", "plug_in"], ["Unplug", "unplug"], ["Leave it unlocked", "leave_unlocked"], ["Leak a tire (6 psi/h)", "leak", { tire: "rr", psi_per_hour: 6 }], ["Pump up tires", "inflate"], ["Leave a door open", "open_door"], ["Close everything", "close_doors"],
     ["Cold snap (18°F)", "cold", { temp_f: 18 }], ["Reset", "reset"]];
 
   function Sim(props) {

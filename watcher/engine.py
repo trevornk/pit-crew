@@ -68,8 +68,18 @@ class RuleEngine:
                 missing = [f for f in rule.requires if not state.is_available(f)]
                 if missing:
                     item["note"] = f"cannot run: this car doesn't report {', '.join(missing)}"
+                elif rule.requires_any and not any(state.has(f) for f in rule.requires_any):
+                    item["note"] = "cannot run: this car doesn't report tire pressure" + self._tire_enable_hint()
             out.append(item)
         return out
+
+    def _tire_enable_hint(self) -> str:
+        try:
+            fn = getattr(self._svc.adapter, "disabled_entity_hint", None)
+            text = fn(("tire_psi_fl",)) if callable(fn) else ""
+        except Exception:  # noqa: BLE001
+            text = ""
+        return f" ({text})" if text else ""
 
     # -- evaluation -----------------------------------------------------------------------
     def evaluate(self, state: VehicleState, now: float) -> List[Dict[str, Any]]:
@@ -87,8 +97,10 @@ class RuleEngine:
                 continue
             if any(not state.is_available(f) for f in rule.requires):
                 continue  # honest skip: the car doesn't report what this rule needs
+            if rule.requires_any and not any(state.has(f) for f in rule.requires_any):
+                continue
             # R16: a day-old reading must not raise a fresh alert. Skip (keep existing state) until it is refreshed.
-            inputs = rule.requires or OPENING_FIELDS
+            inputs = rule.requires or tuple(f for f in rule.requires_any if state.has(f)) or OPENING_FIELDS
             stale_after = float(settings.get("stale_after_s") or 900)
             if any((a := state.age_s(f, now)) is not None and a > stale_after for f in inputs):
                 continue

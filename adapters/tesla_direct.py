@@ -37,7 +37,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from ..brain.commands import COMMANDS, Capabilities
 from ..brain.models import FIELD_NAMES, FieldValue, VehicleState
-from ..brain.units import c_to_f
+from ..brain.units import PSI_PER_BAR, c_to_f
 from ..constants import ENV_TESLA_TOKEN
 from ..redact import scrub
 from .base import (AdapterError, AdapterUnavailable, BuildContext, CarAdapter, CommandNotSupported, CommandResult)
@@ -176,6 +176,18 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
             put("software_update_available", str(upd or "").lower() in ("available", "scheduled", "downloading",
                                                                          "downloading_wifi_wait", "installing"), vs)
         put("odometer_mi", _num(vs.get("odometer")), vs)
+        # Tire pressures arrive in bar. Each has its own "last seen" epoch: a tire sensor that has not reported for
+        # hours must look old, not fresh because the rest of the vehicle_state block is.
+        for pos in ("fl", "fr", "rl", "rr"):
+            bar = _num(vs.get("tpms_pressure_" + pos))
+            if bar is not None and bar > 0:
+                seen = _num(vs.get("tpms_last_seen_pressure_time_" + pos))
+                at = seen if seen and 1e9 < seen <= now else stamp(vs)
+                fields["tire_psi_" + pos] = FieldValue(round(bar * PSI_PER_BAR, 1), min(at, now))
+        for axle, key in (("front", "tpms_rcp_front_value"), ("rear", "tpms_rcp_rear_value")):
+            bar = _num(vs.get(key))
+            if bar is not None and bar > 0:
+                put(f"tire_rec_{axle}_psi", round(bar * PSI_PER_BAR, 1), vs)
     if cl:
         if isinstance(cl.get("is_climate_on"), bool):
             put("climate_on", cl["is_climate_on"], cl)

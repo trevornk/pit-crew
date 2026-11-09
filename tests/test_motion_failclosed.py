@@ -166,6 +166,11 @@ def test_opt_in_allows_unknown_motion_with_a_warning(make_service, ha, clock):
     assert any("cannot confirm the car is parked" in w for w in res["policy"]["warnings"])
 
 
+def _motion(res):
+    """The motion-source warnings in a discovery / status result (other setup warnings are tested elsewhere)."""
+    return [w for w in res.get("warnings", []) if "Motion entities" in w or "blocked until the car's motion" in w]
+
+
 # -- discovery / status / slash / Desktop -------------------------------------------------------------------------
 def test_discovery_warns_when_motion_entities_are_absent():
     states = load_fixture("ha_states_tesla_fleet.json")
@@ -173,9 +178,9 @@ def test_discovery_warns_when_motion_entities_are_absent():
     res = discover(no_tm)
     assert res["recommended"]["ha_slug"] == "demo_car"
     assert res["warnings"] and "Shift state" in res["warnings"][0] and SPEED in res["warnings"][0]
-    assert discover(states)["warnings"] == []                              # TeslaMate state entity present = a motion source
+    assert _motion(discover(states)) == []                                 # TeslaMate state entity present = a motion source
     with_both = no_tm + [{"entity_id": SPEED, "state": "0", "attributes": {}}, {"entity_id": SHIFT, "state": "p", "attributes": {}}]
-    assert discover(with_both)["warnings"] == []
+    assert _motion(discover(with_both)) == []
 
 
 def test_slash_discover_prints_the_warning(make_service, ha, clock):
@@ -191,7 +196,7 @@ def test_status_and_card_carry_the_warning(make_service, ha, clock):
     assert "⚠" in slash.handle("")
     add(ha, SPEED, "0"); add(ha, SHIFT, "p")
     svc.adapter._refresh_states()
-    assert "warnings" not in json.loads(tools.car_status({"refresh": True}))
+    assert _motion(json.loads(tools.car_status({"refresh": True}))) == []
 
 
 def test_generic_adapter_without_motion_data_gets_a_generic_warning(stub_service, stub):

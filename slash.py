@@ -7,13 +7,14 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .adapters.base import AdapterError, SecretScopeUnavailable
+from .brain import tires
 from .brain.models import describe_state
 from .brain.timeparse import fmt_clock
 from .service import get_service
 
 logger = logging.getLogger(__name__)
 
-from .watcher.rules import RULE_LABELS  # noqa: E402
+from .watcher.rules import RULE_LABELS, RULES_BY_ID  # noqa: E402
 
 HELP = """\
 Everyday
@@ -101,6 +102,9 @@ def _status_card(svc: Any) -> str:
     if v("frunk_open"):
         opens.append("frunk open")
     extras = [("; ".join(opens) if opens else "all closed")]
+    tire_line = tires.summary_line(state, svc.watcher.engine.rule_config(RULES_BY_ID["tire_pressure_low"]).get("min_psi"))
+    if tire_line:
+        lines.append(tire_line)
     if state.has("sentry_on"):
         extras.append("Sentry on" if v("sentry_on") else "Sentry off")
     if v("software_update_available"):
@@ -287,7 +291,7 @@ def _sim(svc: Any, rest: List[str]) -> str:
     if not getattr(adapter, "simulated", False) or not hasattr(adapter, "control"):
         return "`/car sim` only works with the simulated car (adapter=simulator)."
     if not rest:
-        return ("Usage: /car sim advance <min> | drive <mi> [zone] | park_home | plug_in | unplug | leave_unlocked | open_door | close_doors | event <kind> | cold <°F> | normal_weather | set_soc <pct> | sleep | reset\n"
+        return ("Usage: /car sim advance <min> | drive <mi> [zone] | park_home | plug_in | unplug | leave_unlocked | open_door | close_doors | event <kind> | cold <°F> | normal_weather | set_soc <pct> | leak [tire] | low_tire [tire] [psi] | inflate | sleep | reset\n"
                 "Tip: after `drive`, use `park_home` (and `plug_in`) before trying `unlock`.")
     action, *params = rest
     kw: Dict[str, Any] = {}
@@ -304,6 +308,11 @@ def _sim(svc: Any, rest: List[str]) -> str:
             kw["percent"] = float(params[0])
         elif action == "cold":
             kw["temp_f"] = float(params[0]) if params else 18
+        elif action in ("leak", "low_tire"):
+            if params:
+                kw["tire"] = params[0]
+            if len(params) > 1:
+                kw["psi_per_hour" if action == "leak" else "psi"] = float(params[1])
         res = adapter.control(action, **kw)
     except (ValueError, IndexError):
         return "Bad arguments for /car sim. Try `/car sim advance 90`."

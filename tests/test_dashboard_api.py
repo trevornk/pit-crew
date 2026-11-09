@@ -88,7 +88,7 @@ def test_alert_check_ack_and_rules(client):
     assert any(a["rule"] == "software_update" for a in alerts)
     assert post(client, "/alerts/ack", {"id": "all"})["acknowledged"]
     rules = get(client, "/rules")["rules"]
-    assert len(rules) == 9
+    assert len(rules) == 11
     r = post(client, "/rules/left_unlocked_away", {"enabled": False, "settings": {"minutes": 30}})
     assert r["ok"] and r["now"]["enabled"] is False and r["now"]["minutes"] == 30
     assert post(client, "/rules/nope", {"enabled": True})["ok"] is False

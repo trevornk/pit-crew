@@ -3,9 +3,9 @@
   "label": "Tesla via the Home Assistant 'tesla_fleet' integration",
   "integration": "tesla_fleet",
   "tested": true,
-  "notes": "Verified against a real Model Y's entity and service shapes (tests/fixtures/live-sanitized). Entities are named <domain>.<slug>_<thing>; set ha_slug to your car's slug (e.g. 'my_car' for lock.my_car_lock).",
+  "notes": "Verified against a real Model Y's entity and service shapes (tests/fixtures/live-sanitized). Entities are named <domain>.<slug>_<thing>; set ha_slug to your car's slug (e.g. 'my_car' for lock.my_car_lock). Verified against Home Assistant core's tesla_fleet sensor.py (keys vehicle_state_odometer and vehicle_state_tpms_pressure_fl/fr/rl/rr, ids sensor.<slug>_odometer and sensor.<slug>_tire_pressure_front_left\u2026). Home Assistant ships those four tire sensors, the Odometer, Shift state and Speed DISABLED; the fields marked disabled_by_default stay unavailable until you enable them in Home Assistant.",
   "moving_state_entity": "sensor.teslamate_{slug}_state",
-  "motion_hint": "Home Assistant ships the Tesla Fleet 'Shift state' and 'Speed' entities DISABLED. Enable them: Home Assistant → Settings → Devices & services → Tesla Fleet → (your car) → disabled entities → enable 'Shift state' and 'Speed'. Alternatively map a TeslaMate state entity (sensor.teslamate_<car>_state, 'driving' = moving) with ha_entity_overrides {\"moving_state_entity\": \"...\"}.",
+  "motion_hint": "Home Assistant ships the Tesla Fleet 'Shift state' and 'Speed' entities DISABLED. Enable them: Home Assistant \u2192 Settings \u2192 Devices & services \u2192 Tesla Fleet \u2192 (your car) \u2192 disabled entities \u2192 enable 'Shift state' and 'Speed'. Alternatively map a TeslaMate state entity (sensor.teslamate_<car>_state, 'driving' = moving) with ha_entity_overrides {\"moving_state_entity\": \"...\"}.",
   "fields": {
     "battery_pct": {
       "entity": "sensor.{slug}_battery_level",
@@ -132,13 +132,17 @@
     "shift_state": {
       "entity": "sensor.{slug}_shift_state",
       "kind": "shift",
-      "optional": true
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Shift state"
     },
     "speed_mph": {
       "entity": "sensor.{slug}_speed",
       "kind": "number",
       "dimension": "speed",
-      "optional": true
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Speed"
     },
     "asleep": {
       "entity": "binary_sensor.{slug}_status",
@@ -158,7 +162,41 @@
       "entity": "sensor.{slug}_odometer",
       "kind": "number",
       "dimension": "distance",
-      "optional": true
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Odometer"
+    },
+    "tire_psi_fl": {
+      "entity": "sensor.{slug}_tire_pressure_front_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure front left"
+    },
+    "tire_psi_fr": {
+      "entity": "sensor.{slug}_tire_pressure_front_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure front right"
+    },
+    "tire_psi_rl": {
+      "entity": "sensor.{slug}_tire_pressure_rear_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure rear left"
+    },
+    "tire_psi_rr": {
+      "entity": "sensor.{slug}_tire_pressure_rear_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure rear right"
     }
   },
   "commands": {
@@ -371,5 +409,6 @@
         }
       ]
     }
-  }
+  },
+  "integration_title": "Tesla Fleet"
 }

@@ -23,7 +23,7 @@ sleep. When it wants to touch the car, it asks you first.
   (for example, raise the charge limit).
 * **While you're out.** Your phone buzzes: *"Your car is unlocked and away from home. Want me to lock it?"* Say "yes". It
   locks the car and reads the car's state back to confirm it worked.
-* **Any time.** *"Unlock the car"* pops Hermes' own approval prompt. If the car is moving, away from home, asleep, or its
+* **Any time.** *"Unlock the car"* goes through Hermes' approval gate: with approvals on, Hermes asks you first. If the car is moving, away from home, asleep, or its
   data is stale, Pit Crew says no and tells you why.
 
 *(Wording is illustrative; the behaviour is what the simulator and the tests exercise.)*
@@ -151,11 +151,14 @@ Hermes runs `/car` in whichever process owns your chat: **Hermes Desktop and the
 start, so an update only takes effect once both have reloaded it.
 
 ```bash
-hermes plugins update pit-crew       # updates, then reloads the plugin in the dashboard and the gateway
+hermes plugins update pit-crew       # pulls the new code. On Hermes 0.23 it does NOT reload running processes.
+hermes gateway restart               # then restart the gateway ...
+# ... and restart `hermes dashboard` / Hermes Desktop
 ```
 
-* `hermes plugins install --force` over an already-enabled plugin does **not** reload it on Hermes 0.23: restart
-  `hermes dashboard` and the gateway (`hermes gateway restart`) afterwards, or use `update` instead.
+* Or update from **Hermes Desktop → Capabilities → Plugins → Update**: that path reloads the running backend and nudges the
+  gateway for you.
+* No command-line install/update/enable reloads a running process on Hermes 0.23 (`install --force` and `enable` don't either).
 * Then, in Hermes Desktop, run **Reload desktop plugins** (⌘K). That also refreshes the `/car` autocomplete.
 * Not sure which version is running? `/car help` (or any unknown subcommand) prints it: "Pit Crew 0.2.0".
 
@@ -203,9 +206,13 @@ Safety isn't a setting you remember to turn on; it's how Pit Crew works.
 
 * **Practice mode first.** Until you tap **Go live**, commands are checked and logged but never sent. Going live stops by
   itself after a few hours.
-* **You approve the risky stuff.** Unlock, trunk, frunk, window vent, Sentry-off, honk and flash use Hermes' own approval
-  prompt. They are never a button in Pit Crew's own pages (those draft the request for Hermes). Scheduled jobs can't answer
-  prompts, so for them the answer is always *no*.
+* **Risky commands follow your Hermes approval setting.** Unlock, trunk, frunk, window vent, Sentry-off, honk and flash go
+  through Hermes' own approval gate. With approvals on (`manual` or `smart`) Hermes asks **you**. (In `smart` mode Hermes still
+  asks a person for plugin approvals; it does not hand them to its guardian.) With approvals `off` or yolo, Hermes doesn't ask,
+  and neither does Pit Crew: the result and `/car log` say "Sent without asking / approved by Hermes (no prompt)". If you
+  want a person every time regardless, list commands under *Advanced · Always ask a person for these*. They are never a button
+  in Pit Crew's own pages (those draft the request for Hermes). Scheduled jobs can't answer prompts, so for them the answer is
+  always *no* (Pit Crew keeps that floor even when Hermes' `cron_mode` is `approve`).
 * **It refuses when it can't be sure.** Not while the car is moving; not on stale data; not if the car is asleep (it won't
   wake it to be nice); unlock only at places you trust; bounded temperatures, limits and amps; rate-limited; repeats skipped.
 * **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through). It
@@ -247,7 +254,7 @@ Honesty matters more than a long feature list.
   The tire-pressure and odometer entities of `tesla_fleet` are checked against Home Assistant core's source.
 * **Mocks only:** Teslemetry and Tessie are tested against mocks of the `tesla-fleet-api` library.
 * **Not yet exercised live:** Telegram/Discord approval buttons and chat pushes, and the pages inside the real apps. If a
-  surface doesn't deliver Hermes' approval response, set `approval_confirmation: hermes_gate` (Advanced) and let us know.
+  surface doesn't deliver Hermes' approval response, the audit shows "approved by Hermes (no prompt)" instead of "you approved"; let us know.
 
 Start with the simulator; stay in practice mode until `/car` matches the car's own app.
 
@@ -255,7 +262,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 
 **Do I need a car?** No. The default connection is a simulated car.
 **Does it need TeslaMate?** No. It records its own history. TeslaMate import is optional.
-**Can it unlock my car by itself?** No. Unlock always goes through Hermes' approval prompt, and never from a scheduled job.
+**Can it unlock my car by itself?** Not from a scheduled job, ever. In chat, unlock follows your Hermes approval setting: Hermes asks you when its approvals are on; if you turned them off (or use yolo) it doesn't, and neither does Pit Crew unless you list unlock under *Always ask a person for these*.
 **Does it wake my car and drain the battery?** No. It reads cheap state only; commands that wake the car need your OK.
 **What does it send out?** Only requests to services you configured (your Home Assistant, Teslemetry/Tessie, TeslaMateApi). No telemetry.
 **Does it store my location?** No coordinates. It keeps place names ("home", "away") and trip distances.
@@ -267,7 +274,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 |---|---|
 | Page says *Connect your car* | Open Settings → Plugins → Pit Crew and fill in the section for your connection (or the config.yaml/.env lines above). The page shows exactly what's missing. |
 | *Pit Crew isn't running on this Hermes* | `hermes plugins enable pit-crew`, restart Hermes. Desktop on another machine: see above. |
-| `/car` says "Unknown subcommand" for something that should exist | The process answering still runs old code: `hermes plugins update pit-crew`, or restart `hermes dashboard` and the gateway (see [Update and restart](#update-and-restart)). The reply names the running version. |
+| `/car` says "Unknown subcommand" for something that should exist | The process answering still runs old code: restart `hermes dashboard` / Desktop and the gateway (`hermes gateway restart`), or update from Desktop → Capabilities → Plugins (see [Update and restart](#update-and-restart)). The reply names the running version. |
 | Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
 | Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer*, the *Tire pressure* sensors and the *Tire pressure warning* sensors (`/car` shows the steps). |
 | Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |

@@ -53,9 +53,9 @@ Pit Crew page in Hermes Desktop
 - Desktop on ANOTHER machine (connected to this Hermes remotely): the app loads its page from ITS OWN ~/.hermes/desktop-plugins/pit-crew/,
   so install the Desktop half there. In that Desktop app: Capabilities -> Plugins -> Install from Git -> `trevornk/pit-crew`
   with the Desktop target checked (or open hermes://plugin/install?repo=trevornk/pit-crew). Then toggle it on, and use Rescan after updates.
-- After updating the plugin: `hermes plugins update pit-crew` (reloads the dashboard and the gateway), then in Desktop run
-  "Reload desktop plugins" (Cmd+K). `install --force` over an enabled plugin does not reload on Hermes 0.23: restart `hermes dashboard`
-  and the gateway. Press Enter, not Tab, on `/car`.
+- After updating the plugin: the command line (`hermes plugins update pit-crew`) does NOT reload running processes on Hermes 0.23, so
+  restart the gateway (`hermes gateway restart`) and `hermes dashboard` / Hermes Desktop. Updating from Desktop (Capabilities ->
+  Plugins -> Update) does reload them. Then run "Reload desktop plugins" (Cmd+K). Press Enter, not Tab, on `/car`.
 - No Desktop? `hermes dashboard` has a Pit Crew tab served by this Hermes, and `/car` works in any chat.
 More: README -> "Update and restart" and "Desktop on another machine"."""
 
@@ -128,7 +128,7 @@ def _status_card(svc: Any) -> str:
     info = svc.armed_info()
     if info["armed"]:
         until = f" until {fmt_clock(svc.local_dt(info['until']))}" if info["until"] else " (standing setting)"
-        lines.append(f"Mode: LIVE{until} — Hermes can send commands (unlock, trunk and similar still need your approval)")
+        lines.append(f"Mode: LIVE{until} — Hermes can send commands (unlock, trunk and similar follow your Hermes approval setting)")
     else:
         lines.append("Mode: Practice — commands are checked and logged, nothing is sent. (`/car live` to go live)")
     for w in svc.warnings(state):
@@ -190,7 +190,7 @@ def _audit_text(svc: Any, n: int) -> str:
             continue
         args = r["args"] if isinstance(r["args"], dict) else {}
         shown = ",".join(f"{k}={v}" for k, v in args.items() if k not in ("override_zone", "wake_ok"))
-        appr = {"confirmed": " · you approved", "denied": " · you declined"}.get(r["approval"], "")
+        appr = {"confirmed": " · you approved", "denied": " · you declined", "hermes_auto": " · approved by Hermes (no prompt)"}.get(r["approval"], "")
         out.append(f"{_when(r['when'])} · {_WHO.get(r['surface'], r['surface'])} · {r['command']}{'(' + shown + ')' if shown else ''}"
                    f" · {_outcome(r)}{appr}")
     return "Recent command attempts (newest first):\n" + "\n".join(out)
@@ -250,7 +250,7 @@ def _arm(svc: Any, rest: List[str]) -> str:
     simulated = getattr(svc.adapter, "simulated", False)
     if not confirmed:
         what = ("This is the SIMULATED car, so nothing real can happen." if simulated else
-                f"Hermes will be able to send real commands to your {svc.adapter.label}. Unlock, trunk and similar still ask for your approval each time.")
+                f"Hermes will be able to send real commands to your {svc.adapter.label}. Unlock, trunk and similar follow your Hermes approval setting: Hermes asks you if its approvals are on.")
         question = f"Go live for {hours:g} {'hour' if hours == 1 else 'hours'}{note}? {what}"
         answer = None
         ctx = svc.ctx

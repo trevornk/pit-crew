@@ -30,6 +30,8 @@ from .approval import ApprovalEvidence
 logger = logging.getLogger(__name__)
 
 APPROVAL_KIND = "hermes_approval"
+AUTO_APPROVED_NOTE = ("Sent without asking: your Hermes approvals didn't require a prompt (approvals off, yolo, or "
+                      "already allowed this session).")
 POLICY_FLAGS = ("override_zone", "wake_ok")
 
 
@@ -80,8 +82,12 @@ class SafetyEngine:
                            status="blocked", detail=reason)
 
     # -- main entry -----------------------------------------------------------------------
-    def preflight(self, command: str, raw_args: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
-        """Validate + policy-check without executing. Used by the approval hook and the Desktop dialog."""
+    def preflight(self, command: str, raw_args: Optional[Mapping[str, Any]], *,
+                  cached_max_age_s: Optional[float] = None) -> Dict[str, Any]:
+        """Validate + policy-check without executing. Used by the approval hook and the Desktop dialog.
+
+        ``cached_max_age_s``: accept a state read at most this many seconds ago instead of forcing a live read (the
+        approval hook uses this so a slow car/HA read can't hang Hermes' hook; the tool's own preflight is always live)."""
         svc = self._svc
         spec = get_spec(command)
         if spec is None:
@@ -100,7 +106,10 @@ class SafetyEngine:
             return {"ok": False, "status": "unsupported", "spec": spec, "args": args,
                     "message": f"{adapter_label} cannot perform '{spec.name}'"}
         try:
-            state = svc.get_state(force=True)  # safety decisions never use a cached read
+            if cached_max_age_s is None:
+                state = svc.get_state(force=True)  # safety decisions never use a cached read
+            else:
+                state = svc.get_state(max_age_s=float(cached_max_age_s))
         except AdapterError as exc:
             return {"ok": False, "status": "blocked", "spec": spec, "args": args,
                     "message": f"cannot read the car right now ({exc})"}
@@ -172,7 +181,7 @@ class SafetyEngine:
             if approval.denied:
                 return self._refuse_live(spec, args, surface, session, pol, armed, "denied",
                                          f"the human declined ({approval.detail})")
-            approval_status = "confirmed"
+            approval_status = "hermes_auto" if approval.auto else "confirmed"
 
         # -- live: rate limit + duplicate suppression (atomic across processes) -------------------
         wall = svc._wall()
@@ -221,6 +230,8 @@ class SafetyEngine:
                 if rb["status"] == "confirmed":
                     msg = (f"The request to the car timed out or only partly completed ({exc}), but the car "
                            f"shows the change at {rb['at_local']}.")
+                    if approval_status == "hermes_auto":
+                        msg += " " + AUTO_APPROVED_NOTE
                     aid = finish("confirmed", msg, rb["status"], rb.get("at"))
                     return self._result(ok=True, status="confirmed", command=spec.name, spec=spec, armed=armed,
                                         policy=pol, approval=approval_status, message=msg, audit_id=aid,
@@ -264,6 +275,8 @@ class SafetyEngine:
                    "that it took effect.")
         if spec.caution and args.get("on", True):
             msg += " Heads-up: " + spec.caution
+        if approval_status == "hermes_auto":
+            msg += " " + AUTO_APPROVED_NOTE
         aid = finish(status, (reason + " | " if reason else "") + sent.detail, rb["status"], rb.get("at"))
         return self._result(ok=ok, status=status, command=spec.name, spec=spec, armed=armed, policy=pol,
                             approval=approval_status, readback={k: v for k, v in rb.items() if k != "at"},

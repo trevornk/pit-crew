@@ -41,14 +41,24 @@ def test_hook_ignores_other_tools_and_non_approval_commands(gate_env):
     assert gate.pre_tool_call(tool_name="car_command", args={"command": "unlock", "args": {"junk": 1}}) is None
 
 
-def test_hook_requests_real_approval_with_one_time_rule_key(gate_env):
+def test_hook_requests_approval_with_a_stable_rule_key(gate_env):
     svc, stub, gate = gate_env
     d1 = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock", "reason": "user asked"}, task_id="t1")
     d2 = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"}, task_id="t1")
-    assert d1["action"] == "approve" and d1["rule_key"].startswith("pit-crew:unlock:")
-    assert d1["rule_key"] != d2["rule_key"]  # "always allow" can never become a standing permission
+    # Hermes' once / session / always mean what Hermes says; no dead one-time entries pile up in the user's config
+    assert d1["action"] == "approve" and d1["rule_key"] == d2["rule_key"] == "pit-crew:unlock"
     assert "UNLOCK" in d1["message"] and "user asked" in d1["message"] and "Approve only if you asked" in d1["message"]
     assert "latitude" not in d1["message"].lower()
+
+
+def test_require_human_for_gets_a_one_time_rule_key(stub_service, stub):
+    svc = stub_service(armed=True, require_human_for=["unlock"])
+    gate = ApprovalGate(lambda: svc)
+    d1 = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"}, task_id="t1")
+    d2 = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"}, task_id="t1")
+    assert d1["rule_key"].startswith("pit-crew:unlock:") and d1["rule_key"] != d2["rule_key"]  # "always" can't stick
+    other = gate.pre_tool_call(tool_name="car_command", args={"command": "open_frunk"}, task_id="t1")
+    assert other["rule_key"] == "pit-crew:open_frunk"        # not listed: follows Hermes
 
 
 def test_hook_skips_approval_in_dry_run(stub_service, stub):
@@ -117,22 +127,97 @@ def test_human_no_or_nobody_blocks(gate_env, choice):
     assert res["status"] == "blocked" and res["approval"] == "denied" and stub.sent == []
 
 
-def test_strict_mode_requires_positive_confirmation_even_if_prompt_was_skipped(gate_env):
-    """Hermes YOLO / approvals-off: the gate auto-approves, no post_approval_response ever fires."""
+def test_hermes_approvals_off_or_yolo_runs_and_is_labelled_hermes_auto(gate_env):
+    """Hermes off/yolo/allowlisted: the gate auto-approves, no post_approval_response ever fires. Pit Crew follows Hermes."""
     svc, stub, gate = gate_env
-    gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})  # ticket issued, never confirmed
+    gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})  # ticket issued; Hermes never asked anyone
+    res = call({"command": "unlock"})
+    assert res["status"] == "confirmed" and res["approval"] == "hermes_auto" and stub.values["locked"] is False
+    assert "Sent without asking" in res["message"] and "approvals" in res["message"]
+    assert svc.store.audit_recent(1)[0]["approval"] == "hermes_auto"
+    # a hook that never ran (no ticket at all) still fails closed
+    stub.values["locked"] = True
+    again = call({"command": "unlock"})
+    assert again["status"] == "blocked" and again["approval"] == "missing"
+
+
+def test_human_answered_is_labelled_confirmed_not_hermes_auto(gate_env):
+    svc, stub, gate = gate_env       # manual and smart both prompt a person (Hermes gives plugin approvals no guardian)
+    d = gate.pre_tool_call(tool_name="car_command", args={"command": "honk"})
+    human_says(svc, d, "session")
+    res = call({"command": "honk"})
+    assert res["approval"] == "confirmed" and "Sent without asking" not in res["message"]
+
+
+def test_denied_by_hermes_refuses_even_when_not_strict(gate_env):
+    svc, stub, gate = gate_env
+    d = gate.pre_tool_call(tool_name="car_command", args={"command": "flash"})
+    human_says(svc, d, "deny")
+    assert call({"command": "flash"})["approval"] == "denied"
+
+
+def test_stable_key_answer_reaches_the_waiting_ticket(gate_env):
+    svc, stub, gate = gate_env
+    gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"}, task_id="t")
+    gate.post_approval_response(pattern_key="plugin_rule:pit-crew:unlock", choice="deny")
+    assert call({"command": "unlock"}, task_id="t")["approval"] == "denied"
+
+
+def test_a_stale_auto_approved_ticket_cannot_vouch_for_a_later_call(gate_env, clock):
+    svc, stub, gate = gate_env
+    gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})
+    clock.advance(300)
+    assert call({"command": "unlock"})["approval"] == "missing"
+
+
+def test_require_human_for_refuses_what_hermes_auto_approved(stub_service, stub):
+    svc = stub_service(armed=True, require_human_for=["unlock"])
+    gate = ApprovalGate(lambda: svc)
+    gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})   # approvals off: never confirmed
     res = call({"command": "unlock"})
     assert res["status"] == "blocked" and res["approval"] == "missing" and stub.sent == []
+    gate.pre_tool_call(tool_name="car_command", args={"command": "open_frunk"})   # not listed: follows Hermes
+    assert call({"command": "open_frunk"})["approval"] == "hermes_auto"
 
 
-def test_hermes_gate_mode_trusts_hermes_when_configured(stub_service, stub):
-    svc = stub_service(armed=True, approval_confirmation="hermes_gate")
+def test_require_human_for_with_a_person_answering_runs(stub_service, stub):
+    svc = stub_service(armed=True, require_human_for=["unlock"])
     gate = ApprovalGate(lambda: svc)
+    d = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})
+    human_says(svc, d, "once")
+    assert call({"command": "unlock"})["approval"] == "confirmed"
+
+
+def test_require_human_for_blocks_early_with_a_plain_message_when_hermes_approvals_are_off(stub_service, stub, monkeypatch):
+    import sys
+    import types
+    svc = stub_service(armed=True, require_human_for=["unlock"])
+    gate = ApprovalGate(lambda: svc)
+    fake = types.ModuleType("tools.approval")
+    fake.is_approval_bypass_active = lambda: True
+    monkeypatch.setitem(sys.modules, "tools", types.ModuleType("tools"))
+    monkeypatch.setitem(sys.modules, "tools.approval", fake)
+    d = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})
+    assert d["action"] == "block" and "approvals are off" in d["message"] and "Always ask a person" in d["message"]
+    assert svc.store.audit_recent(1)[0]["status"] == "blocked"
+    # a command that isn't listed still goes to Hermes
+    assert gate.pre_tool_call(tool_name="car_command", args={"command": "open_frunk"})["action"] == "approve"
+    # and when the internal can't be imported, the hook just asks (the tool-side check is the enforcement)
+    monkeypatch.setitem(sys.modules, "tools.approval", None)
+    assert gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})["action"] == "approve"
+
+
+def test_hook_reuses_a_recent_car_read_instead_of_forcing_one(gate_env, monkeypatch):
+    svc, stub, gate = gate_env
+    svc.get_state(force=True)
+    calls = []
+    real = svc.get_state
+    monkeypatch.setattr(svc, "get_state", lambda **kw: (calls.append(kw), real(**kw))[1])
     gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})
-    assert call({"command": "unlock"})["status"] == "confirmed"
-    # but a hook that never ran (no ticket at all) still fails closed
-    stub.values["locked"] = True
-    assert call({"command": "unlock"})["status"] == "blocked"
+    assert calls and not calls[0].get("force") and calls[0]["max_age_s"] == 600.0
+    calls.clear()
+    call({"command": "unlock"})                       # the tool's own preflight is always a live read
+    assert any(c.get("force") for c in calls)
 
 
 def test_approval_for_one_command_does_not_authorize_another(gate_env):
@@ -160,8 +245,9 @@ def test_model_cannot_forge_approval_through_arguments(gate_env):
     assert stub.sent == []
 
 
-def test_foreign_pattern_keys_are_ignored(gate_env):
-    svc, stub, gate = gate_env
+def test_foreign_pattern_keys_are_ignored(stub_service, stub):
+    svc = stub_service(armed=True, require_human_for=["unlock"])
+    gate = ApprovalGate(lambda: svc)
     d = gate.pre_tool_call(tool_name="car_command", args={"command": "unlock"})
     gate.post_approval_response(pattern_key="plugin_rule:someone-else:unlock:abc", choice="once")
     gate.post_approval_response(pattern_key="rm -rf", choice="once")
@@ -186,7 +272,7 @@ def test_bridge_single_car_command_gets_the_same_verdict_as_direct(gate_env):
     svc, stub, gate = gate_env
     d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "open_trunk", "reason": "r"})),
                            task_id="t1")
-    assert d["action"] == "approve" and d["rule_key"].startswith("pit-crew:open_trunk:")
+    assert d["action"] == "approve" and d["rule_key"] == "pit-crew:open_trunk"
     assert "OPEN TRUNK" in d["message"]
 
 

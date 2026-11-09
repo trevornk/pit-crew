@@ -28,7 +28,7 @@ The car may be **simulated** (the result says `vehicle.simulated: true`) — if 
    - `blocked` / `failed` / `rate_limited` / `invalid` — it did not happen. Explain why in plain language. Do not retry
      in a loop and do not look for a way around the safety checks.
 3. **Risky commands need the human.** `unlock`, `open_trunk`, `open_frunk`, `vent_windows`, `sentry_off`, `honk`, `flash`
-   trigger Hermes' approval prompt. Only use them when the user clearly asked for exactly that. `lock`, `close_windows`
+   go through Hermes' approval gate: Hermes asks the user when their approvals are on, and sends without asking when they are off or yolo (the result says "Sent without asking" then; tell the user that plainly). Only use them when the user clearly asked for exactly that. `lock`, `close_windows`
    and `sentry_on` are safe-direction and need no approval — it's fine to offer them proactively.
 4. **Don't wake a sleeping car** for convenience. If it's asleep, ask first; only then pass `wake_ok: true`.
 5. **Location is a zone** (home / away / a named place). You never have coordinates; don't ask for them.

@@ -90,7 +90,9 @@ def car_command(args: Dict[str, Any], task_id: str = "", session_id: str = "", *
             except ArgError:
                 clean = None
             if clean is not None:
-                strict = str(svc.settings.get("approval_confirmation")) != "hermes_gate"
+                # Follow the user's Hermes approval setting: a call Hermes let through without asking counts, unless
+                # the user listed this command in require_human_for (then only a person's recorded "yes" does).
+                strict = spec.name in svc.settings.get("require_human_for")
                 evidence = svc.broker.take(spec.name, clean, task_id, strict=strict)
         result = svc.run_command(command, raw, surface="tool", session=session_id or task_id, reason=reason,
                                  approval=evidence, unattended=svc.is_unattended())

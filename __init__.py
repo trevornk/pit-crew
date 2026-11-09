@@ -24,9 +24,11 @@ _context_failed_once = False
 
 def _alert_context_hook(platform: str = "", **kwargs: Any) -> Optional[Dict[str, str]]:
     """pre_llm_call: hand the model any alerts the user hasn't seen, once — but only in turns a person reads
-    (never in a scheduled/unattended run, which would swallow the alert)."""
+    (never in a scheduled/unattended run, nor in a delegated subagent's turn: either would swallow the alert)."""
     global _context_failed_once
     try:
+        if kwargs.get("parent_session_id"):
+            return None   # delegate_task child turn: the user never sees it, so it must not consume unseen alerts
         svc = get_service()
         if not svc.settings.get("alert_context") or platform == "cron" or svc.is_unattended():
             return None

@@ -487,7 +487,7 @@ class CarService:
         out: Dict[str, Any] = {
             "armed": info["armed"], "mode": "live" if info["armed"] else "dry_run",
             "armed_by": info["source"], "trusted_zones": list(snap["trusted_zones"]),
-            "max_state_age_s": snap["max_state_age_s"], "approval_confirmation": snap["approval_confirmation"],
+            "max_state_age_s": snap["max_state_age_s"], "require_human_for": list(snap["require_human_for"]),
             "rate_limit": f"{snap['rate_limit_commands']} per {int(snap['rate_limit_window_s'] // 60)} min"}
         if info["until"]:
             out["armed_until"] = self.local_dt(info["until"]).isoformat(timespec="minutes")

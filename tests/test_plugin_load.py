@@ -62,8 +62,10 @@ def test_dry_run_default_needs_no_approval(dry):
     assert dry["directive"][0] is None  # nothing to approve when nothing will be sent
 
 
-def test_armed_unlock_goes_through_hermes_approval_gate_and_fails_closed_without_a_human(live):
-    # The real hook returns the 'approve' directive; with no human/gateway the real gate blocks.
+def test_armed_unlock_hook_returns_the_approve_directive(live):
+    # The real hook returns the 'approve' directive (Hermes' gate then applies the user's approval setting; the real gate
+    # with no human present is covered in test_hermes_approval_e2e). This probe never ran the gate, so the ticket is still
+    # pending when the tool runs: that counts as "Hermes let it through" and is labelled so.
     assert live["directive_lock"][0] is None  # safe-direction lock needs no approval
     assert live["directive"][0] == "approve" and "UNLOCK" in live["directive"][1]
-    assert live["unlock_result"]["status"] == "blocked" and live["unlock_result"]["approval"] == "missing"
+    assert live["unlock_result"]["status"] == "confirmed" and live["unlock_result"]["approval"] == "hermes_auto"

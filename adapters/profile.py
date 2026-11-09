@@ -90,6 +90,9 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             problems.append(f"field '{name}' needs 'attrs' (opening name -> attribute name)")
         elif spec["kind"] in ("attr", "attr_open") and not isinstance(spec.get("attr"), str):
             problems.append(f"field '{name}' needs 'attr'")
+    default_psi = profile.get("tire_min_psi_default")
+    if default_psi is not None and not (isinstance(default_psi, (int, float)) and 10 <= default_psi <= 80):
+        problems.append("'tire_min_psi_default' must be a psi value between 10 and 80")
     for item in profile.get("disabled_command_entities") or []:
         if not (isinstance(item, dict) and isinstance(item.get("entity"), str) and isinstance(item.get("enable_as"), str)
                 and item.get("for") in COMMANDS):

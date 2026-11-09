@@ -3,8 +3,10 @@
 Pressures are psi everywhere. Two ways a tire becomes worth an alert:
 
 * **Low**: below a threshold. The threshold is the rule's ``min_psi`` when set (> 0). Otherwise it is 90 % of the
-  pressure the car itself recommends for that axle (BMW and the Tesla API report it), and when the car does not say
-  (Home Assistant's Tesla Fleet integration does not) it is :data:`DEFAULT_MIN_PSI`, tuned for Tesla's 42 psi placard.
+  pressure the car itself recommends for that axle (BMW and the Tesla API report it). When the car does not say, the
+  adapter may supply a model default in ``state.hints["tire_min_psi"]`` (Home Assistant's Tesla Fleet integration has no
+  recommended-pressure entity, so its profile says 38, which is 90 % of a Model 3/Y's 42 psi placard); otherwise it is
+  :data:`DEFAULT_MIN_PSI`, a conservative 30 psi that no passenger-car placard falls below.
 * **Fast loss**: the pressure fell by at least ``drop_psi`` within ``window_min`` minutes (a puncture or a failing
   valve, long before the absolute value looks low).
 """
@@ -15,7 +17,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .models import VehicleState
 
-DEFAULT_MIN_PSI = 38.0
+DEFAULT_MIN_PSI = 30.0
 RECOMMENDED_FRACTION = 0.90
 #: pressure fields in display order -> (spoken position, axle)
 TIRES: Dict[str, Tuple[str, str]] = {
@@ -44,7 +46,10 @@ def low_threshold_psi(state: VehicleState, axle: str, min_psi: Any) -> float:
     if explicit > 0:
         return explicit
     rec = recommended_psi(state, axle)
-    return round(rec * RECOMMENDED_FRACTION, 1) if rec else DEFAULT_MIN_PSI
+    if rec:
+        return round(rec * RECOMMENDED_FRACTION, 1)
+    hint = (getattr(state, "hints", None) or {}).get("tire_min_psi")
+    return float(hint) if plausible(hint) else DEFAULT_MIN_PSI
 
 
 def readings(state: VehicleState, now: float, stale_after_s: float) -> Tuple[Dict[str, float], bool]:
@@ -80,6 +85,8 @@ def low_tires(state: VehicleState, now: float, stale_after_s: float, min_psi: An
 def track(memo: Dict[str, Any], state: VehicleState, now: float, window_s: float) -> None:
     """Record one sample per tire per *new reading* into ``memo['tires']`` and drop samples older than the window."""
     book: Dict[str, List[List[float]]] = memo.setdefault("tires", {})
+    if state.motion() is True:
+        return              # readings taken while driving are hot; a tire cooling after the drive is not a leak
     for f in TIRES:
         fv = state.fields.get(f)
         if fv is None or not fv.available or not plausible(fv.value):

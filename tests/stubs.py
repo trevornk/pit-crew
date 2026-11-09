@@ -31,6 +31,7 @@ class StubAdapter(CarAdapter):
         self.fail_with: Optional[str] = None
         self.removed_fields: set = set()
         self.commands = frozenset(COMMANDS)
+        self.hints: Dict[str, Any] = {}         # VehicleState.hints (model defaults, e.g. tire_min_psi)
 
     def capabilities(self) -> Capabilities:
         return Capabilities(frozenset(FIELD_NAMES) - self.removed_fields, self.commands)
@@ -42,7 +43,7 @@ class StubAdapter(CarAdapter):
                 fields[name] = FieldValue(self.values[name], now - self.ages.get(name, self.ages.get("*", 0.0)))
             else:
                 fields[name] = FieldValue(None, None, False)
-        return VehicleState(name="Stub", source="stub", captured_at=now, fields=fields)
+        return VehicleState(name="Stub", source="stub", captured_at=now, fields=fields, hints=dict(self.hints))
 
     def send_command(self, command: str, args: Mapping[str, Any]) -> CommandResult:
         if self.fail_with:

@@ -210,7 +210,8 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
     fields["asleep"] = FieldValue(False, now)
     for f in FIELD_NAMES:
         fields.setdefault(f, FieldValue(None, None, False))
-    return VehicleState(name=name, source=source, captured_at=now, fields=fields)
+    # Teslas report their recommended pressure; older firmware may not, and a Model 3/Y placard is 42 psi (90% = 38)
+    return VehicleState(name=name, source=source, captured_at=now, fields=fields, hints={"tire_min_psi": 38.0})
 
 
 # ----------------------------------------------------------------------------------------------------------

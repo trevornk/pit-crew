@@ -103,7 +103,7 @@ class Deliverer:
             ok = False
         if ok:
             for a in claimed:
-                svc.store.alert_set_state(int(a["id"]), "surfaced")
+                svc.store.alert_transition(int(a["id"]), "surfaced", ("pushing",))   # not if it was resolved/acked meanwhile
         else:
             self.undeliverable = True
             for a in claimed:
@@ -123,5 +123,5 @@ class Deliverer:
         if not rows:
             return None
         for r in rows:
-            self._svc.store.alert_set_state(int(r["id"]), "surfaced")
+            self._svc.store.alert_transition(int(r["id"]), "surfaced", ("new",))
         return scrub(format_context(list(reversed(rows))))

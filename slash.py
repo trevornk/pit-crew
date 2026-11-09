@@ -39,7 +39,7 @@ Safety
   /car log [n]            recent command attempts
 Setup
   /car discover           find your car in Home Assistant
-  /car notify here|off|status|test   send proactive alerts to THIS chat (test: push a test message to check delivery)
+  /car notify here|off|status|test   push alerts to THIS chat (test = send a test alert)
   /car import teslamate [days]  backfill trips/charges from TeslaMate (optional)
   /car rules              alert rules and thresholds
   /car desktop-install    get the Pit Crew page into a Desktop app on another machine

@@ -18,13 +18,16 @@ Notable choices made while building, newest last. Format: decision — why.
 ## Safety
 - **Dry-run by default.** `armed: false` means commands are validated, policy-checked, audited and *not sent*. `/car arm`
   arms for a limited time (`arm_default_hours`, default 1h) and auto-disarms; `armed: true` in settings is a standing arm.
-- **Approval uses Hermes' real pipeline.** For commands that need a human, a `pre_tool_call` hook returns
-  `{"action": "approve"}` for `car_command`. The `rule_key` embeds a one-time nonce so choosing "always" can never create
-  a standing allowance.
-- **Positive confirmation of approval.** Hermes' gate can be bypassed by user config (YOLO, `approvals.mode: off`, cron
-  auto-approve). So the tool does not trust "the hook ran": it requires a `post_approval_response` for the same nonce with a
-  human "once/session/always" choice (`approval_confirmation: strict`, the default). `hermes_gate` relaxes this to trusting
-  Hermes' gate alone. Cron / unattended contexts are blocked outright for approval-class commands (fail closed).
+- **Approval uses Hermes' real pipeline, and follows the user's Hermes approval setting** (owner decision, 2026-11-09). A
+  `pre_tool_call` hook returns `{"action": "approve", "rule_key": "pit-crew:<cmd>"}` for approval-class `car_command`s. If the handler
+  runs, Hermes authorized that exact call under the user's own policy (manual, smart, off, yolo, an allowlist entry); denial,
+  timeout and gate errors block before it. The earlier "strict" default refused whatever Hermes had auto-approved, which overrode the
+  user's own `approvals.mode: off`. Replaced by `require_human_for` (empty by default): listed commands get a nonce rule key and need a
+  recorded human *yes*; with approvals off/yolo they are refused with a message. Audit says `confirmed` (a person answered) or
+  `hermes_auto` (Hermes approved without asking). Migration: explicit `approval_confirmation: strict` -> the five old strict
+  commands; unset or `hermes_gate` -> empty. `smart` mode: Hermes asks a person for plugin approvals (no guardian involved).
+  Cron / unattended contexts stay blocked outright for approval-class commands (Pit Crew's floor, stricter than Hermes `cron_mode`).
+  Upstream gap (U2): a plugin cannot ask Hermes for once-only consent or learn how a call was approved, hence the ticket layer.
 - **`lock`, `close_windows`, `sentry_on` need no approval** (safe direction) but still go through policy, rate limit, audit
   and read-back. Everything else in `security`/`attention` needs a human.
 - ~~Unknown motion allowed by default~~ — **superseded in pass 4** (fail closed; see the Pass 4 section).
@@ -305,8 +308,11 @@ Notable choices made while building, newest last. Format: decision — why.
   added to the tested profile.
 
 ## Approval bridge (Hermes Tool Search)
-* **Unwrap `tool_call` in the gate, not in the tool.** Hermes fires `pre_tool_call` once for the bridge name and re-dispatches the real
-  tool with `skip_pre_tool_call_hook=True`, so only a hook that understands the bridge can ask the human. No Hermes patch needed.
+* **Unwrap `tool_call` in the gate: defence in depth.** An earlier note here claimed Hermes fires `pre_tool_call` only for the bridge
+  name. That is wrong for v0.23.0: `agent/tool_executor.py` `_parse_tool_call` -> `_unwrap_tool_search_call` peels the bridge before the
+  hook, and Hermes rejects local multi-entry batches itself (`tools/tool_search.py`). The live "no confirmed human approval" seen with
+  Tool Search was the strict-mode/approvals-off conflict, not the bridge. The gate still understands the raw `tool_call` name for the
+  failure path of that unwrap (an exception there leaves the bridge name), at no cost.
   The ticket is issued under the hook's `task_id`, which the re-dispatch passes unchanged, so `broker.take` finds it; nothing about the
   broker changed.
 * **Batches with an approval-class command are refused, not split.** One prompt per hook verdict is all Hermes supports, and a prompt

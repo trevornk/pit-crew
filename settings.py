@@ -52,7 +52,7 @@ DEFAULTS: Dict[str, Any] = {
     "rate_limit_commands": 10,       # live commands allowed ...
     "rate_limit_window_s": 600,      # ... per this many seconds
     "dedupe_window_s": 60,           # identical live command inside this window is skipped
-    "approval_confirmation": "strict",  # strict | hermes_gate (see docs/SAFETY.md)
+    "require_human_for": [],         # approval-class commands that ALWAYS need a person, even if Hermes approvals are off
     "arm_default_hours": 1,          # how long `/car arm` stays armed
     # --- watcher -------------------------------------------------------------------------
     "watcher_enabled": True,
@@ -76,6 +76,23 @@ DEFAULTS: Dict[str, Any] = {
 ADAPTER_KEYS = ("adapter", "history", "car_name", "tesla_mode", "tesla_vin", "tesla_min_poll_s", "tesla_home_latitude",
                 "tesla_home_longitude", "tesla_home_radius_m", "tesla_zones", "ha_url", "ha_profile", "ha_slug",
                 "ha_entity_overrides", "ha_verify_tls", "teslamate_url", "teslamate_car_id")
+
+# The commands the old ``approval_confirmation: strict`` covered; an explicit ``strict`` migrates to exactly these.
+LEGACY_STRICT_COMMANDS = ("unlock", "open_trunk", "open_frunk", "vent_windows", "sentry_off")
+# Every approval-class command; the only values ``require_human_for`` accepts.
+APPROVAL_COMMANDS = ("unlock", "open_trunk", "open_frunk", "vent_windows", "sentry_off", "honk", "flash")
+
+
+def clean_require_human_for(value: Any) -> List[str]:
+    """Only known approval-class command names, lower-cased, de-duplicated, in a stable order."""
+    if isinstance(value, str):
+        value = [p for p in value.replace(";", ",").split(",")]
+    try:
+        wanted = {str(v).strip().lower() for v in (value or [])}
+    except TypeError:
+        wanted = set()
+    return [c for c in APPROVAL_COMMANDS if c in wanted]
+
 
 SettingsProvider = Callable[[], Mapping[str, Any]]
 
@@ -116,7 +133,11 @@ class Settings:
         for key, val in raw.items():
             if key in DEFAULTS and val is not None:
                 merged[key] = _coerce(key, val)
+        # Migration: the old ``approval_confirmation: strict`` (only if the user set it explicitly) becomes the opt-in list.
+        if raw.get("require_human_for") is None and str(raw.get("approval_confirmation") or "").strip().lower() == "strict":
+            merged["require_human_for"] = list(LEGACY_STRICT_COMMANDS)
         merged.update(self._overrides)
+        merged["require_human_for"] = clean_require_human_for(merged["require_human_for"])
         return merged
 
     def get(self, key: str) -> Any:

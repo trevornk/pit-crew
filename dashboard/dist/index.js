@@ -306,14 +306,14 @@
       h("div", { style: g }, EVERYDAY.map(function (c) { return btn(c, false); })),
       h("div", { style: { borderTop: "1px solid rgba(128,128,128,.3)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 } },
         h("strong", { style: { fontSize: 12 } }, "Hermes asks you first"),
-        h("div", { style: dim }, "For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button. Check the rules here, then say it to Hermes: its own approval prompt decides."),
+        h("div", { style: dim }, "For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button. Check the rules here, then say it to Hermes: your Hermes approval setting decides."),
         h("div", { style: g }, RISKY.map(function (c) { return btn(c, true); }))));
   }
 
   const WHO = { tool: "Hermes (chat)", slash: "/car", desktop: "Pit Crew page", web: "Pit Crew page", cron: "Scheduled job" };
   const OUTCOME = { confirmed: "✓ Car confirmed", sent_unconfirmed: "Sent, not confirmed yet", dry_run: "Practice run", blocked: "Refused", failed: "Failed",
     unknown_outcome: "Unclear if it was sent", rate_limited: "Too many commands", duplicate: "Skipped (repeat)" };
-  const APPROVAL = { confirmed: "You approved", denied: "You declined", not_required: "Not needed", missing: "Not given", unattended: "No one to ask" };
+  const APPROVAL = { confirmed: "You approved", hermes_auto: "Approved by Hermes (no prompt)", denied: "You declined", not_required: "Not needed", missing: "Not given", unattended: "No one to ask" };
 
   function AuditLog(props) {
     const rows = props.rows;
@@ -368,7 +368,7 @@
       h(C.Badge, { variant: a.armed ? "destructive" : "outline" }, a.armed ? "LIVE" + (a.until_local ? " until " + new Date(a.until_local).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "") : "Practice mode · nothing is sent"),
       a.armed ? h(C.Button, { size: "sm", variant: "ghost", onClick: function () { go("/disarm", {}); } }, "Stop")
         : ask[0] ? h("span", { style: row },
-          h("span", { style: { fontSize: 12 } }, props.simulated ? "Go live for " + props.hours + " h? (simulated car)" : "Go live for " + props.hours + " h? Hermes can then send commands; unlock and similar still need your approval."),
+          h("span", { style: { fontSize: 12 } }, props.simulated ? "Go live for " + props.hours + " h? (simulated car)" : "Go live for " + props.hours + " h? Hermes can then send commands; unlock and similar follow your Hermes approval setting."),
           h(C.Button, { size: "sm", variant: "secondary", autoFocus: true, onClick: function () { ask[1](false); } }, "Cancel"),
           h(C.Button, { size: "sm", variant: "destructive", onClick: function () { go("/arm", { confirmed: true, hours: props.hours }); } }, "Go live"))
           : h(C.Button, { size: "sm", variant: "outline", onClick: function () { ask[1](true); } }, "Go live…"),

@@ -41,23 +41,40 @@ A model-initiated risky command takes this path:
 model calls car_command(unlock)
   └─ pre_tool_call hook (ours) ── policy refuses? ─► blocked, never asks you
         │ ok
-        └─ returns {"action":"approve", rule_key:"pit-crew:unlock:<one-time nonce>"}
-  └─ Hermes' real approval gate prompts the human (CLI / Desktop / chat)
-  └─ post_approval_response hook (ours) records the human's actual answer against the nonce
-  └─ car_command runs ONLY if that exact command has a human-confirmed ticket; the ticket is single-use
+        └─ returns {"action":"approve", rule_key:"pit-crew:unlock"}
+  └─ Hermes' approval gate applies YOUR Hermes approval setting (prompt a person, or not)
+  └─ post_approval_response hook (ours) records a person's actual answer, when there was one
+  └─ car_command runs only if the hook approved this exact call and Hermes did not deny it; the ticket is single-use
 ```
+
+**Pit Crew follows your Hermes approval setting; it does not second-guess it.** What Hermes does with the `approve` directive
+(`tools/approval.py` `_run_approval_gate`, Hermes v0.23.0):
+
+| Your Hermes | What happens | Audit says |
+|---|---|---|
+| `approvals.mode: off`, or yolo | Hermes approves without asking | approved by Hermes (no prompt) |
+| `manual` | Hermes asks a person | you approved / declined |
+| `smart` | Hermes **asks a person** too. Hermes does not route plugin approvals to its guardian (`_human_decision` is called without `smart=`; only shell-command checks use it) | you approved / declined |
+| key already allowed (session / always) | Hermes approves without asking | approved by Hermes (no prompt) |
+| scheduled (cron) run | **Pit Crew blocks it**, even with `approvals.cron_mode: approve` (stricter than Hermes on purpose) | no one to ask |
+| any other run with nobody to ask | Hermes blocks it (fail closed) | n/a |
+
+The result then says plainly: "Sent without asking: your Hermes approvals didn't require a prompt (approvals off, yolo, or
+already allowed this session)." If you want a person every time regardless, put the command under *Advanced · Always ask a
+person for these* (`require_human_for`, config only). Those commands use a one-time rule key (so "always" can never skip them) and
+the tool refuses unless a person's *yes* was recorded; with approvals off or yolo they are refused with a message that says why.
 
 Design points:
 
-* **Works with Hermes Tool Search.** When Hermes defers plugin tools, the model calls `car_command` via the bridge tool
-  `tool_call`, and Hermes runs `pre_tool_call` once, for `tool_call` only. The gate unwraps the bridged call and decides exactly as for
-  a direct call, so the approval prompt still appears. **Batching is refused:** a `tool_call` with several entries, any of which is an
-  approval-class `car_command`, is blocked ("send approval-needed car commands on their own, one per tool_call"), and bridge arguments
-  that cannot be read but name `car_command` are blocked. Comfort-only batches are unaffected.
-* **Positive confirmation, not "the hook ran".** Hermes can be configured to skip approvals (YOLO, `approvals.mode: off`,
-  cron auto-approve). In the default `approval_confirmation: strict` mode the tool still refuses unless it saw the human's
-  *yes* for this exact call. `approval_confirmation: hermes_gate` relaxes this to trusting Hermes' gate alone.
-* **"Always allow" can't become a standing permission:** the rule key contains a one-time nonce that never recurs.
+* **Works with Hermes Tool Search.** When Hermes defers plugin tools, the model calls `car_command` through the bridge tool
+  `tool_call`. Hermes v0.23.0 unwraps that call **before** `pre_tool_call` runs (`agent/tool_executor.py`
+  `_unwrap_tool_search_call`), so the hook normally sees `car_command` itself and decides as for a direct call; Hermes itself also
+  refuses multi-entry local batches. The gate's own handling of the raw `tool_call` name is defence in depth for the case where
+  that unwrap fails: it looks inside the bridge call and, if it cannot read it but it names `car_command`, blocks. A `tool_call` batch
+  with an approval-class `car_command` is blocked ("send approval-needed car commands on their own, one per tool_call").
+* **Stable rule key.** Normal commands use `pit-crew:<command>`, so Hermes' once / session / always mean what Hermes says (choosing
+  "session" or "always" really skips later prompts for that command, and nothing dead accumulates in your config). Only commands you
+  put under `require_human_for` carry a one-time nonce.
 * **Tickets are bound** to the exact command + arguments (and the task), expire after 10 minutes, and are consumed on use.
 * **The model cannot forge approval:** there is no argument that grants it; unknown arguments are rejected.
 * **Fail closed:** if the gate itself errors, or the run is unattended, an approval-class command is not sent.
@@ -139,10 +156,11 @@ counts as a parked indicator **only if that sensor is readable** (otherwise the 
   one database): the check and the audit row are one transaction.
 * **Honest outcomes:** a timeout or a half-finished multi-step command is reported as *unclear whether it was sent* (it is
   still counted against the rate limit) instead of a plain failure.
-* **Pick "once"** when Hermes' approval prompt offers once/session/always: Pit Crew's approvals are one-time by construction,
-  so "always" only leaves a harmless unused entry in Hermes' allowlist.
-* **`approval_confirmation: hermes_gate`** (Advanced) trusts Hermes' own gate alone. It is a config-only setting no tool can
-  change, but anything that can edit your Hermes config can already do far more.
+* **Session / always are real.** Choose "once" if you want to be asked again; "session" or "always" on an unlock prompt allows
+  unlock without asking later (Hermes' own rule), unless you listed unlock under *Always ask a person for these*.
+* **`require_human_for`** (Advanced, empty by default) is config-only: no tool can change it. An old explicit
+  `approval_confirmation: strict` migrates to unlock, open_trunk, open_frunk, vent_windows and sentry_off; an unset or
+  `hermes_gate` value means empty.
 * **Don't expose the Hermes dashboard to the internet.** Its plugin routes can switch live mode and send the
   non-approval commands (lock, close windows, climate, charging). They sit behind the dashboard session token, but binding the
   dashboard to `0.0.0.0` on an untrusted network widens who can try. Unlock, trunk and the other approval-class commands cannot

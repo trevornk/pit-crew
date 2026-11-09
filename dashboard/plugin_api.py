@@ -97,7 +97,7 @@ def summary(refresh: bool = False) -> Dict[str, Any]:
     snap = s.settings.snapshot()
     out["settings"] = {k: snap[k] for k in ("adapter", "history", "trusted_zones", "max_state_age_s", "stale_after_s",
                                            "poll_interval_s", "asleep_poll_interval_s", "watcher_enabled", "alert_push",
-                                           "approval_confirmation", "rate_limit_commands", "rate_limit_window_s",
+                                           "require_human_for", "rate_limit_commands", "rate_limit_window_s",
                                            "default_departure", "default_trip_mi", "arm_default_hours")}
     out["notify"] = s.watcher.deliverer.status()
     if "error" in out["adapter"]:

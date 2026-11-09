@@ -1,6 +1,14 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Approval-class commands now follow your Hermes approval setting.** Unlock, trunk, frunk, vent, Sentry-off, honk and flash no longer
+  second-guess Hermes: with approvals on (manual, or smart: Hermes asks a person for plugin approvals) Hermes asks you; with
+  `approvals.mode: off` or yolo, or an already-allowed key, Hermes doesn't ask and neither does Pit Crew. The result says "Sent without
+  asking" and `/car log` shows "approved by Hermes (no prompt)". The old `approval_confirmation` setting is replaced by
+  *Advanced · Always ask a person for these* (`require_human_for`, empty by default; an explicit `strict` migrates to the five old
+  strict commands). Rule keys are now stable (`pit-crew:unlock`) unless the command is in that list. Cron stays blocked.
+  Also: README/`/car desktop-install` no longer claim `hermes plugins update` reloads running processes; the Tool Search notes are
+  corrected (Hermes unwraps the bridge before hooks; the gate's handling is defence in depth); the hook reuses a recent car read.
 - **Fixes from the 2026-11-09 real-car test (Home Assistant `tesla_fleet`).**
   - *Stale data shown as fresh.* An awake car no longer lifts every reading to "now". Each reading keeps its own `last_reported`
     time; only slow-changing ones (lock, doors, windows, trunk/frunk, Sentry, port, plug, limits, versions) are confirmed by the

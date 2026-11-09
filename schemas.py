@@ -86,7 +86,7 @@ CAR_COMMAND = {
         "charge_amps {amps}; defrost {on} (Tesla defrost runs the heat and the fan at MAXIMUM: do not turn it on with anyone or any pet in the car, and say so to the user before you do); seat_heat {seat: driver|passenger|rear_left|rear_center|rear_right, "
         "level 0-3}. The car starts in PRACTICE mode: commands are validated and logged but NOT sent until the "
         "user goes live (`/car live`, or Go live on the Pit Crew page) — the result says which happened, so say it plainly (\"practice "
-        "run, nothing was sent\"). Commands marked NEEDS HUMAN APPROVAL trigger Hermes' approval prompt; they are refused when "
+        "run, nothing was sent\"). Commands marked NEEDS HUMAN APPROVAL go through Hermes' approval gate under the user's own approval setting (Hermes asks them, or not if their approvals are off); they are refused when "
         "nobody can answer (scheduled/unattended runs) and are refused while the car is moving, when its data is "
         "stale, or (unlock/trunk/frunk) when it is away from a trusted zone. Never claim a command worked "
         "unless the result's status is `confirmed` (the car's own state showed the change); `sent_unconfirmed` "

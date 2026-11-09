@@ -161,7 +161,7 @@ function Header({ summary, onRefresh, loading, onGoLive }) {
       h('h1', { style: { fontSize: 18, fontWeight: 600, margin: 0 } }, 'Pit Crew'),
       summary && summary.simulated ? h(Badge, { variant: 'outline' }, 'Simulated car') : null,
       armed ? h(Fragment, null,
-        h(Badge, { variant: armed.armed ? 'warn' : 'muted', title: armed.armed ? 'Hermes can send commands to the car. Unlock, trunk and similar still need your approval in Hermes.' : 'Commands are checked and logged but never sent to the car.' },
+        h(Badge, { variant: armed.armed ? 'warn' : 'muted', title: armed.armed ? 'Hermes can send commands to the car. Unlock, trunk and similar follow your Hermes approval setting.' : 'Commands are checked and logged but never sent to the car.' },
           armed.armed ? `LIVE${armed.until_local ? ' until ' + clock(armed.until_local) : ''}` : 'Practice mode · nothing is sent'),
         armed.armed ? h(Button, { variant: 'ghost', size: 'xs', onClick: stop }, 'Stop')
           : h(Button, { variant: 'outline', size: 'xs', onClick: onGoLive }, 'Go live…')) : null),
@@ -240,7 +240,7 @@ function GoLiveDialog({ summary, onClose, onDone }) {
       h(DialogHeader, null, h(DialogTitle, null, `Go live for ${hours} hours?`),
         h(DialogDescription, null, summary.simulated
           ? 'This is the simulated car, so nothing real can happen.'
-          : 'Hermes will be able to send real commands to your car. Unlock, trunk, frunk, window vent, Sentry-off, honk and flash will still ask for your approval each time. It switches back to practice mode by itself.')),
+          : 'Hermes will be able to send real commands to your car. Unlock, trunk, frunk, window vent, Sentry-off, honk and flash follow your Hermes approval setting (Hermes asks you when its approvals are on). It switches back to practice mode by itself.')),
       h(DialogFooter, null, h(Button, { ref: cancelRef, variant: 'secondary', autoFocus: true, disabled: busy, onClick: onClose }, 'Cancel'),
         h(Button, { variant: 'destructive', disabled: busy, onClick: go }, busy ? 'Going live…' : 'Go live'))))
 }
@@ -493,7 +493,7 @@ function Commands({ summary, v, onPick }) {
       h('span', { style: S.label }, 'Everyday'), h('div', { style: grid }, ...group('everyday'))),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: `1px solid ${T.stroke}`, paddingTop: 10 } },
       h('div', { style: S.row }, h(Codicon, { name: 'shield', style: { color: T.tertiary } }), h('span', { style: S.label }, 'Hermes asks you first')),
-      h('div', { style: S.tiny }, 'For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button: this drafts the request in chat and Hermes’ own approval prompt decides.'),
+      h('div', { style: S.tiny }, 'For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button: this drafts the request in chat and your Hermes approval setting decides.'),
       h('div', { style: grid }, ...group('risky'))))
 }
 
@@ -599,7 +599,7 @@ function userSuggestion(a) {
 const WHO = { tool: 'Hermes (chat)', slash: '/car', desktop: 'Pit Crew page', web: 'Pit Crew page', cron: 'Scheduled job' }
 const OUTCOME = { confirmed: ['✓ Car confirmed', 'success'], sent_unconfirmed: ['Sent, not confirmed yet', 'warn'], dry_run: ['Practice run', 'muted'],
   blocked: ['Refused', 'destructive'], failed: ['Failed', 'destructive'], unknown_outcome: ['Unclear if it was sent', 'warn'], rate_limited: ['Too many commands', 'warn'], duplicate: ['Skipped (repeat)', 'muted'] }
-const APPROVAL = { confirmed: 'You approved', denied: 'You declined', not_required: 'Not needed', missing: 'Not given', unattended: 'No one to ask' }
+const APPROVAL = { confirmed: 'You approved', hermes_auto: 'Approved by Hermes (no prompt)', denied: 'You declined', not_required: 'Not needed', missing: 'Not given', unattended: 'No one to ask' }
 function AuditLog() {
   const q = useQuery({ queryKey: [...QK, 'log'], queryFn: () => api('/log?limit=25'), refetchInterval: 15000 })
   const rows = (q.data && q.data.rows) || []

@@ -1,9 +1,10 @@
 """Hermes hooks that put approval-class commands through Hermes' real human-approval pipeline.
 
 * ``pre_tool_call`` (for ``car_command``): refuse hopeless commands early, fail closed for unattended
-  runs, and return ``{"action": "approve"}`` so Hermes asks a person — with a one-time rule key.
-* ``post_approval_response``: records the person's actual answer against the ticket, so the tool can
-  require *positive* human confirmation rather than assuming the prompt happened.
+  runs, and return ``{"action": "approve"}`` so Hermes applies the user's own approval setting (asks a person,
+  or not when approvals are off/yolo/already allowed). Commands in ``require_human_for`` get a one-time rule key.
+* ``post_approval_response``: records the person's actual answer against the ticket, so the audit can tell a
+  person's "yes" from a call Hermes let through, and ``require_human_for`` commands can demand the former.
 """
 
 from __future__ import annotations
@@ -78,6 +79,19 @@ def split_tool_args(args: Optional[Dict[str, Any]]) -> tuple:
     return command, raw, reason
 
 
+def _hermes_approvals_bypassed() -> bool:
+    """True when Hermes would auto-approve (approvals off / yolo). Undocumented internal, so guarded: unknown -> False
+    (the tool-side check is the real enforcement either way)."""
+    try:
+        from tools.approval import is_approval_bypass_active
+    except ImportError:
+        return False
+    try:
+        return bool(is_approval_bypass_active())
+    except Exception:
+        return False
+
+
 class ApprovalGate:
     def __init__(self, get_service: Callable[[], Any]) -> None:
         self._get = get_service
@@ -102,8 +116,10 @@ class ApprovalGate:
             return None
 
     def _bridge(self, args: Any, task_id: str, session_id: str) -> Optional[Dict[str, Any]]:
-        """Hermes Tool Search defers plugin tools behind ``tool_call`` and fires ``pre_tool_call`` only for the
-        bridge name, so the gate has to look inside. Fails closed for anything approval-class it cannot read."""
+        """Defence in depth. Hermes v0.23.0 unwraps the Tool Search ``tool_call`` bridge before ``pre_tool_call`` runs
+        (agent/tool_executor.py ``_unwrap_tool_search_call``), so normally the hook sees ``car_command`` itself. If that
+        unwrap ever fails, the hook is called with the bridge name, and this looks inside. Fails closed for anything
+        approval-class it cannot read."""
         try:
             entries = unwrap_bridge_calls(args)
             if entries is None:
@@ -155,12 +171,22 @@ class ApprovalGate:
             return {"action": "block",
                     "message": (f"pit-crew: '{spec.name}' needs a human's approval and this is a scheduled/"
                                 "unattended run, so it was NOT sent. Tell the user instead.")}
-        pre = svc.engine.preflight(spec.name, raw)
+        human_required = spec.name in svc.settings.get("require_human_for")
+        if human_required and _hermes_approvals_bypassed():
+            svc.engine.record_block(command=spec.name, args=clean, surface="tool", session=session_id or task_id,
+                                    reason="Hermes approvals are off/yolo and this command is set to always ask a person",
+                                    approval="missing")
+            return {"action": "block",
+                    "message": (f"Your Hermes approvals are off (or yolo is on), and Pit Crew is set to always ask a person "
+                                f"before {spec.name}. Turn approvals on, or remove {spec.name} from 'Always ask a person'.")}
+        # The hook must stay quick (Hermes fails a slow pre_tool_call closed): reuse a recent read here; the tool's
+        # own preflight always does the live one before anything is sent.
+        pre = svc.engine.preflight(spec.name, raw, cached_max_age_s=float(svc.settings.get("max_state_age_s")))
         if not pre["ok"]:
             svc.engine.record_block(command=spec.name, args=clean, surface="tool", session=session_id or task_id,
                                     reason=pre["message"])
             return {"action": "block", "message": f"pit-crew safety policy refused '{spec.name}': {pre['message']}."}
-        ticket = svc.broker.issue(spec.name, clean, task_id)
+        ticket = svc.broker.issue(spec.name, clean, task_id, human_required=human_required)
         state = pre["state"]
         lines = [f"Pit Crew wants to send: {spec.name.upper().replace('_', ' ')}"
                  + (f" {', '.join(f'{k}={v}' for k, v in clean.items() if k not in ('override_zone', 'wake_ok'))}" if clean else ""),

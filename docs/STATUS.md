@@ -133,8 +133,8 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
   service shapes were verified only against the sanitized recordings and fake servers.
 * **Real gateway surfaces** — approval via Telegram/Discord buttons, `inject_message` push to a real chat, and
   `/car arm`'s `ask_choice` on each surface were not exercised (no live gateway in the sandbox). Unit-tested with stubs; the
-  CLI approval path is tested for real. If a surface doesn't fire `post_approval_response`, strict mode will refuse risky
-  commands — set `approval_confirmation: hermes_gate` as the documented escape hatch, and tell us.
+  CLI approval path is tested for real. If a surface doesn't fire `post_approval_response`, the audit shows "approved by Hermes (no prompt)"
+  rather than "you approved" (Pit Crew follows the user's Hermes approval setting; `require_human_for` is the opt-in to always demand a person).
 * **Desktop / web dashboard in the real apps** — rendered with an SDK stub (Desktop) and jsdom (web), not inside the real apps; visual
   polish and SDK prop details (e.g. `Button` ref/autoFocus, `Dialog` focus, `host.composer` while the page replaces the chat view) need an eyeball pass. Screenshots are the owner's to supply (`docs/screenshots/README.md`).
 * `plugins.isolation: host` mode for the dashboard backend is covered by the shared-DB design but not exercised.

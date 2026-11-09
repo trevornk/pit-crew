@@ -7,6 +7,9 @@ import sys
 
 home, repo, scenario = sys.argv[1], sys.argv[2], sys.argv[3]
 os.environ["HERMES_HOME"] = home
+BRIDGE = scenario.startswith("bridge_")
+if BRIDGE:
+    scenario = scenario[len("bridge_"):]
 if scenario in ("once", "deny", "timeout", "always"):
     os.environ["HERMES_INTERACTIVE"] = "1"
 if scenario == "yolo":
@@ -34,7 +37,36 @@ def human(command, description, **kw):
 if scenario in ("once", "deny", "timeout", "always"):
     set_approval_callback(human)
 
-out = {"scenario": scenario}
+out = {"scenario": scenario, "bridge": BRIDGE}
+args = {"command": "unlock", "reason": "e2e test"}
+if BRIDGE:
+    # Tool Search path: Hermes fires pre_tool_call ONCE for the bridge name, then re-dispatches the underlying tool
+    # with skip_pre_tool_call_hook=True (model_tools._dispatch_bridge_tool). Reproduce exactly that sequence.
+    from model_tools import handle_function_call  # noqa: E402
+    entries = [{"name": "car_command", "arguments": args}]
+    if scenario == "batch":
+        entries.append({"name": "car_command", "arguments": {"command": "honk"}})
+    bridge_args = {"calls": entries}
+
+    def run_bridge(task):
+        blk = resolve_pre_tool_block("tool_call", bridge_args, task_id=task, session_id="s")
+        if blk is not None:
+            return blk, None
+        res = handle_function_call("tool_call", bridge_args, task_id=task, session_id="s", skip_pre_tool_call_hook=True)
+        try:
+            return None, json.loads(res)
+        except ValueError:
+            return None, {"raw": res}
+
+    block, result = run_bridge("e2e")
+    out["block_message"], out["result"] = block, result
+    out["prompted"] = len(prompts)
+    out["prompt_text"] = prompts[0]["description"] if prompts else None
+    block2, _ = run_bridge("e2e2")
+    out["second_prompted"] = len(prompts) - out["prompted"]
+    out["second_block"] = block2
+    print("PROBE_JSON:" + json.dumps(out, default=str))
+    sys.exit(0)
 args = {"command": "unlock", "reason": "e2e test"}
 block = resolve_pre_tool_block("car_command", args, task_id="e2e", session_id="s")
 out["block_message"] = block

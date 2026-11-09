@@ -61,3 +61,34 @@ def test_yolo_mode_skips_hermes_prompt_but_strict_mode_still_refuses():
     out = run("yolo")
     assert out["prompted"] == 0 and out["block_message"] is None       # Hermes' gate auto-approved (user's YOLO choice)
     assert out["result"]["status"] == "blocked" and out["result"]["approval"] == "missing"   # ...our tool did not
+
+
+# -- Same pipeline through Hermes Tool Search: hook fires for "tool_call", then the bridge re-dispatches car_command
+#    with skip_pre_tool_call_hook=True. Real hook dispatch + real model_tools bridge re-dispatch. -----------------
+def test_bridge_human_approves_once_then_unlock_is_confirmed():
+    out = run("bridge_once")
+    assert out["prompted"] == 1 and "UNLOCK" in out["prompt_text"]
+    assert out["block_message"] is None
+    assert out["result"]["status"] == "confirmed" and out["result"]["approval"] == "confirmed", out["result"]
+    assert out["second_prompted"] == 1
+
+
+def test_bridge_human_denies_means_nothing_is_sent():
+    out = run("bridge_deny")
+    assert out["prompted"] == 1 and out["block_message"] and out["result"] is None
+
+
+def test_bridge_no_human_fails_closed():
+    out = run("bridge_nohuman")
+    assert out["prompted"] == 0 and out["block_message"] and out["result"] is None
+
+
+def test_bridge_yolo_still_refused_by_strict_mode():
+    out = run("bridge_yolo")
+    assert out["prompted"] == 0 and out["block_message"] is None
+    assert out["result"]["status"] == "blocked" and out["result"]["approval"] == "missing", out["result"]
+
+
+def test_bridge_batch_with_approval_command_refused_before_any_prompt():
+    out = run("bridge_batch")
+    assert out["prompted"] == 0 and out["block_message"] and "one per tool_call" in out["block_message"]

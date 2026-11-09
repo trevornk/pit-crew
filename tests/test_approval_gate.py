@@ -175,3 +175,104 @@ def test_tool_never_raises_on_garbage(gate_env):
     for bad in ({}, {"command": None}, {"command": 5}, {"command": "lock", "args": "nope"}, {"command": "set_temp", "args": {"temp_f": "hot"}}):
         out = json.loads(tools.car_command(bad))
         assert out["ok"] is False or out["status"] in ("dry_run", "confirmed")
+
+
+# -- Hermes Tool Search bridge: pre_tool_call fires for "tool_call", not for the underlying car_command ------------
+def bridge(*entries):
+    return {"calls": [{"name": n, "arguments": a} for n, a in entries]}
+
+
+def test_bridge_single_car_command_gets_the_same_verdict_as_direct(gate_env):
+    svc, stub, gate = gate_env
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "open_trunk", "reason": "r"})),
+                           task_id="t1")
+    assert d["action"] == "approve" and d["rule_key"].startswith("pit-crew:open_trunk:")
+    assert "OPEN TRUNK" in d["message"]
+
+
+def test_bridge_json_string_arguments_and_envelope(gate_env):
+    svc, stub, gate = gate_env
+    a = gate.pre_tool_call(tool_name="tool_call", args={"calls": [{"name": "car_command",
+                           "arguments": json.dumps({"command": "unlock"})}]})
+    b = gate.pre_tool_call(tool_name="tool_call", args={"calls": json.dumps(bridge(("car_command", {"command": "unlock"}))["calls"])})
+    c = gate.pre_tool_call(tool_name="tool_call", args={"name": "car_command", "arguments": {"command": "unlock"}})
+    assert a["action"] == b["action"] == c["action"] == "approve"
+
+
+def test_bridge_end_to_end_approval_reaches_the_tool_and_is_task_bound(gate_env):
+    svc, stub, gate = gate_env
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "unlock"})), task_id="tk")
+    human_says(svc, d, "once")
+    assert call({"command": "unlock"}, task_id="other")["status"] == "blocked"
+    assert call({"command": "unlock"}, task_id="tk")["status"] == "confirmed"
+
+
+def test_bridge_denial_means_not_sent(gate_env):
+    svc, stub, gate = gate_env
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "unlock"})), task_id="tk")
+    human_says(svc, d, "deny")
+    res = call({"command": "unlock"}, task_id="tk")
+    assert res["status"] == "blocked" and stub.sent == []
+
+
+def test_bridge_without_a_prompt_still_fails_closed(gate_env):
+    svc, stub, gate = gate_env
+    assert call({"command": "open_trunk"}, task_id="tk")["status"] == "blocked"
+    assert stub.sent == []
+
+
+def test_bridge_unattended_and_policy_refusals_still_block(gate_env):
+    svc, stub, gate = gate_env
+    stub.values.update(moving=True, speed_mph=50.0)
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "unlock"})))
+    assert d["action"] == "block" and "moving" in d["message"]
+    stub.values.update(moving=False, speed_mph=0.0)
+    svc.ctx.cron = True
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "open_frunk"})))
+    assert d["action"] == "block" and "unattended" in d["message"]
+
+
+def test_bridge_batch_with_an_approval_command_is_refused(gate_env):
+    svc, stub, gate = gate_env
+    for entries in ((("car_command", {"command": "unlock"}), ("car_command", {"command": "lock"})),
+                    (("car_status", {}), ("car_command", {"command": "honk"})),
+                    (("car_command", {"command": "lock"}), ("car_command", {"command": "open_trunk"}))):
+        d = gate.pre_tool_call(tool_name="tool_call", args=bridge(*entries))
+        assert d["action"] == "block" and "one per tool_call" in d["message"]
+
+
+def test_bridge_batch_of_comfort_only_passes_and_other_tools_ignored(gate_env):
+    svc, stub, gate = gate_env
+    assert gate.pre_tool_call(tool_name="tool_call", args=bridge(
+        ("car_command", {"command": "lock"}), ("car_command", {"command": "set_temp", "args": {"temp_f": 70}}))) is None
+    assert gate.pre_tool_call(tool_name="tool_call", args=bridge(("terminal", {"command": "ls"}))) is None
+    assert gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_status", {}), ("car_alerts", {}))) is None
+    assert gate.pre_tool_call(tool_name="tool_call", args={}) is None
+    assert gate.pre_tool_call(tool_name="tool_call", args=None) is None
+
+
+def test_bridge_dry_run_and_invalid_args_need_no_prompt(stub_service, stub):
+    svc = stub_service()  # disarmed
+    gate = ApprovalGate(lambda: svc)
+    assert gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "unlock"}))) is None
+    assert gate.pre_tool_call(tool_name="tool_call", args=bridge(
+        ("car_command", {"command": "unlock"}), ("car_command", {"command": "honk"}))) is None
+
+
+def test_bridge_unreadable_arguments_naming_car_command_block(gate_env):
+    svc, stub, gate = gate_env
+    for bad in ({"calls": [{"name": "car_command", "arguments": "{not json"}]},
+                {"calls": [{"name": "car_command", "arguments": 5}]},
+                {"calls": "[{\"name\": \"car_command\", \"arguments\": {\"command\": \"unlock\"}"},
+                {"calls": [{"name": "car_command", "arguments": {"command": "unlock"}}, "junk"]}):
+        d = gate.pre_tool_call(tool_name="tool_call", args=bad)
+        assert d["action"] == "block", bad
+    # unreadable but unrelated to car_command: not our business
+    assert gate.pre_tool_call(tool_name="tool_call", args={"calls": [{"name": "terminal", "arguments": "{bad"}]}) is None
+
+
+def test_bridge_gate_error_fails_closed(gate_env, monkeypatch):
+    svc, stub, gate = gate_env
+    monkeypatch.setattr(svc, "armed_info", lambda: (_ for _ in ()).throw(RuntimeError("db down")))
+    d = gate.pre_tool_call(tool_name="tool_call", args=bridge(("car_command", {"command": "unlock"})))
+    assert d["action"] == "block"

@@ -71,6 +71,13 @@ def interact(tmp_path, data, clicks=()):
     return _run(ROOT / "tests" / "desktop" / "interact.mjs", [str(f), json.dumps(list(clicks))], cwd=ROOT / "tests" / "desktop")
 
 
+def ask_hermes(tmp_path, data, scenario):
+    """Click "Ask Hermes" with no mounted composer; returns what the page did (inserts, actions, timers, clipboard)."""
+    f = tmp_path / "ask.json"
+    f.write_text(json.dumps(data))
+    return _run(ROOT / "tests" / "desktop" / "ask.mjs", [str(f), scenario], cwd=ROOT / "tests" / "desktop")
+
+
 def backend_summary(service):
     spec = importlib.util.spec_from_file_location("car_plugin_api", ROOT / "dashboard" / "plugin_api.py")
     mod = importlib.util.module_from_spec(spec)

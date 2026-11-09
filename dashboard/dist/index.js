@@ -305,7 +305,7 @@
       panel,
       h("div", { style: g }, EVERYDAY.map(function (c) { return btn(c, false); })),
       h("div", { style: { borderTop: "1px solid rgba(128,128,128,.3)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 } },
-        h("strong", { style: { fontSize: 12 } }, "Hermes asks you first"),
+        h("strong", { style: { fontSize: 12 } }, "Goes through Hermes’ approvals"),
         h("div", { style: dim }, "For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button. Check the rules here, then say it to Hermes: your Hermes approval setting decides."),
         h("div", { style: g }, RISKY.map(function (c) { return btn(c, true); }))));
   }

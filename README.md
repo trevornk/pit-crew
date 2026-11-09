@@ -49,7 +49,7 @@ will I be ready for a 40-mile trip tomorrow at 7:30?
 /car sim drive 10 away        ... and drive away from home
 /car sim advance 15           fast-forward 15 minutes: the watcher raises an alert
 /car lock                     fix it (practice mode: checked and logged, nothing is sent)
-/car live                     go live (you confirm; it stops by itself after 8 h)
+/car live                     go live (you confirm; it stops by itself after 1 h)
 unlock my car                 Hermes asks YOU to approve, then reads the car back
 /car log                      the audit trail
 /car practice                 back to practice mode

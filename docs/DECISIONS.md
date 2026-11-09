@@ -17,7 +17,7 @@ Notable choices made while building, newest last. Format: decision — why.
 
 ## Safety
 - **Dry-run by default.** `armed: false` means commands are validated, policy-checked, audited and *not sent*. `/car arm`
-  arms for a limited time (`arm_default_hours`, default 8h) and auto-disarms; `armed: true` in settings is a standing arm.
+  arms for a limited time (`arm_default_hours`, default 1h) and auto-disarms; `armed: true` in settings is a standing arm.
 - **Approval uses Hermes' real pipeline.** For commands that need a human, a `pre_tool_call` hook returns
   `{"action": "approve"}` for `car_command`. The `rule_key` embeds a one-time nonce so choosing "always" can never create
   a standing allowance.

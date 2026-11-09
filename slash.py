@@ -10,6 +10,7 @@ from .adapters.base import AdapterError, SecretScopeUnavailable
 from .brain import tires
 from .brain.models import describe_state
 from .brain.timeparse import fmt_clock
+from .constants import DISPLAY_NAME, VERSION
 from .service import get_service
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ Everyday
   /car alerts [ack [id]]  open alerts (ack with no id acknowledges all)
   ...or just ask in plain language: "lock my car", "warm it up", "will I make it tomorrow?"
 Safety
-  /car live [hours]       go live: Hermes can send commands (asks first; stops by itself, 8 h default)
+  /car live [hours]       go live: Hermes can send commands (asks first; stops by itself, 1 h default)
   /car practice           back to practice mode: commands are checked and logged, nothing is sent
   /car log [n]            recent command attempts
 Setup
@@ -247,7 +248,7 @@ def _arm(svc: Any, rest: List[str]) -> str:
     if not confirmed:
         what = ("This is the SIMULATED car, so nothing real can happen." if simulated else
                 f"Hermes will be able to send real commands to your {svc.adapter.label}. Unlock, trunk and similar still ask for your approval each time.")
-        question = f"Go live for {hours:g} hours{note}? {what}"
+        question = f"Go live for {hours:g} {'hour' if hours == 1 else 'hours'}{note}? {what}"
         answer = None
         ctx = svc.ctx
         if ctx is not None:
@@ -438,8 +439,8 @@ def handle(raw_args: str = "", *, session_id: str = "", session_key: str = "", p
         if sub in ("desktop-install", "desktop"):
             return DESKTOP_INSTALL
         if sub in ("help", "?", "-h", "--help"):
-            return HELP
-        return f"Unknown subcommand '{sub}'.\n{HELP}"
+            return f"{DISPLAY_NAME} {VERSION}\n{HELP}"
+        return f"Unknown subcommand '{sub[:40]}' ({DISPLAY_NAME} {VERSION}).\n{HELP}"
     except Exception as exc:
         logger.exception("/car failed")
         return f"/car hit an internal error ({type(exc).__name__}). Details are in the Hermes log."

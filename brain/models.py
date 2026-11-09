@@ -69,12 +69,20 @@ _SPECS: List[FieldSpec] = [
     FieldSpec("tire_psi_rr", "Tire pressure rear right", "tires", "psi"),
     FieldSpec("tire_rec_front_psi", "Recommended front tire pressure", "tires", "psi"),
     FieldSpec("tire_rec_rear_psi", "Recommended rear tire pressure", "tires", "psi"),
+    FieldSpec("tire_warn_fl", "Car's tire warning front left", "tires"),
+    FieldSpec("tire_warn_fr", "Car's tire warning front right", "tires"),
+    FieldSpec("tire_warn_rl", "Car's tire warning rear left", "tires"),
+    FieldSpec("tire_warn_rr", "Car's tire warning rear right", "tires"),
 ]
 
 #: public (tool / page) names of the tire fields, in display order
 TIRE_PUBLIC = {"tire_psi_fl": "front_left_psi", "tire_psi_fr": "front_right_psi", "tire_psi_rl": "rear_left_psi",
                "tire_psi_rr": "rear_right_psi", "tire_rec_front_psi": "recommended_front_psi",
                "tire_rec_rear_psi": "recommended_rear_psi"}
+
+#: the car's own per-tire TPMS warning (True = the car says this tire needs attention), same public naming
+TIRE_WARN_PUBLIC = {"tire_warn_fl": "front_left_warning", "tire_warn_fr": "front_right_warning",
+                    "tire_warn_rl": "rear_left_warning", "tire_warn_rr": "rear_right_warning"}
 
 FIELD_SPECS: Dict[str, FieldSpec] = {s.name: s for s in _SPECS}
 FIELD_NAMES = tuple(FIELD_SPECS)
@@ -246,6 +254,7 @@ class VehicleState:
             motion["moving"] = mv
         software = grp("software_update_available", "software_version", "odometer_mi")
         tires = {label: round(float(v(f)), 1) for f, label in TIRE_PUBLIC.items() if self.has(f)}
+        tires.update({label: bool(v(f)) for f, label in TIRE_WARN_PUBLIC.items() if self.has(f)})
         status = grp("asleep")
 
         stale = {n: int(a) for n in FIELD_NAMES

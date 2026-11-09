@@ -105,7 +105,7 @@ def test_disabled_entities_are_explained_when_missing_and_silent_once_enabled():
         assert len(warns) == 1
         w = warns[0]
         for title in ("Odometer", "Tire pressure front left", "Tire pressure front right", "Tire pressure rear left",
-                      "Tire pressure rear right"):
+                      "Tire pressure rear right", "Tire pressure warning front left", "Tire pressure warning rear right"):
             assert title in w, title
         assert "Tesla Fleet" in w and "ships them disabled" in w and "turn on Enabled" in w
         assert "Shift state" not in w and "Speed" not in w                 # motion has its own warning
@@ -114,7 +114,8 @@ def test_disabled_entities_are_explained_when_missing_and_silent_once_enabled():
     finally:
         ha.stop()
     every = [("sensor.demo_car_odometer", "100", {"unit_of_measurement": "mi"})] + [
-        (f"sensor.demo_car_tire_pressure_{p}", "42", {"unit_of_measurement": "psi"}) for p in POS.values()]
+        (f"sensor.demo_car_tire_pressure_{p}", "42", {"unit_of_measurement": "psi"}) for p in POS.values()] + [
+        (f"binary_sensor.demo_car_tire_pressure_warning_{p}", "off", {}) for p in POS.values()]
     ha = FakeHA(ha_states(every))
     try:
         a = adapter(ha)
@@ -129,7 +130,8 @@ def test_discovery_says_which_disabled_entities_to_enable():
     text = " ".join(res["warnings"])
     assert "Odometer" in text and "Tire pressure rear right" in text and "Settings → Devices & services → Tesla Fleet" in text
     full = ha_states([("sensor.demo_car_odometer", "1", {}), ("sensor.demo_car_shift_state", "p", {}), ("sensor.demo_car_speed", "0", {})]
-                     + [(f"sensor.demo_car_tire_pressure_{p}", "42", {}) for p in POS.values()])
+                     + [(f"sensor.demo_car_tire_pressure_{p}", "42", {}) for p in POS.values()]
+                     + [(f"binary_sensor.demo_car_tire_pressure_warning_{p}", "off", {}) for p in POS.values()])
     assert discover(full)["warnings"] == []
 
 
@@ -512,3 +514,109 @@ def test_a_too_small_configured_value_is_raised_to_the_floor(svc):
     assert cfg["drop_psi"] == 0.5
     svc.store.kv_set("rule_overrides", {"tire_fast_loss": {"drop_psi": 0}})   # as if an old override or file said 0
     assert svc.watcher.engine.rule_config(rule)["drop_psi"] == 0.5
+
+
+# -- the car's own TPMS warnings (B1) -------------------------------------------------------------------------------
+def warn_alerts(s):
+    return [a for a in s.alerts(("new", "surfaced", "acked")) if a["rule"] == "tire_car_warning"]
+
+
+def test_ha_profile_maps_the_cars_tire_warnings_with_ha_core_entity_names():
+    f = load_profile("tesla_fleet")["fields"]
+    # tesla_fleet binary_sensor keys vehicle_state_tpms_soft_warning_{fl,fr,rl,rr}, strings.json "Tire pressure warning <pos>"
+    for pos, name in POS.items():
+        spec = f["tire_warn_" + pos]
+        assert spec["entity"] == f"binary_sensor.{{slug}}_tire_pressure_warning_{name}" and spec["kind"] == "on_off"
+        assert spec["disabled_by_default"] is True and spec["enable_as"] == "Tire pressure warning " + name.replace("_", " ")
+
+
+def test_ha_tire_warnings_are_read_and_explained_when_disabled():
+    extra = [("binary_sensor.demo_car_tire_pressure_warning_rear_right", "on", {"device_class": "problem"}),
+             ("binary_sensor.demo_car_tire_pressure_warning_front_left", "off", {"device_class": "problem"}),
+             ("binary_sensor.demo_car_tire_pressure_warning_front_right", "unavailable", {})]
+    ha = FakeHA(ha_states(extra))
+    try:
+        a = adapter(ha)
+        st = a.fetch_state(NOW)
+        hint = a.disabled_entity_hint(("tire_warn_rl",))
+    finally:
+        ha.stop()
+    assert st.value("tire_warn_rr") is True and st.value("tire_warn_fl") is False
+    assert not st.has("tire_warn_fr") and not st.has("tire_warn_rl")
+    assert "Tire pressure warning rear left" in hint
+    assert st.to_public(NOW)["tires"] == {"rear_right_warning": True, "front_left_warning": False}
+
+
+def test_direct_tesla_soft_or_hard_warning_marks_the_tire():
+    from pit_crew.adapters.tesla_direct import tesla_data_to_state
+
+    now = 1_790_000_000.0
+    vs = {"timestamp": int(now * 1000), "tpms_soft_warning_fl": False, "tpms_hard_warning_fl": False,
+          "tpms_soft_warning_fr": True, "tpms_hard_warning_fr": False,
+          "tpms_soft_warning_rl": False, "tpms_hard_warning_rl": True, "tpms_soft_warning_rr": None}
+    st = tesla_data_to_state({"vehicle_state": vs}, now, name="t")
+    assert [st.value(f"tire_warn_{p}") for p in ("fl", "fr", "rl")] == [False, True, True]
+    assert not st.has("tire_warn_rr")                                      # null: unavailable, not 'no warning'
+
+
+def test_simulator_raises_the_cars_warning_for_a_very_low_tire(service):
+    sim = service.adapter
+    assert service.get_state(force=True).value("tire_warn_rr") is False
+    sim.control("low_tire", tire="rr", psi=28)
+    assert service.get_state(force=True).value("tire_warn_rr") is True
+
+
+def test_car_warning_rule_alerts_once_for_a_fresh_warning_and_resolves(svc, stub, clock):
+    stub.values.update(tire_warn_fl=False, tire_warn_fr=False, tire_warn_rl=False, tire_warn_rr=True)
+    poll(svc)
+    assert warn_alerts(svc) == []                                            # held for 5 minutes first
+    clock.advance(6 * 60)
+    raised = poll(svc)["raised"]
+    assert [a["rule"] for a in raised] == ["tire_car_warning"]
+    assert "rear right" in raised[0]["body"] and raised[0]["severity"] == "high"
+    clock.advance(6 * 60)
+    assert poll(svc)["raised"] == []                                         # de-duplicated
+    stub.values["tire_warn_rr"] = False
+    clock.advance(6 * 60)
+    poll(svc)
+    assert warn_alerts(svc) == []
+
+
+def test_stale_or_unavailable_car_warning_never_alerts_and_does_not_resolve(svc, stub, clock):
+    stub.values.update(tire_warn_fl=False, tire_warn_rr=True)
+    stub.ages["tire_warn_rr"] = 5 * 3600.0                                   # a day-old warning is not news (R16)
+    for _ in range(3):
+        poll(svc)
+        clock.advance(6 * 60)
+    assert warn_alerts(svc) == []
+    stub.ages.pop("tire_warn_rr")
+    poll(svc); clock.advance(6 * 60)
+    assert len(poll(svc)["raised"]) == 1
+    stub.ages["tire_warn_rr"] = 5 * 3600.0
+    stub.values["tire_warn_rr"] = False
+    clock.advance(6 * 60)
+    poll(svc)
+    assert len(warn_alerts(svc)) == 1                                        # a quiet sensor neither alerts nor resolves
+
+
+def test_cars_without_warning_data_skip_that_rule_with_the_enable_hint(stub_service, stub):
+    s = stub_service(armed=False, watcher_enabled=True)
+    st = s.get_state(force=True)
+    notes = {r["id"]: r.get("note") for r in s.watcher.engine.describe_rules(st)}
+    assert "tire warnings" in notes["tire_car_warning"]
+
+
+def test_status_card_and_page_surface_the_cars_warning(svc, stub):
+    stub.values.update(tire_warn_rr=True)
+    state = svc.get_state(force=True)
+    assert "car warns: RR" in tires.summary_line(state)
+    assert svc.get_state(force=True).to_public(svc.now())["tires"]["rear_right_warning"] is True
+
+
+@needs_web_render
+def test_desktop_and_web_pages_show_the_cars_tire_warning(service, tmp_path):
+    service.adapter.control("low_tire", tire="rr", psi=27)
+    mod, summary = backend_summary(service)
+    assert "Car warns: RR" in render(tmp_path, summary, rules=mod.rules())["page"]
+    out = render_web(tmp_path, {"/summary": summary, "/log": {"ok": True, "rows": []}})
+    assert "Car warns: RR" in out["html"]

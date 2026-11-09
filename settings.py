@@ -53,7 +53,7 @@ DEFAULTS: Dict[str, Any] = {
     "rate_limit_window_s": 600,      # ... per this many seconds
     "dedupe_window_s": 60,           # identical live command inside this window is skipped
     "approval_confirmation": "strict",  # strict | hermes_gate (see docs/SAFETY.md)
-    "arm_default_hours": 8,          # how long `/car arm` stays armed
+    "arm_default_hours": 1,          # how long `/car arm` stays armed
     # --- watcher -------------------------------------------------------------------------
     "watcher_enabled": True,
     "poll_interval_s": 120,

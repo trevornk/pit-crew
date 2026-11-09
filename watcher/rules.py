@@ -268,6 +268,18 @@ def _tire_low(c: RuleContext) -> List[Finding]:
                     data={"tires": {pos: round(psi, 1) for pos, psi, _ in low}})]
 
 
+def _tire_car_warning(c: RuleContext) -> List[Finding]:
+    stale_after = float(c.settings.get("stale_after_s") or 900)
+    warned = tires.car_warnings(c.state, c.now, stale_after)
+    if not warned:
+        return []
+    key = "tire_warn:" + "|".join(sorted(p.replace(" ", "_") for p in warned))
+    return [Finding(key, "The car is warning about a tire",
+                    f"The car's own tire-pressure warning is on for: {', '.join(warned)} (seen at {fmt_clock(c.local)}).",
+                    "Check that tire's pressure and condition before a long drive; I can't add air from here.",
+                    hold_s=float(c.cfg["minutes"]) * 60, severity="high", data={"tires": warned})]
+
+
 def _tire_fast_loss(c: RuleContext) -> List[Finding]:
     window_s = float(c.cfg["window_min"]) * 60.0
     stale_after = float(c.settings.get("stale_after_s") or 900)
@@ -318,6 +330,10 @@ RULES: List[Rule] = [
          "Alert when a tire drops by N psi within a short window (a puncture or leaking valve).",
          {"enabled": True, "drop_psi": 3, "window_min": 30, "cooldown_min": 120}, (), _tire_fast_loss,
          requires_any=tuple(tires.TIRES)),
+    Rule("tire_car_warning", "Car reports a tire warning",
+         "Alert when the car's own tire-pressure warning (TPMS) is on for a tire.",
+         {"enabled": True, "minutes": 5, "cooldown_min": 720}, (), _tire_car_warning,
+         requires_any=tuple(tires.WARNINGS)),
     Rule("software_update", "Software update available",
          "Gentle heads-up when the car has a software update waiting.",
          {"enabled": True, "cooldown_min": 10080}, ("software_update_available",), _software_update),

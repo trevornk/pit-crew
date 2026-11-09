@@ -283,6 +283,9 @@ class SimulatorAdapter(CarAdapter):
             **{f"tire_psi_{pos}": round(psi * _tire_temp_factor(outside), 1) for pos, psi in st["tires"].items()},
             "tire_rec_front_psi": TIRE_PLACARD_PSI,
             "tire_rec_rear_psi": TIRE_PLACARD_PSI,
+            # the car's own warning comes on when a tire is 30 % under its placard
+            **{f"tire_warn_{pos}": round(psi * _tire_temp_factor(outside), 1) < TIRE_PLACARD_PSI * 0.7
+               for pos, psi in st["tires"].items()},
         }
         fields = {name: FieldValue(vals[name], report if name != "asleep" else sim_now) for name in vals}
         for name in FIELD_NAMES:

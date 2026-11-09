@@ -95,9 +95,9 @@ def test_go_live_defaults_to_one_hour_everywhere(service):
 
     root = Path(__file__).resolve().parent.parent
     manifest = yaml.safe_load((root / "plugin.yaml").read_text())
-    assert manifest["config_schema"]["arm_default_hours"]["default"] == 1
-    assert S.DEFAULTS["arm_default_hours"] == 1
-    assert "1 h default" in slash.HELP
+    assert manifest["config_schema"]["live_default_hours"]["default"] == 1
+    assert S.DEFAULTS["live_default_hours"] == 1
+    assert "default 1 h" in slash.HELP
     assert service.clamp_hours(None) == 1.0
     assert service.clamp_hours(1000) == 72.0 and service.clamp_hours(0.01) == 0.25      # the limits did not move
     text = slash.handle("live")

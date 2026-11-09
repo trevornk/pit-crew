@@ -453,13 +453,15 @@ class CarService:
                 "forced_disarm": bool(st.get("forced_disarm"))}
 
     def clamp_hours(self, hours: Optional[float]) -> float:
-        """The live-mode duration actually used: between 15 minutes and 72 hours (so callers can say the truth)."""
+        """The live-mode duration actually used (so callers can say the truth): no number -> the ``live_default_hours``
+        setting (1-24 h); an explicit number is kept between 15 minutes and 72 hours. There is no "forever"."""
+        default = float(self.settings.get("live_default_hours"))
         try:
-            h = float(hours if hours is not None else self.settings.get("arm_default_hours"))
+            h = float(hours if hours is not None else default)
         except (TypeError, ValueError):
-            h = float(self.settings.get("arm_default_hours"))
+            h = default
         if h != h:   # NaN
-            h = float(self.settings.get("arm_default_hours"))
+            h = default
         return max(0.25, min(h, 72.0))
 
     def arm(self, hours: Optional[float] = None, *, by: str = "") -> Dict[str, Any]:

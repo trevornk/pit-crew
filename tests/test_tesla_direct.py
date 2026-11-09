@@ -61,6 +61,9 @@ class FakeClient:
             self.data["response"]["vehicle_state"]["locked"] = False
         if self.apply and name == "lock":
             self.data["response"]["vehicle_state"]["locked"] = True
+        if self.apply and name in ("lock", "unlock", "door_unlock"):
+            # the car re-reports the section when its state changes: a fresh car-side timestamp
+            self.data["response"]["vehicle_state"]["timestamp"] = int(NOW * 1000)
         return self.command_result
 
 

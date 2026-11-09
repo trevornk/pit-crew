@@ -17,7 +17,7 @@ from __future__ import annotations
 import threading
 import logging
 import time
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from ..adapters.base import AdapterError, AdapterUnavailable, SecretScopeUnavailable
 from ..brain.commands import ArgError, CommandSpec, canonical_args, get_spec, validate_args
@@ -208,13 +208,14 @@ class SafetyEngine:
         try:
             if args.get("wake_ok") and hasattr(svc.adapter, "allow_wake_once"):
                 svc.adapter.allow_wake_once()  # the human agreed to wake the car for THIS command only
+            sent_at = svc.now()
             sent = svc.adapter.send_command(spec.name, send_args)
         except AdapterError as exc:
             if (isinstance(exc, AdapterUnavailable) and not isinstance(exc, SecretScopeUnavailable)) \
                     or getattr(exc, "partial", False):
                 # A timeout / half-finished multi-step command: the car may well have acted. Say so, and look.
                 rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]),
-                                     float(settings["verify_interval_s"]))
+                                     float(settings["verify_interval_s"]), sent_at=sent_at)
                 if rb["status"] == "confirmed":
                     msg = (f"The request to the car timed out or only partly completed ({exc}), but the car "
                            f"shows the change at {rb['at_local']}.")
@@ -241,14 +242,20 @@ class SafetyEngine:
                                 approval=approval_status, message=f"Failed: {msg}.", audit_id=aid)
 
         # -- live: read-back ------------------------------------------------------------------------
-        rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]), float(settings["verify_interval_s"]))
-        if rb["status"] == "confirmed":
+        rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]), float(settings["verify_interval_s"]),
+                             sent_at=sent_at, before=pre.get("state"), stale_after_s=float(settings.get("stale_after_s") or 900))
+        if rb["status"] == "confirmed" and rb.get("already"):
+            status, ok = "confirmed", True
+            msg = (f"Sent {label}. The car already showed this ({rb['already']}) before the command, so nothing needed to "
+                   "change.")
+        elif rb["status"] == "confirmed":
             status, ok = "confirmed", True
             msg = f"Sent {label}, and the car confirmed it at {rb['at_local']}."
         elif rb["status"] == "not_confirmed":
             status, ok = "sent_unconfirmed", True
             msg = (f"Sent {label}, but the car has NOT confirmed it yet (checked for "
-                   f"{int(float(settings['verify_timeout_s']))} s). Check status again before relying on it.")
+                   f"{int(rb.get('waited_s') or float(settings['verify_timeout_s']))} s). {rb.get('detail', '')} "
+                   "Check status again before relying on it.")
         else:
             status, ok = "sent_unconfirmed", True
             msg = (f"Sent {label}. This car does not report anything that lets me verify it, so I can't confirm "
@@ -266,13 +273,47 @@ class SafetyEngine:
         return self._result(ok=False, status="blocked", command=spec.name, spec=spec, armed=armed, policy=pol,
                             approval=approval, message=f"Not sent: {why}.", audit_id=aid)
 
+    @staticmethod
+    def _observed_at(state: VehicleState, names: Tuple[str, ...]) -> Optional[float]:
+        """The oldest time the car/integration actually wrote the fields a read-back relies on (the raw stamp, not one
+        borrowed from other fields), or None when any is missing."""
+        stamps = []
+        for n in names:
+            fv = state.fields.get(n)
+            if fv is None or not fv.available or fv.updated_at is None:
+                return None
+            stamps.append(fv.changed_at if fv.changed_at is not None else fv.updated_at)
+        return min(stamps) if stamps else None
+
     def _read_back(self, spec: CommandSpec, args: Mapping[str, Any], timeout_s: float,
-                   interval_s: float) -> Dict[str, Any]:
+                   interval_s: float, *, sent_at: Optional[float] = None, before: Optional[VehicleState] = None,
+                   stale_after_s: float = 900.0) -> Dict[str, Any]:
+        """Re-read the car until its OWN report shows the change.
+
+        * ``confirmed`` needs the relevant fields to have been *written after the command went out*; an old value that
+          happens to match proves nothing (HA can serve a 36-minute-old "charging").
+        * If the car already showed the target state, with fresh data, before the command, that is reported as
+          ``confirmed`` with ``already`` set ("already closed"), not as a failed change.
+        * Commands whose result lags (charging: Fleet API takes 30-90 s) keep looking for ``spec.verify_window_s``."""
         svc = self._svc
         if spec.verify is None:
             return {"status": "unverifiable", "detail": "this command has no observable result"}
-        deadline = svc._wall() + max(0.0, timeout_s)
+        names = tuple(spec.verify_fields)
+        already = ""
+        if before is not None:
+            try:
+                was = spec.verify(before, args)
+            except (TypeError, ValueError, KeyError):
+                was = None
+            obs = self._observed_at(before, names)
+            if was is True and obs is not None and before.captured_at - obs <= stale_after_s:
+                already = self._already_text(spec, args)
+        window = max(0.0, timeout_s, spec.verify_window_s)
+        step = max(0.05, interval_s, 5.0 if spec.verify_window_s else 0.0)
+        started = svc._wall()
+        deadline = started + window
         last: Optional[VehicleState] = None
+        saw_old_match = False
         while True:
             try:
                 last = svc.get_state(force=True)
@@ -282,9 +323,28 @@ class SafetyEngine:
             if verdict is None:
                 return {"status": "unverifiable", "detail": "the car does not report the field needed to verify this"}
             if verdict:
-                at = svc._wall()
-                return {"status": "confirmed", "at": at, "at_local": fmt_clock(svc.local_dt(svc.now())),
-                        "detail": "state re-read from the car shows the change"}
+                obs = self._observed_at(last, names)
+                if already:
+                    return {"status": "confirmed", "at": svc._wall(), "at_local": fmt_clock(svc.local_dt(svc.now())),
+                            "already": already, "detail": f"already {already} before the command; nothing needed to change"}
+                if sent_at is None or (obs is not None and obs >= sent_at - 5.0):
+                    at = svc._wall()
+                    return {"status": "confirmed", "at": at, "at_local": fmt_clock(svc.local_dt(svc.now())),
+                            "detail": "state re-read from the car shows the change"}
+                saw_old_match = True        # matches, but the value predates the command: not evidence
             if svc._wall() >= deadline:
-                return {"status": "not_confirmed", "detail": "state still shows the old value"}
-            svc._sleep(max(0.05, interval_s))
+                if saw_old_match:
+                    detail = ("the matching value was written before the command was sent, so it is not proof; the "
+                              "integration has not refreshed it since")
+                else:
+                    detail = "state still shows the old value"
+                return {"status": "not_confirmed", "detail": detail, "waited_s": window}
+            svc._sleep(step)
+
+    @staticmethod
+    def _already_text(spec: CommandSpec, args: Mapping[str, Any]) -> str:
+        words = {"lock": "locked", "unlock": "unlocked", "close_windows": "closed", "sentry_on": "on", "sentry_off": "off",
+                 "open_trunk": "open", "open_frunk": "open", "vent_windows": "open", "climate_on": "on",
+                 "climate_off": "off", "charge_start": "charging", "charge_stop": "not charging",
+                 "defrost": "on" if args.get("on", True) else "off"}
+        return words.get(spec.name, "in that state")

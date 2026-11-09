@@ -71,6 +71,8 @@ class CommandSpec:
     # State fields the adapter must be able to *read* for read-back verification (informational).
     verify_fields: Tuple[str, ...] = ()
     verify: Optional[Verifier] = None
+    # Read-back keeps looking at least this long (seconds) when the car's own report lags the command (Fleet API: 30-60 s).
+    verify_window_s: float = 0.0
 
 
 def _v_locked(want: bool) -> Verifier:
@@ -98,6 +100,14 @@ def _v_charging(want: bool) -> Verifier:
             return None
         return (state.value("charging_state") in ACTIVELY_CHARGING) is want
     return check
+
+
+def _v_charge_amps(state: VehicleState, args: Mapping[str, Any]) -> Optional[bool]:
+    """The setpoint entity (HA ``number.*_charge_current``) is written optimistically by the integration, so it proves nothing.
+    The car's own *actual* charger current does, but only while charging (it reads 0 when idle): then it cannot be judged."""
+    if not state.has("charge_current_a") or not state.is_charging:
+        return None
+    return abs(float(state.value("charge_current_a")) - float(args["amps"])) <= 1.0
 
 
 def _v_charge_limit(state: VehicleState, args: Mapping[str, Any]) -> Optional[bool]:
@@ -154,11 +164,12 @@ _SPECS: List[CommandSpec] = [
        args=(ArgSpec("percent", "int", required=True, minimum=CHARGE_LIMIT_MIN, maximum=CHARGE_LIMIT_MAX),),
        verify_fields=("charge_limit_pct",), verify=_v_charge_limit),
     _c("charge_start", COMFORT, "Start charging (car must be plugged in).",
-       verify_fields=("charging_state",), verify=_v_charging(True)),
+       verify_fields=("charging_state",), verify=_v_charging(True), verify_window_s=90.0),
     _c("charge_stop", COMFORT, "Stop charging.",
-       verify_fields=("charging_state",), verify=_v_charging(False)),
+       verify_fields=("charging_state",), verify=_v_charging(False), verify_window_s=90.0),
     _c("charge_amps", COMFORT, "Set the charging current in amps.",
-       args=(ArgSpec("amps", "int", required=True, minimum=CHARGE_AMPS_MIN, maximum=CHARGE_AMPS_MAX),)),
+       args=(ArgSpec("amps", "int", required=True, minimum=CHARGE_AMPS_MIN, maximum=CHARGE_AMPS_MAX),),
+       verify_fields=("charge_current_a",), verify=_v_charge_amps, verify_window_s=90.0),
     # security --------------------------------------------------------------------------
     _c("lock", SECURITY, "Lock the car (safe direction — no approval needed).",
        safe_direction=True, verify_fields=("locked",), verify=_v_locked(True)),

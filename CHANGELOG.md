@@ -1,6 +1,12 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Second real-car session (approval commands) fixes.** "Confirmed" now means the car reported it: Home Assistant's Tesla
+  integrations write a command's new state themselves the moment Tesla accepts it, so that is reported as *accepted, not confirmed yet*
+  (`readback: accepted`) until a re-read of the car shows it. "Already locked/closed" needs the car's own report from under a minute
+  before; an older reading is called possibly out of date. Practice runs say what your approval setting would do (sent without asking /
+  Hermes would ask / asked every time). Live audit rows record how long the service call and read-back took. New setting
+  **Safety · Go live for (hours, 1-24)** (`live_default_hours`, default 1; replaces `arm_default_hours`, which is still read).
 - **Pages tell the truth about the car's state.** A finished command's result is marked out of date once a different car state
   arrives; simulated alert times are labelled "simulated" (History is real clock time; Live expiry was and stays wall clock);
   each greyed-out button shows its own reason; "Check now" says how many alerts are still open; the approval wording is one plain

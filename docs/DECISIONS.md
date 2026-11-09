@@ -366,3 +366,44 @@ Notable choices made while building, newest last. Format: decision — why.
   real enforcement, so an ImportError changes nothing but the message) and `hermes_cli.plugins_state.save_plugin_setting` (only for rule
   edits made on the page, whose backend has no `ctx`; in-process edits use the documented `ctx.set_config`). If a release removes either,
   the first degrades to the tool-side refusal and the second reports "couldn't save" instead of silently dropping the edit.
+
+## Second real-car session (2026-11-09, approval commands, `tesla_fleet`)
+Ground truth from the owner at the car vs audit rows 22-35: unlock reported "already unlocked" although the doors had just been locked by
+hand (the car did unlock); open_trunk/open_frunk "confirmed" ~1 s after sending, and `car_status` still said open after the owner closed
+both by hand; vent/close windows physically worked but read `not_confirmed`.
+* **Why (Home Assistant core `dev` @ c459f2ef54b3868be07bc1a6738bf0c6b836060d).** tesla_fleet commands are *optimistic*: `lock.py` L54-69
+  `await handle_vehicle_command(self.api.door_unlock()); self._attr_is_locked = False; self.async_write_ha_state()`; the same in
+  `cover.py` (windows L80-97, charge port L124-137, frunk L160-165, trunk L190-205) and `switch.py` L160-175. The car is only re-read by
+  the coordinator, every `VEHICLE_INTERVAL_SECONDS = 600` (`coordinator.py` L33); a refresh calls `_handle_coordinator_update` on every
+  entity (`entity.py` L90-94), re-writing all of them in one pass. tesla_fleet has no streaming, so a door locked by hand is invisible for up to
+  10 minutes. teslemetry (`lock.py` L71-86, `cover.py` L123-142) and tessie (`entity.py` `set()` L93-97, used by lock/cover) do the same.
+  The window binary sensors are not written by the command, which is why vent/close stayed unconfirmed.
+* **Design: an integration's own write is "accepted", never "confirmed".** Profiles say `optimistic_commands: true` (tesla_fleet, teslemetry_ha,
+  tessie_ha). The adapter takes the newest stamp among the mapped entities no command writes (battery, range, temperatures, door/window
+  sensors...) as "the car was last re-read"; a command-target entity (lock, trunk/frunk cover, switches...) stamped later than that
+  (+2 s for the same refresh pass) is `FieldValue.assumed`. Read-back never confirms from an assumed field: it keeps re-reading (free
+  `GET /api/states`) for the usual window and then reports `readback: accepted` / status `sent_unconfirmed` ("the car's service accepted
+  it; the car has not reported back"). A coordinator refresh that shows the change confirms; one that shows the old value is
+  `not_confirmed`. Assumed fields are listed in `car_status` `freshness.assumed_after_command` and do not count towards `newest_update` (so
+  an optimistic write cannot make the data look fresh for the policy either). The earlier rule stays: values written before the command
+  are never proof.
+  * Chosen over requesting `homeassistant.update_entity`: that forces a paid Fleet API `vehicle_data` call per command, is a service outside
+    the profile vocabulary, and on a car that took the command 1 s ago would still race Tesla's own state update. Chosen over a new
+    top-level status: `sent_unconfirmed` already means "don't rely on it"; `readback: accepted` carries the difference, so pages need
+    no change. Errs to under-claiming: a teslemetry *streamed* update of the lock entity also looks assumed until the next poll.
+  * Tessie's coordinator re-reads Tessie's cache every 10 s; a refresh there proves Tessie's copy, not the car (documented in the profile).
+* **"Already" needs the car's report from under a minute ago** (`ALREADY_MAX_AGE_S = 60`, not an assumed value). The brief's alternative,
+  "newer than the last command for that field", was rejected: in the real timeline there was no earlier lock command, so it would have
+  repeated the false "already unlocked" (hand changes are not commands). An older matching reading is mentioned ("the last reading
+  (5 min old) said unlocked, but it may be out of date, so the command was sent anyway") and proves nothing. If the car did report the
+  state < 60 s before, HA re-writing the same value after the command does not undo the "already".
+* **Practice-run approval wording** comes from the same inputs as the live path (`safety/gate.py approval_mode_sentence`: Hermes' bypass
+  state via the guarded `is_approval_bypass_active`, and `require_human_for`). Off/yolo: "Hermes approvals are off, so it would be sent
+  without asking"; on: "Hermes would ask you first"; listed: "you'd be asked every time" (or "refused until you turn approvals on" when
+  approvals are off). Outside a Hermes session the bypass state reads as "on".
+* **Timing is measured, not guessed.** Live audit rows end with `timing: service answered in N ms, read-back took M ms` (wall time
+  around `send_command` and around the read-back); results carry `timing_ms`. Commands with no observable result (flash, honk) return
+  without any read-back wait. The ~20 s the owner saw for flash is mostly outside Pit Crew (agent turn, Tesla cloud to car): see RESULT10.
+* **Live length is a setting** `live_default_hours` (whole hours 1-24, default 1; bad values fall back to 1): used by the page's Go live
+  and by `/car live` without a number. An explicit `/car live N` keeps 15 min-72 h. No "forever" (the separate `armed` Advanced setting
+  is unchanged). The old `arm_default_hours` key is read when the new one is not set. A setting never arms anything by itself.

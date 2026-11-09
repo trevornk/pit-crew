@@ -477,8 +477,9 @@ def build_simulator(ctx: BuildContext) -> SimulatorAdapter:
     s = ctx.settings
     return SimulatorAdapter(store=ctx.store, seed=int(s.get("sim_seed", 42)),
                             events_enabled=bool(s.get("sim_events", True)),
-                            name=(s.get("car_name") or "Simulated car"))
+                            name=(s.get("car_name") or "Simulated car"),
+                            wall_clock=ctx.clock or time.time)
 
 
 def build_simulator_history(ctx: BuildContext) -> SimulatorHistory:
-    return SimulatorHistory(seed=int(ctx.settings.get("sim_seed", 42)))
+    return SimulatorHistory(seed=int(ctx.settings.get("sim_seed", 42)), now=ctx.clock or time.time)

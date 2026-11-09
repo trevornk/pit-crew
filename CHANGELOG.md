@@ -28,13 +28,10 @@
     reported in status. `charging_stopped_unexpectedly` is not raised after Pit Crew's own `charge_stop`/`charge_limit`.
     The alerts table gains push columns (migrated automatically).
   - *Defrost* is documented and reported as maximum heat and fan.
-- **Approvals now work with Hermes Tool Search.** When Hermes defers plugin tools, the model calls `car_command` through the bridge
-  tool `tool_call`, and Hermes fires `pre_tool_call` only for `tool_call`, so the approval prompt never appeared and every
-  approval-class command (unlock, trunk, frunk, vent windows, Sentry off, honk, flash) failed closed with "Not sent: no confirmed
-  human approval". The gate now looks inside the bridge call (list, JSON-string or single form) and applies the same checks. Works on
-  unpatched Hermes. A `tool_call` batch containing an approval-class `car_command` is refused ("send approval-needed car commands on
-  their own, one per tool_call"); comfort-only batches pass; unreadable bridge arguments that name `car_command` block.
-  Tested against the real Hermes hook dispatch and bridge re-dispatch.
+- **Tool Search bridge handling (defence in depth).** The gate also understands Hermes' `tool_call` bridge: a list, JSON-string or single
+  form is judged like a direct call, a batch containing an approval-class `car_command` is refused, and unreadable bridge arguments that
+  name `car_command` block. (An earlier note here said Hermes fires `pre_tool_call` only for the bridge; on v0.23.0 Hermes unwraps the
+  bridge first, so the live "no confirmed human approval" failure was the old strict mode meeting `approvals.mode: off`, now fixed above.)
 - **`/car notify test`** pushes a clearly labelled test message ("Pit Crew test alert: delivery works") through the same path as real
   alerts to the chat bound with `/car notify here`, and says whether it worked. It creates no alert and changes no rule or dedupe state.
 - **Tire pressure.** Per-tire pressure (psi) and the car's recommended pressure are part of the normalized state, mapped for Home

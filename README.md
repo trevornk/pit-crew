@@ -138,11 +138,23 @@ The `tesla-fleet-api` library is installed for you by `hermes plugins install` (
 </details>
 
 <details>
-<summary><b>TeslaMate (history only)</b></summary>
+<summary><b>TeslaMate (history, and fresher state next to Home Assistant)</b></summary>
 
-Set *TeslaMate · URL* (your TeslaMateApi, e.g. `http://teslamate-api:8080`) and run `/car import teslamate 365` to backfill a
-year of trips and charges (safe to repeat; only read-only requests are ever made). Or set *Trip & charging history* =
-`teslamate` to read it live. Not needed for anything else.
+Set *TeslaMate · URL* to your **TeslaMateApi** (the separate `teslamateapi` container, e.g. `http://teslamate-api:8080`; not the
+TeslaMate web UI on port 4000), and *TeslaMate · Access token* only if you set `API_TOKEN` on TeslaMateApi. *TeslaMate · Car id* is
+usually 1. Only read-only `GET` requests are ever made; TeslaMate never sends a command.
+
+* **History:** run `/car import teslamate 365` to backfill a year of trips and charges (safe to repeat), or set *Trip & charging
+  history* = `teslamate` to read it live.
+* **Fresher state next to Home Assistant:** with *Which car* = `homeassistant` and a TeslaMate URL set, every status read also asks
+  TeslaMateApi (`/api/v1/cars/<id>/status`) and, field by field (locked, doors, windows, trunk, frunk, Sentry, gear/speed/moving,
+  place, charging state/power, battery/range), keeps **whichever source reported more recently**. `car_status` → `freshness.field_sources`
+  says which one each field came from. Commands still go only through Home Assistant. TeslaMateApi gives no per-field times, only the
+  car's state and when it last changed, so Pit Crew is careful: while the car sleeps its TeslaMate values count as of that change,
+  while awake as 60 s old, and a value that changed since Pit Crew's previous look as of that look. A command's read-back counts
+  TeslaMate only when it shows the change after the command was sent. Any reading of gear D/R/N or a speed, from either source,
+  still means "moving". If TeslaMate is unreachable, Home Assistant alone is used. Pit Crew does not use TeslaMate's MQTT sensors
+  in Home Assistant for this, so you don't need them.
 </details>
 
 ### Update and restart
@@ -261,9 +273,14 @@ Safety isn't a setting you remember to turn on; it's how Pit Crew works.
 * **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through). It
   only counts a reading the car's integration wrote *after* the command, never a switch Home Assistant flipped on its own, and it
   says "already locked / closed" when that was the case. Charging commands wait up to 90 s for the car's report where that
-  helps. Tesla Fleet in Home Assistant only re-reads the car every ~10 minutes, so there Pit Crew doesn't make you wait for a
-  report that can't come in time: it reads once and answers straight away ("Tesla accepted it; the car reports back within
-  ~10 min; check status later").
+  helps. Tesla Fleet in Home Assistant only re-reads the car every ~10 minutes on its own, so there Pit Crew asks Home Assistant
+  to **re-read the car once** about 5 s after a command and answers from that: "the car confirmed it" only when the car's
+  fresh report shows the change, otherwise "Tesla accepted it" with the reason (the re-read showed the old value, found the car
+  asleep, or didn't happen). This adds up to ~10 s to the reply and costs one Tesla Fleet data request per command (about
+  $0.002 at Tesla's 500 requests per $1). It never happens for status reads or honk/flash, and it never wakes the car
+  (Home Assistant only fetches the car's data when Tesla says it is online). Turn it off with *Advanced · Re-read the car once
+  after a command* (`refresh_after_command`); then Pit Crew reads once and answers straight away ("Tesla accepted it; the car
+  reports back within ~10 min; check status later").
 * **Defrost runs heat and fan at maximum** (a Tesla's max defrost). Pit Crew's agent is told to say so, and the result reminds you; do
   not turn it on with a person or pet in the car without telling them first.
 * **Everything is on the record:** who asked, what happened, whether you approved.

@@ -1,6 +1,12 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Fresher car state.** On Home Assistant's Tesla Fleet (which re-reads the car only every 10 minutes) Pit Crew now asks Home
+  Assistant to re-read the car once, ~5 s after a command, and says "the car confirmed it" only when that fresh report shows the change
+  (else "Tesla accepted it" with the reason). Adds up to ~10 s to the reply and one Tesla data request (~$0.002) per command; never for
+  status reads or honk/flash, never wakes the car. Setting **Advanced · Re-read the car once after a command** (`refresh_after_command`,
+  default on). With a **TeslaMate · URL** set next to Home Assistant, status and read-back merge TeslaMateApi's readings per field,
+  keeping whichever source reported more recently (`freshness.field_sources`); commands still go only through Home Assistant.
 - **Commands can be always available.** New setting **Safety · Live mode** (`live_mode`): `on_demand` (default, unchanged: practice
   until `/car live` / Go live, which ends by itself) or `always` (sent for real without `/car live`; `/car stop` / Stop pauses into
   practice until `/car live` / Go live resumes it, with no expiry). `/car`, the pages and the status-bar chip say "Live: always on",

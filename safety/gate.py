@@ -92,6 +92,21 @@ def _hermes_approvals_bypassed() -> bool:
         return False
 
 
+def approval_mode_sentence(command: str, require_human_for: Any) -> str:
+    """What would happen at Hermes' approval step if this approval-class command were sent live now. The same inputs the
+    live path uses (``_decide`` + the tool's ``broker.take``): the user's Hermes approval mode and ``require_human_for``."""
+    listed = command in (require_human_for or ())
+    bypassed = _hermes_approvals_bypassed()
+    if listed and bypassed:
+        return ("It is on your 'Always ask a person' list and your Hermes approvals are off, so it would be refused "
+                "until you turn approvals on.")
+    if listed:
+        return "It is on your 'Always ask a person' list, so you'd be asked every time."
+    if bypassed:
+        return "Hermes approvals are off, so it would be sent without asking."
+    return "Hermes would ask you first (your Hermes approvals are on)."
+
+
 class ApprovalGate:
     def __init__(self, get_service: Callable[[], Any]) -> None:
         self._get = get_service

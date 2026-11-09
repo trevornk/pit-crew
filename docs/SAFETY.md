@@ -121,7 +121,7 @@ counts as a parked indicator **only if that sensor is readable** (otherwise the 
 * Page-initiated commands are audited as surface `desktop`. (Pass 8: the old single-use `/preflight` tokens are no longer a way to
   approve anything — approval-class commands are refused from the page.)
 * **Freshness is per reading (pass 8).** Home Assistant timestamps an entity with when its value last *changed*, so while the car
-  is online every available reading counts as confirmed by the newest stamp among the car's entities; an asleep/offline car keeps
+  is online only the slow-changing readings (lock, doors, windows, trunk, Sentry...) are confirmed by the car's live readings (never charging, motion or location); every other reading keeps its own `last_reported` age, and an asleep/offline car keeps
   per-entity stamps. A trusted-zone command also needs the *location* reading itself to be fresh, and watcher rules skip readings
   older than `stale_after_s` instead of raising alerts from them.
 * Pit Crew's own history stores zone names, distances, energy and temperatures — never coordinates.

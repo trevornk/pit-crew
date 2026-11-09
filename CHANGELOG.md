@@ -1,6 +1,20 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Fixes from the 2026-11-09 real-car test (Home Assistant `tesla_fleet`).**
+  - *Stale data shown as fresh.* An awake car no longer lifts every reading to "now". Each reading keeps its own `last_reported`
+    time; only slow-changing ones (lock, doors, windows, trunk/frunk, Sentry, port, plug, limits, versions) are confirmed by the
+    car's live readings (battery, range, temperatures, charging...), and only when those are themselves under 15 min old. Charging
+    state/power/current, motion and location are never promoted, so `car_status` shows a 36-minute-old "charging" as stale with its age.
+  - *Read-back.* Confirmation needs a value the car's integration wrote after the command; charging commands wait up to 90 s for the
+    Fleet API; `charge_amps` is confirmed by the car's actual charger current while charging (HA's own echo proves nothing) and
+    is otherwise unverifiable; a command whose target state already holds (fresh data) reports `confirmed` with `already` set
+    ("already closed") instead of "state still shows the old value".
+  - *Alerts.* A push failure now records why. Showing an alert in another chat's next turn no longer cancels the push to the
+    bound chat: push state (`pushed_ts`, attempts, next try) is separate, retried with backoff for 6 hours, then given up and
+    reported in status. `charging_stopped_unexpectedly` is not raised after Pit Crew's own `charge_stop`/`charge_limit`.
+    The alerts table gains push columns (migrated automatically).
+  - *Defrost* is documented and reported as maximum heat and fan.
 - **Approvals now work with Hermes Tool Search.** When Hermes defers plugin tools, the model calls `car_command` through the bridge
   tool `tool_call`, and Hermes fires `pre_tool_call` only for `tool_call`, so the approval prompt never appeared and every
   approval-class command (unlock, trunk, frunk, vent windows, Sentry off, honk, flash) failed closed with "Not sent: no confirmed

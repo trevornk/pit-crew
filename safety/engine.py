@@ -150,6 +150,8 @@ class SafetyEngine:
             why = "practice mode is on" if not force_dry_run else "a practice run was requested"
             msg = (f"PRACTICE RUN — {label.replace("_", " ")} passed all safety checks, but {why}, so the car was NOT contacted.{need} "
                    "To send real commands, go live (`/car live`, or the Go live button on the Pit Crew page).")
+            if spec.caution and args.get("on", True):
+                msg += " Heads-up: " + spec.caution
             aid = self._audit(surface=surface, session=session, command=spec.name, args=args, risk=spec.risk,
                               mode="dry_run", policy="allowed", approval="not_required" if not spec.requires_approval else "deferred",
                               status="dry_run", detail=reason or "dry run")
@@ -260,6 +262,8 @@ class SafetyEngine:
             status, ok = "sent_unconfirmed", True
             msg = (f"Sent {label}. This car does not report anything that lets me verify it, so I can't confirm "
                    "that it took effect.")
+        if spec.caution and args.get("on", True):
+            msg += " Heads-up: " + spec.caution
         aid = finish(status, (reason + " | " if reason else "") + sent.detail, rb["status"], rb.get("at"))
         return self._result(ok=ok, status=status, command=spec.name, spec=spec, armed=armed, policy=pol,
                             approval=approval_status, readback={k: v for k, v in rb.items() if k != "at"},

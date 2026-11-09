@@ -142,6 +142,42 @@ Notable choices made while building, newest last. Format: decision — why.
   → own daemon thread (the coroutine is closed so nothing is left un-awaited). The stop signal is a `threading.Event` polled by the
   coroutine, so `on_unload` works regardless of which thread/loop runs it. Pass 6's degraded mode and turn-time fallback are unchanged.
 
+## Real-car test fixes (2026-11-09)
+- **R1 revised: awake does not mean fresh.** `sensor.<slug>_charging` read "charging" 36 min after the car stopped, because HA's
+  tesla_fleet had not re-written it, while Pass 8's rule lifted every field to the newest stamp. Now each reading uses its own
+  `last_reported` (fallback `last_updated`). The Pass 8 reason, a shut door looking days old, is kept for a short list of slow-changing
+  fields (`CONFIRMABLE_FIELDS` in `adapters/homeassistant.py`): they are confirmed by the newest stamp among the *other*
+  (live) fields, only while the car is online and only if that stamp is under 15 min old. Charging/motion/location are never
+  promoted. The real fixture shows doors and the lock re-written together with range and temperature, which is the evidence the
+  integration polls them together; a door's `last_changed` on its own is not. Safety policy is unchanged and now sees honest ages
+  for charging and motion; a lock/door reading can still be borrowed from a live poll, as in Pass 8.
+- **Read-back evidence = written after the command.** `confirmed` requires the verified fields' raw stamps (not borrowed ones) to be no
+  older than the send time (5 s skew allowance). A value that already matched but predates the command is "not proof". Chosen over
+  trusting a match because HA served a stale "charging" for 36 min. Trade-off: an integration that leaves an unchanged value's
+  stamp alone ends as `sent_unconfirmed` unless the pre-state was fresh (below).
+- **"Already" instead of "failed".** If the target already held in fresh pre-command data, the command is still sent (cheap, and the
+  car may disagree with HA) and the result is `confirmed` with `readback.already` ("already closed"); the message says nothing
+  needed to change. Same status vocabulary, no new status, so UI/pages needed no change. Stale pre-state never qualifies.
+- **Charging read-back waits up to 90 s (`verify_window_s`), polling every 5 s**, because the Fleet API lags 30-60 s. HA's
+  `switch.<slug>_charge` and `number.<slug>_charge_current` are command-optimistic (the integration writes the requested value
+  itself), so neither is ever evidence. Not done: asking HA to `update_entity` the sensors. It is a different service call outside the
+  profile vocabulary, forces a Fleet API request, and I could not verify offline that it never wakes the car.
+- **`charge_amps`** is confirmed only while the car is charging and its *actual* charger current is within 1 A of the request;
+  idle, it stays unverifiable. (`charge_current_max_a` in the profile is the number entity's `max` attribute, not the setpoint.)
+- **Alert push state is its own thing.** `state` (new/surfaced/acked/resolved) is what the human has seen; `pushed_ts`, `push_attempts`,
+  `next_push_ts`, `push_claim_ts` track delivery to the bound chat. Surfacing never cancels a push; acked/resolved alerts are not
+  pushed; retries back off 30 s doubling to 30 min; after 6 h the alert is no longer pushed and status says so. The old `pushing`
+  state is gone (rows migrate back to `new`).
+- **Why the failed push happened (Hermes core, see RESULT5.md):** the watcher lease was held by a Desktop/TUI process, where Hermes
+  has no messaging-gateway injector, so `inject_message` logs "no live gateway is available" and returns False. Pit Crew already yielded
+  the lease, but the same process's next-turn hook had marked the alert surfaced, which used to end the push. Pit Crew now captures
+  Hermes' logged refusal (public logger only) as the reason.
+- **Rules that Pit Crew's own commands can trigger.** Only `charging_stopped_unexpectedly` is suppressed (after our `charge_stop`, or a
+  `charge_limit` at or below the charge, within 30 min, from the audit log). `plugged_not_charging` already needs 30 min of
+  stillness; opening alerts after `open_trunk`/`vent_windows` still fire deliberately: a trunk left open is useful to hear about.
+- **Defrost** is Tesla max defrost (heat and fan at maximum): in the tool description, command summary, result message when switched on,
+  README and skill.
+
 ## Pass 8 (pre-demo fixes)
 - **Approval-class commands are never executed from the plugin's own pages.** The page previews the policy checks and *Ask Hermes*
   hands the request to chat; `/command` refuses them while armed. Why: catalog rule 12 — a click in the plugin's UI is not Hermes'

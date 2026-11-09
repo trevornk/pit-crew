@@ -190,6 +190,13 @@ Pushes are delivered by the gateway process, so keep the gateway running. To che
 the bound chat: it sends "Pit Crew test alert: delivery works" through the same path as real alerts (no alert is created) and
 tells you whether Hermes accepted it.
 
+If a push fails, Pit Crew now says *why* (for example "this Hermes process is not the messaging gateway"), in `/car notify test`,
+`/car notify` and `/car status`. A failed push is **not** cancelled by the alert being shown in some other chat's next reply: Pit Crew
+keeps the push owed to the bound chat and retries with backoff (30 s, then doubling to 30 min) for 6 hours, then gives up and says so
+(the alert stays in `/car alerts`). Pushes are delivered by Hermes' messaging gateway process; the Desktop app or a CLI session cannot
+push into a Matrix/Telegram chat, so another process takes over the watcher when one cannot (the cost is a retry delay, not a lost alert).
+An alert about charging stopping is not raised when Pit Crew itself stopped the charge in the last 30 minutes.
+
 ## Safe by design
 
 Safety isn't a setting you remember to turn on; it's how Pit Crew works.
@@ -201,7 +208,11 @@ Safety isn't a setting you remember to turn on; it's how Pit Crew works.
   prompts, so for them the answer is always *no*.
 * **It refuses when it can't be sure.** Not while the car is moving; not on stale data; not if the car is asleep (it won't
   wake it to be nice); unlock only at places you trust; bounded temperatures, limits and amps; rate-limited; repeats skipped.
-* **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through).
+* **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through). It
+  only counts a reading the car's integration wrote *after* the command, never a switch Home Assistant flipped on its own, and it
+  says "already locked / closed" when that was the case. Charging commands wait up to 90 s for the car's report.
+* **Defrost runs heat and fan at maximum** (a Tesla's max defrost). Pit Crew's agent is told to say so, and the result reminds you; do
+  not turn it on with a person or pet in the car without telling them first.
 * **Everything is on the record:** who asked, what happened, whether you approved.
 
 Full details and the threat model: [docs/SAFETY.md](docs/SAFETY.md).
@@ -223,8 +234,11 @@ Honesty matters more than a long feature list.
 
 * **Run against a real car (read-only):** the Home Assistant `tesla_fleet` connection has read the status of the owner's real Model Y
   (battery, charging, lock, doors, climate, place). The sanitized recordings of that car are the test fixtures.
-* **Not yet tried on a real car: every command** (lock, climate, charging, unlock through the approval prompt…). Practice mode and the
-  safety engine are tested thoroughly; the first live command is still ahead.
+* **Real-car test (2026-11-09, Home Assistant `tesla_fleet`):** twelve commands that need no approval (lock, climate, set temperature,
+  defrost, seat heat, charge start/stop, charge limit, charge amps, close windows, Sentry…) were sent; the owner saw the car do each of
+  them. That test also found, and this version fixes, stale charging data shown as current, charging read-back that could not see the
+  car's answer, and alerts that were never retried to the bound chat. **Not yet tried on a real car:** unlock, trunk, frunk, vent and
+  the other approval-prompt commands.
 * **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
   v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
   and the plugin loading in real Hermes. See `tests/` (about 650 tests, no network; CI fails if any is skipped).

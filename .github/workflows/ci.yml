@@ -34,8 +34,8 @@ jobs:
 
       - name: Python test tools with a release-age quarantine (catalog rule 10)
         run: |
-          uv venv --python 3.12 .ci-venv
-          uv pip install --python .ci-venv/bin/python --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
+          uv venv --python 3.12 "$RUNNER_TEMP/ci-venv"
+          uv pip install --python "$RUNNER_TEMP/ci-venv/bin/python" --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
 
       - name: Hermes Agent ${{ env.HERMES_TAG }} (pinned commit, installed from its own uv.lock)
         run: |
@@ -48,15 +48,16 @@ jobs:
 
       - name: Tests (nothing may skip here; the next step enforces it)
         run: |
-          .ci-venv/bin/python -m pytest tests -rs --junitxml=junit.xml
+          "$RUNNER_TEMP/ci-venv/bin/python" -m pytest tests -rs -o cache_dir="$RUNNER_TEMP/pytest-cache" --junitxml="$RUNNER_TEMP/junit.xml"
         env:
+          PYTHONDONTWRITEBYTECODE: "1"
           HERMES_NODE_MODULES: ${{ github.workspace }}/tests/node/node_modules
 
       - name: No test may be skipped in CI
         run: |
           python3 - <<'PY'
-          import sys, xml.etree.ElementTree as ET
-          root = ET.parse("junit.xml").getroot()
+          import os, sys, xml.etree.ElementTree as ET
+          root = ET.parse(os.environ["RUNNER_TEMP"] + "/junit.xml").getroot()
           skipped = [f"{c.get('classname')}::{c.get('name')}" for c in root.iter("testcase") if c.find("skipped") is not None]
           print(f"skipped: {len(skipped)}")
           for s in skipped:

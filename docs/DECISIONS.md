@@ -345,3 +345,8 @@ Notable choices made while building, newest last. Format: decision — why.
 * **Approval hook state read** (audit #6): `pre_tool_call` reuses a car read at most `max_state_age_s` old (policy still judges per-field
   freshness) so a slow Home Assistant/Tesla call can't hit Hermes' 30 s hook timeout (which fails closed and mutes the hook for 60 s);
   the tool's own preflight is always a forced live read before anything is sent. The adapter's own timeout is not changed.
+* **Two guarded private imports remain, on purpose** (`hermes plugins validate` lists them as warnings under catalog rule 9, and passes):
+  `tools.approval.is_approval_bypass_active` (only to give a clearer early refusal for `require_human_for` commands; the tool-side check is the
+  real enforcement, so an ImportError changes nothing but the message) and `hermes_cli.plugins_state.save_plugin_setting` (only for rule
+  edits made on the page, whose backend has no `ctx`; in-process edits use the documented `ctx.set_config`). If a release removes either,
+  the first degrades to the tool-side refusal and the second reports "couldn't save" instead of silently dropping the edit.

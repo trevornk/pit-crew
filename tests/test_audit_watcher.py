@@ -194,3 +194,12 @@ def test_relative_times_are_relative_not_a_clock_time_tomorrow():
         with pytest.raises(WhenError):
             parse_when(bad, now)
     assert parse_when("tomorrow 7:30 AM", now).strftime("%d %H:%M") == "10 07:30"        # unchanged
+
+
+def test_history_dates_use_the_configured_time_zone(make_service, clock):
+    clock.t = 1_790_000_000.0                                   # 2026-09-21 13:33 UTC = 2026-09-22 01:33 in Auckland
+    auckland = make_service({"timezone": "Pacific/Auckland"})
+    chicago = make_service({"timezone": "America/Chicago"})
+    a = auckland.history("summary", days=7)
+    c = chicago.history("summary", days=7)
+    assert a["window"]["to"] == "2026-09-22" and c["window"]["to"] == "2026-09-21"

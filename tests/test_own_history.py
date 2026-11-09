@@ -279,3 +279,33 @@ def test_r9_range_sourced_drives_have_no_circular_efficiency(svc, stub, clock):
     tick(svc, clock, 3600)
     d = svc.history_provider.drives(*window(svc))
     assert len(d) == 1 and d[0].miles == pytest.approx(30.0) and d[0].kwh and d[0].wh_per_mi is None
+
+
+def test_a_lagging_odometer_does_not_lose_real_miles(svc, stub, clock):
+    """Review P1-1: the odometer entity refreshes every ~10 min while snapshots come every 2: a 20 mi drive at 60 mph
+    shows 10 mi appearing in one 2-minute interval. The rate is over the time the reading held its old value."""
+    stub.values.update(odometer_mi=1000.0, battery_pct=80.0, range_mi=250.0, location_zone="home", moving=False)
+    svc.get_state(force=True)
+    odo = 1000.0
+    for i in range(1, 11):
+        upd = {"moving": True, "speed_mph": 60.0, "location_zone": "away"}
+        if i % 5 == 0:
+            odo += 10.0
+            upd["odometer_mi"] = odo
+        tick(svc, clock, 120, **upd)
+    tick(svc, clock, 120, moving=False, speed_mph=0.0)
+    tick(svc, clock, 3600)
+    tick(svc, clock, 3600)
+    drives = list(svc.history_provider.drives(0, 1e12))
+    assert abs(sum(d.miles for d in drives) - 20.0) < 1.0, [d.miles for d in drives]
+
+
+def test_a_real_odometer_glitch_is_still_refused_when_the_reading_was_not_stale(svc, stub, clock):
+    stub.values.update(odometer_mi=1000.0, battery_pct=80.0, range_mi=250.0, location_zone="home", moving=False)
+    svc.get_state(force=True)
+    tick(svc, clock, 120, odometer_mi=1600.0, moving=True, speed_mph=30.0, location_zone="away")
+    tick(svc, clock, 120, odometer_mi=1600.0, moving=False, speed_mph=0.0)
+    tick(svc, clock, 3600)
+    tick(svc, clock, 3600)
+    drives = list(svc.history_provider.drives(0, 1e12))
+    assert sum(d.miles for d in drives) < 5.0

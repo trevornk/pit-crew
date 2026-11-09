@@ -72,6 +72,9 @@ class Recorder:
         # R8: remember since when the range reading has held its current value, so a sleep-drain step is spread over the
         # whole time it took instead of looking like a fast drop between two polls.
         cur["rts"] = prev.get("rts", prev["ts"]) if (prev is not None and prev.get("range_mi") == cur["range_mi"]) else now
+        # Same for the odometer: Home Assistant often refreshes it less often than we snapshot, so a jump is spread over the
+        # time it has held its previous value (otherwise 10 real miles in one 2-minute interval look like 300 mph).
+        cur["ots"] = prev.get("ots", prev["ts"]) if (prev is not None and prev.get("odo") == cur["odo"]) else now
         if store.kv_get(KV_FIRST) is None:
             store.kv_set(KV_FIRST, now)
         store.execute(
@@ -135,7 +138,9 @@ class Recorder:
     def _drive_miles(prev: Dict[str, Any], cur: Dict[str, Any], dt: float) -> Tuple[float, str]:
         if prev["odo"] is not None and cur["odo"] is not None and cur["odo"] >= prev["odo"]:
             miles = cur["odo"] - prev["odo"]
-            if dt <= 0 or miles / (dt / 3600.0) <= MAX_PLAUSIBLE_MPH:        # a 600-mile 'trip' in an hour is a glitch
+            # The reading may have been stale for a while: the distance accrued since it last changed, not just this interval.
+            window = max(dt, cur["ts"] - prev.get("ots", prev["ts"]))
+            if miles / (window / 3600.0) <= MAX_PLAUSIBLE_MPH:        # a 600-mile 'trip' in an hour is a glitch
                 return miles, "odometer"
         speeds = [x for x in (prev["speed"], cur["speed"]) if x is not None]
         if speeds and max(speeds) > 1.0:

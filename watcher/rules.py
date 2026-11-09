@@ -40,6 +40,7 @@ class RuleContext:
     can_do: frozenset
     memo: Dict[str, Any]              # this rule's persistent scratch memory (engine saves it between polls)
     readiness: Optional[Callable[..., Dict[str, Any]]] = None
+    last_moving_ts: Optional[float] = None   # when the car was last seen moving (the engine keeps it across polls)
 
     @property
     def trusted(self) -> List[str]:
@@ -88,6 +89,11 @@ def _in_night(local: datetime, start: str, end: str) -> bool:
 RULE_LABELS = {"minutes": "after (min)", "cooldown_min": "don't repeat for (min)", "hot_f": "hotter than (°F)",
                "cold_f": "colder than (°F)", "below_pct": "below (%)", "trip_mi": "trip (mi)", "within_hours": "within (h)",
                "min_psi": "low below (psi, 0 = auto)", "drop_psi": "loses at least (psi)", "window_min": "within (min)"}
+
+#: The smallest sensible value of a numeric rule setting. Below these a rule misfires (a 0 psi drop is "any two samples",
+#: a 0 minute window has no samples, a 0 mi trip needs no charge); set_rule refuses them and rule_config raises a
+#: configured value to the floor.
+RULE_MINIMUMS: Dict[str, float] = {"drop_psi": 0.5, "window_min": 1, "trip_mi": 1, "within_hours": 1, "below_pct": 1}
 
 _SAFE = re.compile(r"[^A-Za-z0-9 _-]")
 
@@ -264,8 +270,9 @@ def _tire_low(c: RuleContext) -> List[Finding]:
 
 def _tire_fast_loss(c: RuleContext) -> List[Finding]:
     window_s = float(c.cfg["window_min"]) * 60.0
-    tires.track(c.memo, c.state, c.now, window_s)
-    lost = tires.fast_losses(c.memo, c.now, window_s, float(c.cfg["drop_psi"]))
+    stale_after = float(c.settings.get("stale_after_s") or 900)
+    tires.track(c.memo, c.state, c.now, window_s, c.last_moving_ts, stale_after)
+    lost = tires.fast_losses(c.memo, c.now, window_s, float(c.cfg["drop_psi"]), stale_after)
     if not lost:
         return []
     parts = ", ".join(f"{pos} fell {drop:g} psi ({start:g} to {end:g})" for pos, drop, start, end in lost)

@@ -1,0 +1,145 @@
+{
+ "source": "home-assistant/core @ f055c6c7fda36756f26b992b539ceed61bf00f88 (parent of the removal commit 802aa99, 2026-03-08) homeassistant/components/bmw_connected_drive/strings.json + sensor.py entity_registry_enabled_default",
+ "entities": {
+  "binary_sensor": {
+   "charging_status": {
+    "name": "Charging status"
+   },
+   "check_control_messages": {
+    "name": "Check control messages"
+   },
+   "condition_based_services": {
+    "name": "Condition-based services"
+   },
+   "connection_status": {
+    "name": "Connection status"
+   },
+   "door_lock_state": {
+    "name": "Door lock state"
+   },
+   "is_pre_entry_climatization_enabled": {
+    "name": "Pre-entry climatization"
+   },
+   "lids": {
+    "name": "Lids"
+   },
+   "windows": {
+    "name": "Windows"
+   }
+  },
+  "button": {
+   "activate_air_conditioning": {
+    "name": "Activate air conditioning"
+   },
+   "deactivate_air_conditioning": {
+    "name": "Deactivate air conditioning"
+   },
+   "find_vehicle": {
+    "name": "Find vehicle"
+   },
+   "light_flash": {
+    "name": "Flash lights"
+   },
+   "sound_horn": {
+    "name": "Sound horn"
+   }
+  },
+  "lock": {
+   "lock": {
+    "name": "Lock"
+   }
+  },
+  "number": {
+   "target_soc": {
+    "name": "Target SoC"
+   }
+  },
+  "select": {
+   "ac_limit": {
+    "name": "AC charging limit"
+   },
+   "charging_mode": {
+    "name": "Charging mode"
+   }
+  },
+  "sensor": {
+   "ac_current_limit": {
+    "name": "AC current limit",
+    "enabled_default": false
+   },
+   "charging_end_time": {
+    "name": "Charging end time"
+   },
+   "charging_start_time": {
+    "name": "Charging start time",
+    "enabled_default": false
+   },
+   "charging_status": {
+    "name": "Charging status"
+   },
+   "charging_target": {
+    "name": "Charging target"
+   },
+   "climate_status": {
+    "name": "Climate status"
+   },
+   "front_left_current_pressure": {
+    "name": "Front left tire pressure"
+   },
+   "front_left_target_pressure": {
+    "name": "Front left target pressure",
+    "enabled_default": false
+   },
+   "front_right_current_pressure": {
+    "name": "Front right tire pressure"
+   },
+   "front_right_target_pressure": {
+    "name": "Front right target pressure",
+    "enabled_default": false
+   },
+   "mileage": {
+    "name": "Mileage"
+   },
+   "rear_left_current_pressure": {
+    "name": "Rear left tire pressure"
+   },
+   "rear_left_target_pressure": {
+    "name": "Rear left target pressure",
+    "enabled_default": false
+   },
+   "rear_right_current_pressure": {
+    "name": "Rear right tire pressure"
+   },
+   "rear_right_target_pressure": {
+    "name": "Rear right target pressure",
+    "enabled_default": false
+   },
+   "remaining_battery_percent": {
+    "name": "Remaining battery percent"
+   },
+   "remaining_fuel": {
+    "name": "Remaining fuel"
+   },
+   "remaining_fuel_percent": {
+    "name": "Remaining fuel percent"
+   },
+   "remaining_range_electric": {
+    "name": "Remaining range electric"
+   },
+   "remaining_range_fuel": {
+    "name": "Remaining range fuel"
+   },
+   "remaining_range_total": {
+    "name": "Remaining range total"
+   }
+  },
+  "switch": {
+   "charging": {
+    "name": "Charging"
+   },
+   "climate": {
+    "name": "Climate"
+   }
+  }
+ }
+}

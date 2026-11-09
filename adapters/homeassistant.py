@@ -25,6 +25,8 @@ from .profile import disabled_field_names, enable_instructions, entity_ids_for_f
 logger = logging.getLogger(__name__)
 
 BAD_STATES = ("unavailable", "unknown", "none", "")
+OPEN_WORDS = frozenset({"OPEN", "OPEN_TILT", "TILT", "INTERMEDIATE", "ON", "TRUE", "OPENING"})
+CLOSED_WORDS = frozenset({"CLOSED", "OFF", "FALSE", "CLOSING"})
 STATE_FETCH_TTL_S = 3.0
 # TeslaMate states that positively mean "not driving". Everything else (offline, start, unknown strings) is NO vote.
 PARKED_STATES = frozenset({"asleep", "online", "charging", "suspended", "updating"})
@@ -110,7 +112,7 @@ class HomeAssistantAdapter(CarAdapter):
                 return FieldValue(None, None, False)
             stamps = [self._stamp(o) for o in usable]
             return FieldValue(names, min(s for s in stamps if s) if any(stamps) else now)
-        obj = objs[0]
+        obj = next((o for o in objs if o is not None), None)      # first of the entity and its older-version aliases
         if obj is None:
             return FieldValue(None, None, False)
         raw = str(obj.get("state", "")).strip()
@@ -140,6 +142,8 @@ class HomeAssistantAdapter(CarAdapter):
                     value = convert_by_dimension(float(attr), spec["dimension"], unit)
                 else:
                     value = attr
+            elif kind in ("attr_open_list", "attr_open"):
+                return self._map_openings(spec, obj, low, attrs, stamp)
             elif kind == "on_off":
                 if low not in ("on", "off"):
                     return FieldValue(None, None, False)
@@ -173,6 +177,22 @@ class HomeAssistantAdapter(CarAdapter):
         except (TypeError, ValueError):
             return FieldValue(None, None, False)
         return FieldValue(value, stamp)
+
+    @staticmethod
+    def _map_openings(spec: Dict[str, Any], obj: Mapping[str, Any], low: str, attrs: Mapping[str, Any],
+                      stamp: float) -> FieldValue:
+        """Openings reported as attributes of one entity (BMW's ``Lids`` / ``Windows``): ``{"leftFront": "CLOSED", ...}``."""
+        wanted = spec["attrs"] if spec["kind"] == "attr_open_list" else {"_": spec["attr"]}
+        seen = {name: str(attrs[a]).strip().upper() for name, a in wanted.items() if attrs.get(a) is not None}
+        if not seen:
+            return FieldValue(None, None, False)
+        opened = [n for n, v in seen.items() if v in OPEN_WORDS]
+        unsure = [n for n, v in seen.items() if v not in OPEN_WORDS and v not in CLOSED_WORDS]
+        if not opened and unsure:
+            return FieldValue(None, None, False)              # R14: "nothing open" is only claimed when every reading says closed
+        if spec["kind"] == "attr_open":
+            return FieldValue(bool(opened), stamp)
+        return FieldValue(opened, stamp)
 
     def _moving_state_entity(self) -> Optional[str]:
         ent = self._overrides.get("moving_state_entity") or self._profile.get("moving_state_entity")
@@ -245,6 +265,15 @@ class HomeAssistantAdapter(CarAdapter):
                 out.append(name)
         return out
 
+    def _missing_disabled_commands(self) -> List[Dict[str, Any]]:
+        if not self._have_states:
+            return []
+        out = []
+        for item in self._profile.get("disabled_command_entities") or []:
+            if item["entity"].replace("{slug}", self._slug) not in self._states:
+                out.append(item)
+        return out
+
     def disabled_entity_hint(self, fields: Optional[Any] = None) -> str:
         missing = self._missing_disabled(fields)
         return enable_instructions(self._profile, missing) if missing else ""
@@ -252,10 +281,16 @@ class HomeAssistantAdapter(CarAdapter):
     def setup_warnings(self) -> List[str]:
         """Entities the profile wants that Home Assistant ships disabled (motion ones are covered by motion_warnings)."""
         missing = [n for n in self._missing_disabled() if n not in ("shift_state", "speed_mph")]
-        if not missing:
-            return []
-        titles = ", ".join(str(self._profile["fields"][n].get("enable_as") or n) for n in missing)
-        return [f"Not reported yet: {titles}. " + enable_instructions(self._profile, missing)]
+        out: List[str] = []
+        if missing:
+            titles = ", ".join(str(self._profile["fields"][n].get("enable_as") or n) for n in missing)
+            out.append(f"Not reported yet: {titles}. " + enable_instructions(self._profile, missing))
+        cmds = self._missing_disabled_commands()
+        if cmds:
+            names = ", ".join(f"{c['enable_as']} (for {c['for']})" for c in cmds)
+            out.append(f"These controls exist in Home Assistant but are disabled, so Pit Crew can't use them yet: {names}. "
+                       + enable_instructions(self._profile, [], [c["enable_as"] for c in cmds]))
+        return out
 
     def fetch_state(self, now: float) -> VehicleState:
         states = self._refresh_states()
@@ -314,7 +349,7 @@ class HomeAssistantAdapter(CarAdapter):
                 commands.add(cname)
         return Capabilities(frozenset(fields), frozenset(commands), history=False,
                             notes=f"Home Assistant profile '{self._profile.get('name')}'"
-                                  f"{'' if self.tested else ' (UNTESTED starter profile)'}")
+                                  f"{'' if self.tested else ' (verified against the integration source and fixtures; not run on a real car)' if self._profile.get('verified_against') else ' (UNTESTED starter profile)'}")
 
     def _command_entities_present(self, cspec: Mapping[str, Any], states: Mapping[str, Any]) -> bool:
         for step in cspec.get("steps", []):
@@ -382,7 +417,11 @@ class HomeAssistantAdapter(CarAdapter):
             return val
         raw = args[val["arg"]]
         if "map" in val:
-            return val["map"][str(raw)]
+            try:
+                return val["map"][str(raw)]
+            except KeyError:
+                raise AdapterError(f"this car's Home Assistant integration does not accept {val['arg']}={raw!r}; "
+                                   f"it accepts {', '.join(val['map'])}") from None
         if val.get("unit_of") == "temperature":
             attrs = (self._states.get(entity) or {}).get("attributes", {})
             unit = str(attrs.get("temperature_unit") or "°F")

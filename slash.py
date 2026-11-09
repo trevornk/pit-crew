@@ -376,7 +376,8 @@ def _discover(svc: Any) -> str:
         lines.append("WARNING: " + w)
     for p in res["proposals"][:3]:
         lines.append(f"  - {p['profile']} / {p['slug']}: {int(p['coverage'] * 100)}% of fields found"
-                     f"{'' if p['tested'] else ' (untested profile)'}")
+                     f"{'' if p['tested'] else ' (not run on a real car)'}"
+                     f"{' (integration removed)' if p.get('deprecated') else ''}")
     return "\n".join(lines)
 
 

@@ -17,7 +17,7 @@ from .base import AdapterError
 
 PROFILE_DIR = Path(__file__).resolve().parent / "profiles"
 FIELD_KINDS = {"number", "attr", "on_off", "enum", "timestamp_minutes", "cover_open", "lock_locked",
-               "open_list", "climate_on", "zone", "shift"}
+               "open_list", "climate_on", "zone", "shift", "attr_open_list", "attr_open"}
 
 
 def bundled_profiles() -> List[str]:
@@ -78,11 +78,22 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             continue
         if spec.get("disabled_by_default") and not isinstance(spec.get("enable_as"), str):
             problems.append(f"field '{name}' is disabled_by_default and needs 'enable_as' (the entity's name in Home Assistant)")
+        alts = spec.get("alt_entities")
+        if alts is not None and not (isinstance(alts, list) and all(isinstance(a, str) for a in alts)):
+            problems.append(f"field '{name}': 'alt_entities' must be a list of entity ids")
         if spec["kind"] == "open_list":
             if not isinstance(spec.get("entities"), dict) or not spec["entities"]:
                 problems.append(f"field '{name}' needs 'entities'")
         elif "entity" not in spec:
             problems.append(f"field '{name}' needs 'entity'")
+        elif spec["kind"] == "attr_open_list" and not (isinstance(spec.get("attrs"), dict) and spec["attrs"]):
+            problems.append(f"field '{name}' needs 'attrs' (opening name -> attribute name)")
+        elif spec["kind"] in ("attr", "attr_open") and not isinstance(spec.get("attr"), str):
+            problems.append(f"field '{name}' needs 'attr'")
+    for item in profile.get("disabled_command_entities") or []:
+        if not (isinstance(item, dict) and isinstance(item.get("entity"), str) and isinstance(item.get("enable_as"), str)
+                and item.get("for") in COMMANDS):
+            problems.append("'disabled_command_entities' items need entity, enable_as and a valid 'for' command")
     commands = profile.get("commands") or {}
     if not isinstance(commands, dict):
         problems.append("'commands' must be an object")
@@ -104,10 +115,13 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
 
 
 def entity_ids_for_field(spec: Dict[str, Any], slug: str, override: Optional[str] = None) -> List[str]:
+    """Entity ids that can feed a field, best first. ``alt_entities`` are the names older versions of the
+    integration used; an explicit user override replaces all of them."""
     if spec["kind"] == "open_list":
         return [e.replace("{slug}", slug) for e in spec["entities"].values()]
-    entity = override or spec["entity"]
-    return [entity.replace("{slug}", slug)]
+    if override:
+        return [override.replace("{slug}", slug)]
+    return [e.replace("{slug}", slug) for e in [spec["entity"], *(spec.get("alt_entities") or [])]]
 
 
 def disabled_field_names(profile: Dict[str, Any], fields: Optional[Any] = None) -> List[str]:
@@ -117,10 +131,11 @@ def disabled_field_names(profile: Dict[str, Any], fields: Optional[Any] = None) 
             if spec.get("disabled_by_default") and (wanted is None or n in wanted)]
 
 
-def enable_instructions(profile: Dict[str, Any], missing: List[str]) -> str:
+def enable_instructions(profile: Dict[str, Any], missing: List[str], extra_titles: Optional[List[str]] = None) -> str:
     """Plain-language steps to enable disabled-by-default entities in Home Assistant."""
-    titles = ", ".join(str(profile["fields"][n].get("enable_as") or n) for n in missing)
+    titles = [str(profile["fields"][n].get("enable_as") or n) for n in missing] + list(extra_titles or [])
     where = str(profile.get("integration_title") or profile.get("integration") or "your car's integration")
-    return (f"Enable {titles} in Home Assistant (it ships them disabled): Settings → Devices & services → {where} → "
+    return (f"Enable {', '.join(titles)} in Home Assistant (the integration ships "
+            f"{'it' if len(titles) == 1 else 'them'} disabled): Settings → Devices & services → {where} → "
             "(your car) → entities → show disabled entities → open each one → turn on Enabled. "
             "They appear within a minute or so.")

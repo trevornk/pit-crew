@@ -22,7 +22,7 @@ platforms: []
 known_issues:
   - "Approval confirmation (approval_confirmation: strict) relies on Hermes' post_approval_response hook; if a surface does not fire it, set approval_confirmation: hermes_gate."
   - "Only the Home Assistant tesla_fleet profile is built from recordings of a real car (read-only status verified live on a real Model Y); no command has been run on a real car yet. The BMW and Kia/Hyundai profiles are verified against each integration's source and test fixtures, not run on a real car. Home Assistant removed its BMW Connected Drive integration in March 2026 (BMW blocked third-party access), so that profile only fits an install that still has the old entities; the Kia/Hyundai profile targets the kia_uvo HACS custom integration."
-  - "Home Assistant ships the Tesla Fleet Odometer, Shift state, Speed and Tire pressure entities disabled; enable them for the odometer, the unlock/trunk motion check and the low-tire alerts (/car and car_status list the missing ones)."
+  - "Home Assistant ships the Tesla Fleet Odometer, Shift state, Speed, Tire pressure and Tire pressure warning entities disabled; enable them for the odometer, the unlock/trunk motion check and the tire alerts (/car and car_status list the missing ones)."
   - "The direct Tesla adapter (Teslemetry / Tessie) is tested with mocks of tesla-fleet-api only; no live account was available. Tesla Fleet API (own developer app) works through Home Assistant; a native Fleet-direct mode waits on a Hermes OAuth enhancement."
 capabilities:
   provides_tools:

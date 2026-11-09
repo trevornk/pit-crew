@@ -8,7 +8,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
   Home Assistant ships that entity disabled; the mapping itself matches HA core's source.
 * **Not live-tested yet (the owner will do this separately): commands.** Lock/climate/charge from `/car live`, the unlock approval
   round-trip on a real surface (Telegram/Discord/Desktop), chat pushes, and both pages inside the real apps.
-* **In CI on every push** (`.github/workflows/ci.yml`): all 593 tests with none skipped: Python 3.12 test tools resolved with a
+* **In CI on every push** (`.github/workflows/ci.yml`): all 622 tests with none skipped: Python 3.12 test tools resolved with a
   3-day release-age quarantine, Node 22 with pinned `react`/`react-dom`/`jsdom` (`tests/node`, `npm ci`), and **Hermes Agent v0.23.0
   installed from its own `uv.lock` (Python 3.14)** so the real `PluginManager` load and the real approval pipeline run; then
   `hermes plugins validate .`. A job step fails the build if any test was skipped. Locally the Node and Hermes tests skip with a
@@ -16,7 +16,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
 * **Source-verified, not run on a car:** `kia_hyundai_connect` (kia_uvo v4 HACS integration) and `bmw_connected_drive` (HA's last
   version of an integration that was removed in March 2026), against entity names, units and test data; see
   `tests/fixtures/integrations/README.md`.
-* **New in 0.2.0:** tire pressure end to end (fields, adapters, simulator, `/car`, both pages, two alerts) and Home Assistant
+* **New in 0.2.0:** tire pressure end to end (fields, adapters, simulator, `/car`, both pages, three alerts including the car's own TPMS warning) and Home Assistant
   "enable this disabled entity" guidance; a full bug audit (list in `CHANGELOG.md`, each fix has a regression test).
 
 ## Known limits (not fixed, by design or cost)
@@ -27,7 +27,12 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
 * A model can pass `wake_ok` / `override_zone` itself on comfort/charging commands (the schema says "only after the user agreed");
   approval-class commands still need the human prompt. The pages cannot set either flag.
 * The Desktop/web tiles label a reading "confirmed" when it carries no timestamp (no adapter does this today).
-* Fast-air-loss can, rarely, read a hot tire cooling right after a long highway drive as a leak; readings taken while moving are ignored.
+* Fast air loss ignores tire readings while the car moves and for 60 minutes after it last moved (hot tires cool by 3-5 psi); a
+  puncture that starts in that hour is still caught by the low-pressure alert and by the car's own TPMS warning. A car that reports no
+  motion at all gets no cool-down. Tesla Direct stamps each tire with its own TPMS "last seen" time, and a parked car's sensors report
+  rarely, so those tires can look stale; stale tires are skipped one by one (the other three are still judged).
+* The car's own tire warnings (Home Assistant `tesla_fleet` *Tire pressure warning* sensors, Teslemetry/Tessie
+  `tpms_soft_warning_*` / `tpms_hard_warning_*`) come from source/schema only; not seen on a real car with a warning on.
 
 ## Pass 9 (security + privacy + UX + README) — done
 * **Security (all 12 findings):** watcher lease heartbeat and decoupled atomic push (gateway-owned delivery), crash-proof poll loop,
@@ -107,7 +112,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
    Kia/Hyundai starters) + auto-discovery; read-only TeslaMateApi adapter (GET only); `car_history`; `car_readiness`.
 3. **Safety** — dry-run default, timed arming, policy engine, human approval via Hermes' pipeline with positive
    confirmation, fail-closed when unattended, rate limit + de-dupe, read-back, SQLite audit log, redaction, `car_command`.
-4. **Proactive** — watcher (task/thread, lease, sleep-aware, never wakes), nine rules, delivery (stored + next-turn context +
+4. **Proactive** — watcher (task/thread, lease, sleep-aware, never wakes), twelve rules, delivery (stored + next-turn context +
    push via `inject_message` to a chat bound with `/car notify here`), `car_alerts`, `car_rules`, `/car`, 3 blueprints, skill.
 5. **Desktop** — page + chip + nav + backend (`dashboard/plugin_api.py`); renders with the simulator.
 6. **Docs** — README, SAFETY, ADAPTERS, DECISIONS, DEMO, CHANGELOG, `catalog/pit-crew.yaml` draft.

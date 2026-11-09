@@ -93,6 +93,12 @@ becomes "stale" and stops proving anything. For reliable unlock/trunk away from 
 Home Assistant's *Shift state* and *Speed* entities — they refresh on every poll. Setting `allow_unknown_motion: true` re-enables the old behaviour
 (allowed with a warning) for people who knowingly accept it.
 
+**Cloud-cached cars (Kia/Hyundai via `kia_uvo`).** That integration polls a cached cloud copy and only wakes the car about once a
+day, and Home Assistant stamps each write as "fresh". So a gear of P read from it can be hours old and still look new. The profile
+therefore takes the data time of the gear, plug, lock and location from the integration's *Last Updated At* sensor, and the gear
+counts as a parked indicator **only if that sensor is readable** (otherwise the gear is treated as unavailable). Older than
+`max_state_age_s` proves nothing, as for any stale reading. Plugged in with fresh data still proves parked.
+
 ## Privacy
 
 * **No raw coordinates anywhere.** The state model has no latitude/longitude field; location is only a *zone*

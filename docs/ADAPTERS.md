@@ -63,7 +63,7 @@ charge_power_kw, charge_limit_pct, charge_eta_min, charge_current_a, charge_curr
 charge_port_open, locked, doors_open (list of names), windows_open (list), trunk_open, frunk_open, sentry_on, user_present,
 climate_on, cabin_temp_f, outside_temp_f, target_temp_f, defrost_on, location_zone, shift_state, speed_mph, moving, asleep,
 software_update_available, software_version, odometer_mi, tire_psi_fl / tire_psi_fr / tire_psi_rl / tire_psi_rr (psi),
-tire_rec_front_psi / tire_rec_rear_psi (psi, the car's recommended cold pressure)` — provide what you have. Pressures must
+tire_rec_front_psi / tire_rec_rear_psi (psi, the car's recommended cold pressure), tire_warn_fl / tire_warn_fr / tire_warn_rl / tire_warn_rr (bool, the car's own tire warning: True = attention)` — provide what you have. Pressures must
 be psi; a pressure whose unit you don't know is better reported as unavailable than guessed (a bar value read as psi looks like
 a flat tire).
 

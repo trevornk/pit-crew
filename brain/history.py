@@ -107,13 +107,15 @@ def efficiency_trend(drives: Sequence[DriveRecord], now: float) -> Optional[Dict
 
 
 def history_report(provider: Optional[HistoryProvider], kind: str, now: float, *, days: Optional[int] = 30,
-                   start: Optional[float] = None, end: Optional[float] = None, limit: int = 500) -> Dict[str, Any]:
-    """Build the ``car_history`` payload. ``kind``: summary | trips | charges | efficiency | battery."""
+                   start: Optional[float] = None, end: Optional[float] = None, limit: int = 500,
+                   tz: Any = None) -> Dict[str, Any]:
+    """Build the ``car_history`` payload. ``kind``: summary | trips | charges | efficiency | battery.
+    Dates are in ``tz`` (the user's configured time zone; the computer's when omitted)."""
     if provider is None:
         return {"ok": False, "error": "no history source is configured",
                 "hint": "Set the 'history' setting to 'teslamate' (and teslamate_url) — or use the simulator."}
     t0, t1 = bounds(now, days, start, end)
-    tz = datetime.fromtimestamp(now).astimezone().tzinfo
+    tz = tz or datetime.fromtimestamp(now).astimezone().tzinfo
     window = {"from": datetime.fromtimestamp(t0, tz=tz).date().isoformat(),
               "to": datetime.fromtimestamp(t1, tz=tz).date().isoformat(), "days": round((t1 - t0) / 86400.0, 1)}
     out: Dict[str, Any] = {"ok": True, "kind": kind, "window": window, "source": provider.label}

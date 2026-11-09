@@ -328,7 +328,7 @@ class CarService:
                     "hint": "use summary, trips, charges, efficiency or battery"}
         try:
             provider = self.history_provider
-            return history_report(provider, kind, self.now(), days=days, start=start, end=end)
+            return history_report(provider, kind, self.now(), days=days, start=start, end=end, tz=self.local_tz())
         except AdapterError as exc:
             return {"ok": False, "error": scrub(str(exc))}
 

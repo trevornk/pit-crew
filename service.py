@@ -441,16 +441,47 @@ class CarService:
         return self._broker
 
     def armed_info(self) -> Dict[str, Any]:
-        """Effective armed state. Armed = a still-running ``/car arm`` OR the standing ``armed`` setting
-        (unless the user ran ``/car disarm``, which overrides the setting until they arm again)."""
+        """Effective live/practice state. The ``live_mode`` setting decides the shape:
+
+        * ``on_demand`` (default): live only while a ``/car live`` / Go live window runs (it ends by itself).
+        * ``always``: live unless the user paused it with ``/car stop`` / Stop; ``/car live`` / Go live resumes it, with no
+          expiry. The setting is re-read on every call, so changing it applies at once.
+
+        ``state`` is one of ``always`` (live, always on), ``paused`` (always mode, stopped), ``timed`` (live until
+        ``until``) and ``practice``. The agent has no tool that changes any of this."""
         wall = self._wall()
+        snap = self.settings.snapshot()
+        mode = snap["live_mode"]
         st = self.store.kv_get("arm_state", {}) or {}
         until = st.get("until")
         runtime = bool(until) and float(until) > wall
-        config = bool(self.settings.get("armed")) and not st.get("forced_disarm")
-        return {"armed": runtime or config, "source": "runtime" if runtime else ("setting" if config else None),
-                "until": float(until) if runtime else None, "setting_armed": bool(self.settings.get("armed")),
+        paused = bool(st.get("paused", st.get("forced_disarm")))
+        if mode == "always":
+            armed = not paused
+            state = "always" if armed else "paused"
+            source = "always" if armed else None
+            until_out = None
+        else:
+            armed = runtime
+            state = "timed" if runtime else "practice"
+            source = "runtime" if runtime else None
+            until_out = float(until) if runtime else None
+        return {"armed": armed, "source": source, "until": until_out, "live_mode": mode, "state": state,
+                "paused": mode == "always" and paused, "setting_armed": mode == "always",
                 "forced_disarm": bool(st.get("forced_disarm"))}
+
+    def live_label(self, info: Optional[Dict[str, Any]] = None) -> str:
+        """One plain line saying which state applies (status card, tool results; the pages build the same words)."""
+        from .brain.timeparse import fmt_clock
+
+        info = info or self.armed_info()
+        if info["state"] == "always":
+            return "Live: always on"
+        if info["state"] == "paused":
+            return "Paused (practice) — /car live to resume"
+        if info["state"] == "timed" and info.get("until"):
+            return f"Live until {fmt_clock(self.local_dt(info['until']))}"
+        return "Practice mode · nothing is sent"
 
     def clamp_hours(self, hours: Optional[float]) -> float:
         """The live-mode duration actually used (so callers can say the truth): no number -> the ``live_default_hours``
@@ -465,8 +496,17 @@ class CarService:
         return max(0.25, min(h, 72.0))
 
     def arm(self, hours: Optional[float] = None, *, by: str = "") -> Dict[str, Any]:
+        """Go live: called only by the user's ``/car live`` or the page's Go live button (no tool arms). In ``always`` mode
+        this resumes after a pause, with no expiry; in ``on_demand`` mode it opens a timed window."""
+        if self.settings.get("live_mode") == "always":
+            self.store.kv_set("arm_state", {"until": None, "forced_disarm": False, "paused": False})
+            self._audit_control("arm", by, "live mode resumed (always on: no expiry)")
+            info = self.armed_info()
+            info["hours"] = None
+            info["until_local"] = None
+            return info
         hours = self.clamp_hours(hours)
-        self.store.kv_set("arm_state", {"until": self._wall() + hours * 3600.0, "forced_disarm": False})
+        self.store.kv_set("arm_state", {"until": self._wall() + hours * 3600.0, "forced_disarm": False, "paused": False})
         self._audit_control("arm", by, f"live mode on for {hours:g} h")
         info = self.armed_info()
         info["hours"] = hours
@@ -474,8 +514,11 @@ class CarService:
         return info
 
     def disarm(self, *, by: str = "") -> Dict[str, Any]:
-        self.store.kv_set("arm_state", {"until": None, "forced_disarm": True})
-        self._audit_control("disarm", by, "back to practice mode")
+        """Back to practice. In ``always`` mode this is a pause that lasts until the user goes live again; in ``on_demand``
+        mode it ends the running window (and leaves no pause behind, so switching to ``always`` later starts live)."""
+        always = self.settings.get("live_mode") == "always"
+        self.store.kv_set("arm_state", {"until": None, "forced_disarm": always, "paused": always})
+        self._audit_control("disarm", by, "paused: practice mode until /car live" if always else "back to practice mode")
         return self.armed_info()
 
     def _audit_control(self, what: str, by: str, detail: str) -> None:
@@ -488,9 +531,12 @@ class CarService:
         snap = self.settings.snapshot()
         out: Dict[str, Any] = {
             "armed": info["armed"], "mode": "live" if info["armed"] else "dry_run",
-            "armed_by": info["source"], "trusted_zones": list(snap["trusted_zones"]),
+            "live_mode": info["live_mode"], "live_state": info["state"], "live_label": self.live_label(info),
+            "armed_by": info["source"], "trusted_zones": list(snap["trusted_zones"]), "zone_rule": snap["zone_rule"],
+            "wake_for_commands": snap["wake_for_commands"],
             "max_state_age_s": snap["max_state_age_s"], "require_human_for": list(snap["require_human_for"]),
-            "rate_limit": f"{snap['rate_limit_commands']} per {int(snap['rate_limit_window_s'] // 60)} min"}
+            "rate_limit": f"{snap['rate_limit_commands']} per {int(snap['rate_limit_window_s'] // 60)} min",
+            "dedupe_window_s": snap["dedupe_window_s"]}
         if info["until"]:
             out["armed_until"] = self.local_dt(info["until"]).isoformat(timespec="minutes")
         return out

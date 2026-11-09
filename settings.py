@@ -42,8 +42,10 @@ DEFAULTS: Dict[str, Any] = {
     "teslamate_url": "",
     "teslamate_car_id": 1,
     # --- safety --------------------------------------------------------------------------
-    "armed": False,                  # False = dry-run: commands are validated + logged, car never contacted
+    "live_mode": "on_demand",        # on_demand: practice until `/car live` / Go live (timed) | always: live until /car stop
     "trusted_zones": ["home"],
+    "zone_rule": "trusted_zones",    # unlock/trunk/frunk: trusted_zones (only in those places) | anywhere
+    "wake_for_commands": "ask",      # a command for a sleeping car: ask (agent asks first) | auto (the asked-for command wakes it)
     "max_state_age_s": 600,          # risky commands are refused when the car's state is older than this
     "stale_after_s": 900,            # fields older than this are labelled stale
     "allow_unknown_motion": False,   # parked-ness unprovable (no FRESH speed/gear/driving data): refuse (fail closed)
@@ -86,6 +88,51 @@ LIVE_DEFAULT_HOURS_MAX = 24
 
 # Every approval-class command; the only values ``require_human_for`` accepts.
 APPROVAL_COMMANDS = ("unlock", "open_trunk", "open_frunk", "vent_windows", "sentry_off", "honk", "flash")
+
+# Owner-adjustable choices: allowed values, the first is the conservative default for a fresh install.
+CHOICES: Dict[str, Tuple[str, ...]] = {
+    "live_mode": ("on_demand", "always"),
+    "zone_rule": ("trusted_zones", "anywhere"),
+    "wake_for_commands": ("ask", "auto"),
+}
+# Numeric protections an owner may loosen or tighten, but never switch off: (min, max). Out-of-range values are clamped.
+BOUNDS: Dict[str, Tuple[float, float]] = {
+    "max_state_age_s": (60, 3600),        # freshness: 1 min .. 1 h (can be loosened, not disabled)
+    "rate_limit_commands": (1, 60),       # live commands per window
+    "rate_limit_window_s": (60, 86400),   # 1 min .. 1 day
+    "dedupe_window_s": (5, 600),          # repeated identical command ignored for 5 s .. 10 min
+}
+# The settings' labels as the Settings form shows them (refusal messages name the exact setting that would allow it).
+LABELS: Dict[str, str] = {
+    "live_mode": "Safety · Live mode",
+    "zone_rule": "Safety · Unlock/trunk/frunk zone",
+    "wake_for_commands": "Safety · Wake a sleeping car for a command",
+    "trusted_zones": "Safety · Places where unlock is allowed",
+    "max_state_age_s": "Safety · Refuse risky commands when data is older than (s)",
+    "rate_limit_commands": "Safety · Max commands per window",
+    "rate_limit_window_s": "Safety · Rate-limit window (s)",
+    "dedupe_window_s": "Safety · Ignore a repeated command for (s)",
+    "require_human_for": "Advanced · Always ask a person for these, even if Hermes approvals are off",
+    "allow_unknown_motion": "Advanced · Allow risky commands when I can't tell if the car is parked",
+}
+
+
+def clean_choice(key: str, value: Any) -> str:
+    """One of the allowed values for ``key`` (case/space tolerant); anything else is the conservative default."""
+    allowed = CHOICES[key]
+    text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return text if text in allowed else allowed[0]
+
+
+def clean_bounded(key: str, value: Any) -> int:
+    lo, hi = BOUNDS[key]
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        v = float(DEFAULTS[key])
+    if v != v:  # NaN
+        v = float(DEFAULTS[key])
+    return int(max(lo, min(hi, round(v))))
 
 
 def clean_live_default_hours(value: Any) -> int:
@@ -155,9 +202,18 @@ class Settings:
         # Migration: the old ``arm_default_hours`` setting is the default live length unless the new one is set.
         if raw.get("live_default_hours") is None and raw.get("arm_default_hours") is not None:
             merged["live_default_hours"] = _coerce("live_default_hours", raw["arm_default_hours"])
-        merged.update(self._overrides)
+        # Migration: the old standing ``armed: true`` ("Advanced · Always live") is live_mode "always" unless live_mode is set.
+        if raw.get("live_mode") is None and _is_true(raw.get("armed")):
+            merged["live_mode"] = "always"
+        merged.update({k: v for k, v in self._overrides.items() if k != "armed"})
+        if "live_mode" not in self._overrides and _is_true(self._overrides.get("armed")):
+            merged["live_mode"] = "always"
         merged["require_human_for"] = clean_require_human_for(merged["require_human_for"])
         merged["live_default_hours"] = clean_live_default_hours(merged["live_default_hours"])
+        for key in CHOICES:
+            merged[key] = clean_choice(key, merged[key])
+        for key in BOUNDS:
+            merged[key] = clean_bounded(key, merged[key])
         return merged
 
     def get(self, key: str) -> Any:
@@ -207,6 +263,12 @@ class Settings:
                 if k in defaults:
                     merged[k] = v
         return merged
+
+
+def _is_true(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return value is True
 
 
 def _coerce(key: str, value: Any) -> Any:

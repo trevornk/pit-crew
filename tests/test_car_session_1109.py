@@ -49,6 +49,14 @@ def ha():
     fake.stop()
 
 
+@pytest.fixture
+def reports_in_time(monkeypatch):
+    """Read-back loop tests: pretend the integration can report inside the wait (like teslemetry's streaming). With the real
+    tesla_fleet latency (600 s) Pit Crew reads once and answers at once; see test_tesla_fleet_answers_after_one_read."""
+    from pit_crew.adapters.homeassistant import HomeAssistantAdapter
+    monkeypatch.setattr(HomeAssistantAdapter, "report_latency_s", lambda self: None)
+
+
 def live(make_service, ha, clock, **settings):
     clock.t = NOW
     ha.now_fn = lambda: clock.t
@@ -72,7 +80,8 @@ def test_unlock_after_doors_were_locked_by_hand_is_not_already_unlocked(make_ser
     assert "may be out of date" in res["message"] and "5 min old" in res["message"]
     assert res["status"] == "sent_unconfirmed"
     # HA re-wrote 'unlocked' itself when Tesla accepted the call; that is not the car's report
-    assert res["readback"]["status"] == "accepted" and "NOT reported back" in res["message"]
+    assert res["readback"]["status"] == "accepted" and "Tesla accepted it" in res["message"]
+    assert "confirmed it" not in res["message"]
     row = svc.store.audit_recent(1)[0]
     assert row["readback"] == "accepted" and row["status"] == "sent_unconfirmed"
 
@@ -92,7 +101,22 @@ def test_open_trunk_confirmed_one_second_later_was_only_the_integrations_own_wri
     assert st.newest_update() <= NOW - 300 + 1
 
 
-def test_a_real_reread_after_the_command_does_confirm(make_service, ha, clock):
+@pytest.mark.parametrize("cmd,eid,before", [("unlock", LOCK, "locked"), ("open_trunk", TRUNK, "closed")])
+def test_tesla_fleet_answers_after_one_read(make_service, ha, clock, cmd, eid, before):
+    """tesla_fleet re-reads the car every 600 s, so a 20 s read-back loop only delays the reply: one read, then answer."""
+    ha.set_state(eid, before)
+    svc = live(make_service, ha, clock)
+    svc.capabilities()                                               # (the adapter's one-time first look at HA)
+    reads = sum(1 for r in ha.requests if r[0] == "GET")
+    res = svc.run_command(cmd, {}, surface="tool", approval=AUTO)
+    assert clock.t == NOW                                            # the fake clock never advanced: no read-back wait
+    assert sum(1 for r in ha.requests if r[0] == "GET") - reads <= 2  # the preflight read + ONE read-back
+    assert res["status"] == "sent_unconfirmed" and res["readback"]["status"] == "accepted" and res["readback"]["quick"]
+    assert "Tesla accepted it. The car reports back within ~10 min; check car_status later" in res["message"]
+    assert svc.store.audit_recent(1)[0]["readback"] == "accepted"
+
+
+def test_a_real_reread_after_the_command_does_confirm(make_service, ha, clock, reports_in_time):
     ha.set_state(TRUNK, "closed")
     svc = live(make_service, ha, clock)
     real_sleep = svc._sleep
@@ -107,7 +131,7 @@ def test_a_real_reread_after_the_command_does_confirm(make_service, ha, clock):
     assert not svc.get_state(force=True).fields["trunk_open"].assumed
 
 
-def test_a_reread_that_shows_the_old_value_is_not_confirmed(make_service, ha, clock):
+def test_a_reread_that_shows_the_old_value_is_not_confirmed(make_service, ha, clock, reports_in_time):
     """Tesla accepted it but the re-read shows the trunk still closed: HA reverts its assumption; Pit Crew says not confirmed."""
     ha.set_state(TRUNK, "closed")
     svc = live(make_service, ha, clock)

@@ -45,7 +45,7 @@ def test_page_shows_armed_unlocked_alert_and_stale(service, tmp_path):
     service.watcher.poll_once(force=True)
     mod, summary = backend_summary(service)
     out = render(tmp_path, summary, rules=mod.rules())
-    assert "LIVE until" in out["page"] and "Stop" in out["page"] and "Unlocked" in out["page"] and "unlocked and away from home" in out["page"]
+    assert "Live until" in out["page"] and "Stop" in out["page"] and "Unlocked" in out["page"] and "unlocked and away from home" in out["page"]
     assert "codicon-unlock" in out["chip"] and 'data-dot="warn"' in out["chip"]
 
 

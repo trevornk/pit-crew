@@ -51,8 +51,8 @@ def test_arm_disarm_lifecycle_and_expiry(stub_service, clock):
 
 def test_standing_arm_setting_and_disarm_override(stub_service):
     svc = stub_service()
-    svc.settings.set_override("armed", True)
-    assert svc.armed_info()["armed"] and svc.armed_info()["source"] == "setting"
+    svc.settings.set_override("armed", True)          # the old standing arm now means live_mode "always"
+    assert svc.armed_info()["armed"] and svc.armed_info()["source"] == "always"
     svc.disarm(by="test")
     assert svc.armed_info()["armed"] is False  # /car disarm beats the standing setting
     svc.arm(1)

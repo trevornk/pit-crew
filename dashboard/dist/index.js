@@ -27,6 +27,15 @@
   // ------------------------------------------------------------------ small helpers
   const num = (v, d) => (typeof v === "number" && isFinite(v) ? v.toFixed(d || 0) : "—");
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "");
+  // Which live/practice state applies (the same words as `/car`): live mode "always" vs on-demand timed windows.
+  const isAlways = function (a) { return !!(a && a.live_mode === "always"); };
+  const liveText = function (a) {
+    if (!a) return "";
+    if (a.state === "always") return "Live: always on";
+    if (a.state === "paused") return "Paused (practice) — /car live to resume";
+    if (a.armed) return "Live" + (a.until_local ? " until " + new Date(a.until_local).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "");
+    return "Practice mode · nothing is sent";
+  };
   function ageText(s) {
     if (s == null) return "";
     if (s < 60) return "just now";
@@ -291,7 +300,7 @@
         .then(function () { inflight.current = false; busy[1](false); });
     }
     function goLiveAnd(next) {
-      return api("/arm", { confirmed: true, hours: props.hours }).then(function (r) {
+      return api("/arm", props.always ? { confirmed: true } : { confirmed: true, hours: props.hours }).then(function (r) {
         if (r && r.ok === false) { msg[1](r.error || "Could not go live."); return; }
         props.reload(); return next();
       }, function (e) { msg[1]("Could not go live: " + (e && e.message || e)); });
@@ -314,13 +323,14 @@
         risky && q && q.ok ? h(AskHermes, { text: q.ask_hermes }) : null,
         h("div", { style: row },
           !risky && q && q.ok && armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: run }, "Send command") : null,
-          !risky && q && q.ok && !armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: function () { goLiveAnd(run); } }, "Go live for " + props.hours + " h & send") : null,
+          !risky && q && q.ok && !armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: function () { goLiveAnd(run); } }, (props.always ? "Go live" : "Go live for " + props.hours + " h") + " & send") : null,
           q && q.ok && !armed ? h(C.Button, { size: "sm", variant: "outline", disabled: busy[0], onClick: run }, "Practice run") : null,
           h(C.Button, { size: "sm", variant: "ghost", onClick: function () { pick[1](null); pf[1](null); msg[1](""); base[1](null); } }, "Close")),
         msg[0] ? h("span", { style: { fontSize: 12 } }, outdated ? OUTDATED : msg[0]) : null) : null;
     return h("section", { id: "pit-crew-controls", style: box },
-      h("div", { style: between }, h("strong", null, "Controls"), h(C.Badge, { variant: armed ? "destructive" : "outline" }, armed ? "Live" : "Practice mode · nothing is sent")),
+      h("div", { style: between }, h("strong", null, "Controls"), h(C.Badge, { variant: armed ? "destructive" : "outline" }, liveText(props.live))),
       h("div", { style: dim }, armed ? "Every command is safety-checked, recorded, and confirmed by re-reading the car. A greyed-out button says why, right under its label."
+        : props.live && props.live.state === "paused" ? "Paused (practice): these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to resume (live mode is always on until you press Stop). A greyed-out button says why, right under its label."
         : "Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. A greyed-out button says why, right under its label."),
       panel,
       h("div", { style: g }, EVERYDAY.map(function (c) { return btn(c, false); })),
@@ -385,12 +395,14 @@
       }, function (e) { note[1]("Failed: " + (e && e.message || e)); });
     };
     return h("div", { style: row },
-      h(C.Badge, { variant: a.armed ? "destructive" : "outline" }, a.armed ? "LIVE" + (a.until_local ? " until " + new Date(a.until_local).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "") : "Practice mode · nothing is sent"),
-      a.armed ? h(C.Button, { size: "sm", variant: "ghost", onClick: function () { go("/disarm", {}); } }, "Stop")
+      h(C.Badge, { variant: a.armed ? "destructive" : "outline" }, liveText(a)),
+      a.armed ? h(C.Button, { size: "sm", variant: "ghost", title: isAlways(a) ? "Pause: practice mode until you go live again" : "Back to practice mode", onClick: function () { go("/disarm", {}); } }, "Stop")
         : ask[0] ? h("span", { style: row },
-          h("span", { style: { fontSize: 12 } }, props.simulated ? "Go live for " + props.hours + " h? (simulated car)" : "Go live for " + props.hours + " h? Hermes can then send commands; unlock and similar follow your Hermes approval setting."),
+          h("span", { style: { fontSize: 12 } }, isAlways(a)
+            ? (props.simulated ? "Resume live mode? (simulated car)" : "Resume live mode? Hermes can then send commands until you press Stop; unlock and similar follow your Hermes approval setting.")
+            : props.simulated ? "Go live for " + props.hours + " h? (simulated car)" : "Go live for " + props.hours + " h? Hermes can then send commands; unlock and similar follow your Hermes approval setting."),
           h(C.Button, { size: "sm", variant: "secondary", autoFocus: true, onClick: function () { ask[1](false); } }, "Cancel"),
-          h(C.Button, { size: "sm", variant: "destructive", onClick: function () { go("/arm", { confirmed: true, hours: props.hours }); } }, "Go live"))
+          h(C.Button, { size: "sm", variant: "destructive", onClick: function () { go("/arm", isAlways(a) ? { confirmed: true } : { confirmed: true, hours: props.hours }); } }, "Go live"))
           : h(C.Button, { size: "sm", variant: "outline", onClick: function () { ask[1](true); } }, "Go live…"),
       note[0] ? h("span", { style: dim }, note[0]) : null);
   }
@@ -441,7 +453,7 @@
       h(Alerts, { alerts: s.alerts, simulated: !!s.simulated, reload: load, down: down, onFix: function (cmd) { ext[1]({ cmd: cmd, n: Date.now() }); } }),
       down ? null : h(Tiles, { st: st }),
       down ? h("section", { style: box }, h("strong", null, "Controls"), h("span", { style: dim }, "Commands are unavailable until Pit Crew can read your car."))
-        : h(Commands, { st: st, armed: !!armed.armed, hours: hours, reload: load, external: ext[0] }),
+        : h(Commands, { st: st, armed: !!armed.armed, live: armed, always: isAlways(armed), hours: hours, reload: load, external: ext[0] }),
       h(AuditLog, { rows: log[0], simulated: !!s.simulated }),
       s.simulated ? h(Sim, { reload: load }) : null,
       h("div", { style: dim }, "Settings: Hermes Desktop has a form under Settings → Plugins → Pit Crew; otherwise edit plugins.entries.pit-crew.settings in config.yaml (`hermes config edit`). Changes apply immediately."));

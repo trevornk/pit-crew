@@ -261,7 +261,7 @@ def test_slash_arm_asks_choice_then_arms_and_disarm(service):
     out = slash.handle("arm 2")
     assert "Live for 2 h" in out and asked and "SIMULATED" in asked[0]
     assert service.armed_info()["armed"]
-    assert "LIVE" in slash.handle("")
+    assert "Live until" in slash.handle("")
     assert "Back to practice mode" in slash.handle("practice") and not service.armed_info()["armed"]
 
 

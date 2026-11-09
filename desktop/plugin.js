@@ -67,6 +67,13 @@ const clock = iso => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 }
 const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '')
+// Which live/practice state applies (the same words as `/car`): live mode "always" vs on-demand timed windows.
+const isAlways = a => !!(a && a.live_mode === 'always')
+const liveText = a => !a ? '' : a.state === 'always' ? 'Live: always on'
+  : a.state === 'paused' ? 'Paused (practice) — /car live to resume'
+  : a.armed ? `Live${a.until_local ? ' until ' + clock(a.until_local) : ''}`
+  : 'Practice mode · nothing is sent'
+const goLiveLabel = (a, hours) => (isAlways(a) ? 'Go live' : `Go live for ${hours} h`)
 // Where the car is, in words ("away" is not a place you can be "at").
 const whereText = z => {
   const t = String(z || '').trim()
@@ -158,7 +165,7 @@ function Header({ summary, onRefresh, loading, onGoLive }) {
   const armed = summary && summary.armed
   const stop = async () => {
     const r = await attempt('Stopping live mode', () => api('/disarm', { method: 'POST', body: {} }))
-    if (r) toast('info', 'Back to practice mode. Nothing will be sent to the car.')
+    if (r) toast('info', r.state === 'paused' ? 'Paused (practice). Nothing will be sent to the car until you go live again.' : 'Back to practice mode. Nothing will be sent to the car.')
     refresh()
   }
   return h('div', { style: S.between },
@@ -167,9 +174,9 @@ function Header({ summary, onRefresh, loading, onGoLive }) {
       h('h1', { style: { fontSize: 18, fontWeight: 600, margin: 0 } }, 'Pit Crew'),
       summary && summary.simulated ? h(Badge, { variant: 'outline' }, 'Simulated car') : null,
       armed ? h(Fragment, null,
-        h(Badge, { variant: armed.armed ? 'warn' : 'muted', title: armed.armed ? 'Hermes can send commands to the car. Unlock, trunk and similar follow your Hermes approval setting.' : 'Commands are checked and logged but never sent to the car.' },
-          armed.armed ? `LIVE${armed.until_local ? ' until ' + clock(armed.until_local) : ''}` : 'Practice mode · nothing is sent'),
-        armed.armed ? h(Button, { variant: 'ghost', size: 'xs', onClick: stop }, 'Stop')
+        h(Badge, { variant: armed.armed ? 'warn' : 'muted', title: armed.armed ? `Hermes can send commands to the car${isAlways(armed) ? ' until you press Stop' : ''}. Unlock, trunk and similar follow your Hermes approval setting.` : 'Commands are checked and logged but never sent to the car.' },
+          liveText(armed)),
+        armed.armed ? h(Button, { variant: 'ghost', size: 'xs', onClick: stop, title: isAlways(armed) ? 'Pause: practice mode until you go live again' : 'Back to practice mode' }, 'Stop')
           : h(Button, { variant: 'outline', size: 'xs', onClick: onGoLive }, 'Go live…')) : null),
     h(Button, { variant: 'ghost', size: 'xs', onClick: onRefresh, disabled: loading }, h(Codicon, { name: 'refresh' }), 'Refresh'))
 }
@@ -232,21 +239,22 @@ function GoLiveDialog({ summary, onClose, onDone }) {
   const cancelRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const hours = (summary.armed && summary.armed.default_hours) || summary.settings.live_default_hours || 1
+  const always = isAlways(summary.armed)
   const go = async () => {
     setBusy(true)
-    const r = await attempt('Going live', () => api('/arm', { method: 'POST', body: { confirmed: true, hours } }))
+    const r = await attempt('Going live', () => api('/arm', { method: 'POST', body: always ? { confirmed: true } : { confirmed: true, hours } }))
     setBusy(false)
     if (!r || r.ok === false) { if (r) toast('error', r.error || 'Could not go live.'); return }
-    toast('info', `Live for ${r.hours || hours} h.`)
+    toast('info', always ? 'Live: always on (until you press Stop).' : `Live for ${r.hours || hours} h.`)
     refresh()
     onDone ? onDone() : onClose()
   }
   return h(Dialog, { open: true, onOpenChange: o => { if (!o && !busy) onClose() } },
     h(DialogContent, { className: 'max-w-md', onOpenAutoFocus: e => { if (cancelRef.current) { e.preventDefault(); cancelRef.current.focus() } } },
-      h(DialogHeader, null, h(DialogTitle, null, `Go live for ${hours} hours?`),
+      h(DialogHeader, null, h(DialogTitle, null, always ? 'Resume live mode?' : `Go live for ${hours} hours?`),
         h(DialogDescription, null, summary.simulated
           ? 'This is the simulated car, so nothing real can happen.'
-          : 'Hermes will be able to send real commands to your car. Unlock, trunk, frunk, window vent, Sentry-off, honk and flash follow your Hermes approval setting (Hermes asks you when its approvals are on). It switches back to practice mode by itself.')),
+          : `Hermes will be able to send real commands to your car. Unlock, trunk, frunk, window vent, Sentry-off, honk and flash follow your Hermes approval setting (Hermes asks you when its approvals are on). ${always ? 'Live mode is set to always on, so it stays live until you press Stop.' : 'It switches back to practice mode by itself.'}`)),
       h(DialogFooter, null, h(Button, { ref: cancelRef, variant: 'secondary', autoFocus: true, disabled: busy, onClick: onClose }, 'Cancel'),
         h(Button, { variant: 'destructive', disabled: busy, onClick: go }, busy ? 'Going live…' : 'Go live'))))
 }
@@ -431,7 +439,7 @@ function SafetyDialog({ request, summary, onClose }) {
   const goLiveAnd = async next => {
     setBusy(true)
     try {
-      const r = await api('/arm', { method: 'POST', body: { confirmed: true, hours } })
+      const r = await api('/arm', { method: 'POST', body: isAlways(summary && summary.armed) ? { confirmed: true } : { confirmed: true, hours } })
       if (r && r.ok === false) { toast('error', r.error || 'Could not go live.'); return }
       refresh()
     } catch (err) {
@@ -473,13 +481,13 @@ function SafetyDialog({ request, summary, onClose }) {
         result || q.isError ? null : viaHermes
           ? h(Fragment, null,
             !live ? h(Button, { variant: 'outline', disabled: busy || !pf || !pf.ok, onClick: run, title: 'Logs the attempt, sends nothing' }, 'Practice run') : null,
-            !live ? h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: () => goLiveAnd(ask) }, h(Codicon, { name: 'comment-discussion' }), `Go live for ${hours} h & ask Hermes`)
+            !live ? h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: () => goLiveAnd(ask) }, h(Codicon, { name: 'comment-discussion' }), `${goLiveLabel(summary && summary.armed, hours)} & ask Hermes`)
               : h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: ask }, h(Codicon, { name: 'comment-discussion' }), 'Ask Hermes'))
           : live
             ? h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: run }, busy ? 'Sending…' : 'Send command')
             : h(Fragment, null,
               h(Button, { variant: 'outline', disabled: busy || !pf || !pf.ok, onClick: run, title: 'Logs the attempt, sends nothing' }, 'Practice run'),
-              h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: () => goLiveAnd(run) }, busy ? 'Working…' : `Go live for ${hours} h & send`)))))
+              h(Button, { variant: 'default', disabled: busy || !pf || !pf.ok, onClick: () => goLiveAnd(run) }, busy ? 'Working…' : `${goLiveLabel(summary && summary.armed, hours)} & send`)))))
 }
 
 function CommandButton({ c, v, canDo, onPick }) {
@@ -502,11 +510,13 @@ function Commands({ summary, v, onPick }) {
   const canDo = new Set((summary && summary.status && summary.status.can_do) || [])
   const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8, alignItems: 'start' }
   const armed = !!(summary && summary.armed && summary.armed.armed)
+  const paused = !!(summary && summary.armed && summary.armed.state === 'paused')
   const group = g => COMMANDS.filter(c => c.group === g).map(c => h(CommandButton, { key: c.id, c, v, canDo, onPick }))
   return h(Section, { title: 'More controls',
-    right: h(Badge, { variant: armed ? 'warn' : 'muted' }, armed ? 'Live' : 'Practice mode · nothing is sent') },
+    right: h(Badge, { variant: armed ? 'warn' : 'muted' }, liveText(summary && summary.armed)) },
     h('div', { style: S.tiny }, armed
       ? 'Every command is safety-checked, recorded, and confirmed by re-reading the car. A greyed-out button says why, right under its label.'
+      : paused ? 'Paused (practice): these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to resume (live mode is always on until you press Stop). A greyed-out button says why, right under its label.'
       : 'Practice mode: these buttons check the safety rules and log the attempt, but send nothing. Use Go live at the top to send for real. A greyed-out button says why, right under its label.'),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
       h('span', { style: S.label }, 'Everyday'), h('div', { style: grid }, ...group('everyday'))),
@@ -766,7 +776,7 @@ function ChipLabel() {
   }
   const { bat, sec, chg, isStale } = v
   const charging = chg.charging_state === 'charging'
-  const tip = `${v.st.vehicle.name}: ${num(bat.battery_pct)}%${sec.locked === false ? ', UNLOCKED' : ''}${charging ? ', charging' : ''}${isStale ? ' (stale)' : ''}${summary.armed.armed ? ' — LIVE' : ''}`
+  const tip = `${v.st.vehicle.name}: ${num(bat.battery_pct)}%${sec.locked === false ? ', UNLOCKED' : ''}${charging ? ', charging' : ''}${isStale ? ' (stale)' : ''} — ${liveText(summary.armed)}`
   return h('span', { title: tip, style: { display: 'inline-flex', alignItems: 'center', gap: 4, opacity: isStale ? 0.5 : 1 } },
     charging ? h(Codicon, { name: 'zap' }) : null,
     `${num(bat.battery_pct)}%`,

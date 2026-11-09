@@ -54,6 +54,32 @@ def _err(message: str, **extra: Any) -> Dict[str, Any]:
     return {"ok": False, "error": message, **extra}
 
 
+# Flags that let the AGENT, after talking to the human, wake a sleeping car or skip the trusted-zone check. A page click
+# is not that conversation, so the pages cannot set them (they are removed, not honoured).
+POLICY_FLAGS = ("wake_ok", "override_zone")
+
+
+def _page_args(body: dict) -> Optional[Dict[str, Any]]:
+    """The command arguments from a page request, or ``None`` if they are not an object."""
+    args = body.get("args")
+    if args is None:
+        return {}
+    if not isinstance(args, dict):
+        return None
+    return {k: v for k, v in args.items() if k not in POLICY_FLAGS}
+
+
+def _num_param(value: Any, name: str) -> Optional[float]:
+    import math
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a number") from None
+    if not math.isfinite(num):
+        raise ValueError(f"{name} must be a finite number")
+    return num
+
+
 @router.get("/summary")
 def summary(refresh: bool = False) -> Dict[str, Any]:
     s = svc()
@@ -96,7 +122,10 @@ def preflight(body: dict) -> Dict[str, Any]:
     """Show the safety decision for a command before the user confirms it (nothing is sent)."""
     s = svc()
     command = str(body.get("command", "")).strip().lower()
-    pre = s.engine.preflight(command, body.get("args") or {})
+    args = _page_args(body)
+    if args is None:
+        return _err("arguments must be an object of name: value pairs")
+    pre = s.engine.preflight(command, args)
     spec = pre.get("spec")
     out: Dict[str, Any] = {"ok": pre["ok"], "status": pre["status"], "message": pre["message"], "command": command}
     if spec is not None:
@@ -153,14 +182,17 @@ def command(body: dict) -> Dict[str, Any]:
     commands are refused here while armed (they go through Hermes); in dry-run they only produce a preview."""
     s = svc()
     cmd = str(body.get("command", "")).strip().lower()
-    if not body.get("confirmed"):
+    if body.get("confirmed") is not True:                 # the dialog sends a real true; "false"/"0"/1 are not a confirmation
         return _err("this command needs the confirmation dialog", status="needs_confirmation")
+    args = _page_args(body)
+    if args is None:
+        return _err("arguments must be an object of name: value pairs", status="invalid")
     spec = core().brain.commands.get_spec(cmd)
     if spec is not None and spec.requires_approval and s.armed_info()["armed"]:
         # P1-2 / rule 12: Hermes' approval prompt is the only live approval; a click here cannot stand in for it.
         return _err("this command needs your approval in Hermes: ask it in chat and answer the approval prompt",
-                    status="ask_hermes", ask_hermes=ask_hermes_text(cmd, body.get("args") or {}))
-    res = s.run_command(cmd, body.get("args") or {}, surface="desktop", session="desktop",
+                    status="ask_hermes", ask_hermes=ask_hermes_text(cmd, args))
+    res = s.run_command(cmd, args, surface="desktop", session="desktop",
                         reason=str(body.get("reason") or "from the Desktop page"), approval=None, unattended=False)
     if res.get("status") in ("confirmed", "sent_unconfirmed"):
         try:   # let the alert rules see the fix now, so the alert it solved clears right away
@@ -173,12 +205,12 @@ def command(body: dict) -> Dict[str, Any]:
 @router.post("/arm")
 def arm(body: dict) -> Dict[str, Any]:
     s = svc()
-    if not body.get("confirmed"):
+    if body.get("confirmed") is not True:
         return _err("arming needs the confirmation dialog", status="needs_confirmation")
     try:
-        hours = float(body.get("hours") or s.settings.get("arm_default_hours"))
-    except (TypeError, ValueError):
-        return _err("hours must be a number")
+        hours = _num_param(body.get("hours") or s.settings.get("arm_default_hours"), "hours")
+    except ValueError as exc:
+        return _err(str(exc))
     info = s.arm(hours, by="desktop")
     return {"ok": True, "armed": info["armed"], "hours": info.get("hours"), "until_local": info.get("until_local")}
 
@@ -230,8 +262,12 @@ def set_rule(rule_id: str, body: dict) -> Dict[str, Any]:
     s = svc()
     changes: Dict[str, Any] = {}
     if "enabled" in body:
-        changes["enabled"] = bool(body["enabled"])
-    changes.update(body.get("settings") or {})
+        en = body["enabled"]
+        changes["enabled"] = en if isinstance(en, bool) else str(en).strip().lower() in ("1", "true", "yes", "on")
+    extra = body.get("settings")
+    if extra is not None and not isinstance(extra, dict):
+        return _err("settings must be an object of name: value pairs")
+    changes.update(extra or {})
     try:
         cfg = s.watcher.engine.set_rule(rule_id, **changes)
     except KeyError:
@@ -249,7 +285,10 @@ def sim(body: dict) -> Dict[str, Any]:
     if not getattr(adapter, "simulated", False) or not hasattr(adapter, "control"):
         return _err("simulator controls are only available with the simulated car")
     action = str(body.get("action", ""))
-    kwargs = {k: v for k, v in (body.get("params") or {}).items() if k in ("minutes", "miles", "to", "kind", "percent", "temp_f", "door", "tire", "psi", "psi_per_hour")}
+    params = body.get("params")
+    if params is not None and not isinstance(params, dict):
+        return _err("params must be an object")
+    kwargs = {k: v for k, v in (params or {}).items() if k in ("minutes", "miles", "to", "kind", "percent", "temp_f", "door", "tire", "psi", "psi_per_hour")}
     try:
         res = adapter.control(action, **kwargs)
     except Exception as exc:  # AdapterError or bad numbers: report, don't 500

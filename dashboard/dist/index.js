@@ -13,6 +13,7 @@
   const useState = SDK.hooks.useState;
   const useEffect = SDK.hooks.useEffect;
   const useCallback = SDK.hooks.useCallback;
+  const useRef = SDK.hooks.useRef;
   const C = SDK.components;
   const BASE = "/api/plugins/pit-crew";
 
@@ -207,7 +208,7 @@
     const showAcked = useState(false);
     const shown = showAcked[0] ? open.concat(acked) : open;
     const note = useState("");
-    const ack = function (id) { api("/alerts/ack", { id: id }).then(props.reload, function (e) { note[1]("Acknowledge failed: " + (e && e.message || e)); }); };
+    const ack = function (id) { api("/alerts/ack", { id: id }).then(function () { props.reload(false); }, function (e) { note[1]("Acknowledge failed: " + (e && e.message || e)); }); };
     const fix = function (a) {
       if (!a.action || a.state === "acked") return null;
       if (a.action.via_hermes) return h(AskHermes, { text: a.action.ask });
@@ -251,14 +252,21 @@
         if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
       }
     }, [ext && ext.n]);
+    const seq = useRef(0), inflight = useRef(false), busy = useState(false);
     function preview(c) {
+      const mine = ++seq.current;                       // a slow answer for an earlier pick must not show under this one
       pick[1](c); pf[1](null); msg[1]("");
-      api("/preflight", { command: c[0], args: c[2] || {} }).then(pf[1], function (e) { pf[1]({ ok: false, message: String(e && e.message || e) }); });
+      api("/preflight", { command: c[0], args: c[2] || {} }).then(function (r) { if (seq.current === mine) pf[1](r); },
+        function (e) { if (seq.current === mine) pf[1]({ ok: false, message: String(e && e.message || e) }); });
     }
     function run() {
+      if (inflight.current) return Promise.resolve();   // a double click must not send twice (a ref: state lags a frame)
+      inflight.current = true;
       const c = pick[0];
+      busy[1](true);
       return api("/command", { command: c[0], args: c[2] || {}, confirmed: true, reason: "Pit Crew web page" })
-        .then(function (r) { msg[1](r.message || (r.ok ? "Done." : "Not sent.")); props.reload(); }, function (e) { msg[1]("Failed: " + (e && e.message || e)); });
+        .then(function (r) { msg[1](r.message || (r.ok ? "Done." : "Not sent.")); props.reload(); }, function (e) { msg[1]("Failed: " + (e && e.message || e)); })
+        .then(function () { inflight.current = false; busy[1](false); });
     }
     function goLiveAnd(next) {
       return api("/arm", { confirmed: true, hours: props.hours }).then(function (r) {
@@ -283,9 +291,9 @@
           !q.ok ? h("strong", { style: { fontSize: 12 } }, "Not allowed right now: " + plainRefusal(q.message)) : null),
         risky && q && q.ok ? h(AskHermes, { text: q.ask_hermes }) : null,
         h("div", { style: row },
-          !risky && q && q.ok && armed ? h(C.Button, { size: "sm", onClick: run }, "Send command") : null,
-          !risky && q && q.ok && !armed ? h(C.Button, { size: "sm", onClick: function () { goLiveAnd(run); } }, "Go live for " + props.hours + " h & send") : null,
-          q && q.ok && !armed ? h(C.Button, { size: "sm", variant: "outline", onClick: run }, "Practice run") : null,
+          !risky && q && q.ok && armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: run }, "Send command") : null,
+          !risky && q && q.ok && !armed ? h(C.Button, { size: "sm", disabled: busy[0], onClick: function () { goLiveAnd(run); } }, "Go live for " + props.hours + " h & send") : null,
+          q && q.ok && !armed ? h(C.Button, { size: "sm", variant: "outline", disabled: busy[0], onClick: run }, "Practice run") : null,
           h(C.Button, { size: "sm", variant: "ghost", onClick: function () { pick[1](null); pf[1](null); msg[1](""); } }, "Close")),
         msg[0] ? h("span", { style: { fontSize: 12 } }, msg[0]) : null) : null;
     return h("section", { id: "pit-crew-controls", style: box },
@@ -348,7 +356,12 @@
   // Practice mode <-> live mode, in the header. Going live asks once, inline (no native pop-up), with Cancel first.
   function ModeSwitch(props) {
     const a = props.armed, ask = useState(false), note = useState("");
-    const go = function (path, body) { api(path, body).then(function () { note[1](""); ask[1](false); props.reload(); }, function (e) { note[1]("Failed: " + (e && e.message || e)); }); };
+    const go = function (path, body) {
+      api(path, body).then(function (r) {
+        if (r && r.ok === false) { note[1](r.error || "Not done."); return; }       // e.g. a bad hours value: keep the prompt open
+        note[1](""); ask[1](false); props.reload();
+      }, function (e) { note[1]("Failed: " + (e && e.message || e)); });
+    };
     return h("div", { style: row },
       h(C.Badge, { variant: a.armed ? "destructive" : "outline" }, a.armed ? "LIVE" + (a.until_local ? " until " + new Date(a.until_local).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "") : "Practice mode · nothing is sent"),
       a.armed ? h(C.Button, { size: "sm", variant: "ghost", onClick: function () { go("/disarm", {}); } }, "Stop")
@@ -371,9 +384,9 @@
 
   // ------------------------------------------------------------------ page
   function PitCrewPage() {
-    const sum = useState(null), err = useState(null), log = useState(null);
+    const sum = useState(null), err = useState(null), log = useState(null), got = useState(null);
     const load = useCallback(function (refresh) {
-      api("/summary" + (refresh ? "?refresh=true" : "")).then(function (d) { sum[1](d); err[1](null); }, function (e) { err[1](String(e && e.message || e)); });
+      api("/summary" + (refresh ? "?refresh=true" : "")).then(function (d) { sum[1](d); err[1](null); got[1](Date.now()); }, function (e) { err[1](String(e && e.message || e)); });
       api("/log?limit=25").then(function (d) { log[1](d.rows || []); }, function () { /* the table keeps its last rows */ });
     }, []);
     useEffect(function () { load(false); const t = setInterval(function () { load(false); }, 15000); return function () { clearInterval(t); }; }, [load]);
@@ -388,6 +401,9 @@
     const hours = armed.default_hours || 8;
     const down = !st.ok;
     return h("div", { style: { display: "flex", flexDirection: "column", gap: 16, maxWidth: 1040, margin: "0 auto", padding: 20 } },
+      err[0] ? h("section", { style: Object.assign({}, box, { borderLeft: "3px solid rgba(220,80,60,.9)" }) },
+        h("strong", null, "Can’t reach Pit Crew right now"),
+        h("span", { style: dim }, "What you see below is the last data it sent" + (got[0] ? " (" + new Date(got[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ")" : "") + " and may be out of date. Commands may not work. " + err[0])) : null,
       h("div", { style: between },
         h("div", { style: row }, h("h1", { style: { fontSize: 18, fontWeight: 600, margin: 0 } }, "Pit Crew"),
           s.simulated ? h(C.Badge, { variant: "outline" }, "Simulated car") : null,

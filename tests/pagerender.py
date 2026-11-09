@@ -64,6 +64,13 @@ def render_web(tmp_path, data, clicks=()):
     return _run(ROOT / "tests" / "dashboard_web" / "harness.mjs", [str(f), json.dumps(list(clicks))])
 
 
+def interact(tmp_path, data, clicks=()):
+    """Click through the Desktop page in jsdom (stateful SDK stub): returns {'shots': [...], 'calls': [...]}."""
+    f = tmp_path / "interact.json"
+    f.write_text(json.dumps(data))
+    return _run(ROOT / "tests" / "desktop" / "interact.mjs", [str(f), json.dumps(list(clicks))], cwd=ROOT / "tests" / "desktop")
+
+
 def backend_summary(service):
     spec = importlib.util.spec_from_file_location("car_plugin_api", ROOT / "dashboard" / "plugin_api.py")
     mod = importlib.util.module_from_spec(spec)

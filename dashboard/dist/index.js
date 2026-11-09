@@ -391,7 +391,8 @@
       api("/summary" + (refresh ? "?refresh=true" : "")).then(function (d) { sum[1](d); err[1](null); got[1](Date.now()); }, function (e) { err[1](String(e && e.message || e)); });
       api("/log?limit=25").then(function (d) { log[1](d.rows || []); }, function () { /* the table keeps its last rows */ });
     }, []);
-    useEffect(function () { load(false); const t = setInterval(function () { load(false); }, 15000); return function () { clearInterval(t); }; }, [load]);
+    useEffect(function () { load(false); const t = setInterval(function () { if (!document.hidden) load(false); }, 15000);   // no polling while the tab is hidden
+       return function () { clearInterval(t); }; }, [load]);
     const s = sum[0];
     const ext = useState(null);
     if (err[0] && !s) {

@@ -277,10 +277,11 @@ def _stopper(stop_evt: threading.Event) -> Callable[[], None]:
 def start_watcher(ctx: Any, get_service: Callable[[], Any], initial_delay_s: float = 20.0) -> str:
     """Start the watcher once per process. Returns 'task' | 'thread' | 'already'.
 
-    Always tries the host's supervised ``ctx.spawn_task`` first — newer Hermes runs it on a Hermes-owned loop bound to the
-    plugin's own profile secret scope, with or without a running loop at ``register()`` time. Only when it is absent or
-    raises (older Hermes: RuntimeError "no running event loop") does the plugin start its own daemon thread. Either way the
-    stop signal is a thread-safe event set from ``ctx.on_unload``, so it works on whichever loop/thread runs the watcher."""
+    Always tries the host's supervised ``ctx.spawn_task`` first. On Hermes v0.23.0 that needs a running event loop
+    (``hermes_cli/plugins.py`` uses ``asyncio.get_running_loop()``), so at ``register()`` time it usually raises RuntimeError;
+    some newer or patched Hermes builds run it on a Hermes-owned loop instead. Whenever it is absent or raises, the plugin
+    starts its own daemon thread. Either way the stop signal is a thread-safe event set from ``ctx.on_unload``, so it works
+    on whichever loop/thread runs the watcher."""
     with _started_lock:
         if _started.get("mode"):
             return "already"

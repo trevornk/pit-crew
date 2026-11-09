@@ -124,3 +124,46 @@ def test_service_discover_ha_via_fake_server(make_service):
         assert svc2.discover_ha()["ok"] is False
     finally:
         ha.stop()
+
+
+def _discover_result():
+    return {"ok": True, "entities_seen": 40, "recommended": {"ha_slug": "demo_car", "ha_profile": "tesla_fleet", "note": "n"},
+            "proposals": [], "warnings": [], "generic_proposal": {"entity_overrides": {}}}
+
+
+class _AskCtx:
+    def __init__(self, answer, fail=False):
+        self.answer, self.fail, self.set = answer, fail, []
+
+    def ask_choice(self, question, choices):
+        return self.answer
+
+    def set_config(self, key, value):
+        if self.fail:
+            raise PermissionError("managed")
+        self.set.append((key, value))
+
+    def current_cron_execution(self):
+        return None
+
+
+def test_discover_yes_applies_the_settings_with_set_config(stub_service, monkeypatch):
+    from pit_crew import slash
+    svc = stub_service()
+    monkeypatch.setattr(svc, "discover_ha", _discover_result)
+    svc.ctx = _AskCtx("yes")
+    out = slash.handle("discover")
+    assert svc.ctx.set == [("ha_slug", "demo_car"), ("ha_profile", "tesla_fleet"), ("adapter", "homeassistant")]
+    assert "Done:" in out and "can't change settings" not in out
+
+
+def test_discover_no_or_failure_keeps_the_manual_steps(stub_service, monkeypatch):
+    from pit_crew import slash
+    svc = stub_service()
+    monkeypatch.setattr(svc, "discover_ha", _discover_result)
+    svc.ctx = _AskCtx("no")
+    out = slash.handle("discover")
+    assert svc.ctx.set == [] and "In Settings → Plugins → Pit Crew set" in out
+    svc.ctx = _AskCtx("yes", fail=True)
+    out = slash.handle("discover")
+    assert "couldn't save those settings" in out and "In Settings → Plugins → Pit Crew set" in out

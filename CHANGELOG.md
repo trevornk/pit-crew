@@ -9,6 +9,11 @@
   strict commands). Rule keys are now stable (`pit-crew:unlock`) unless the command is in that list. Cron stays blocked.
   Also: README/`/car desktop-install` no longer claim `hermes plugins update` reloads running processes; the Tool Search notes are
   corrected (Hermes unwraps the bridge before hooks; the gate's handling is defence in depth); the hook reuses a recent car read.
+- **Host-contract fixes.** Alert-rule edits (page, `car_rules`) now write the plugin's `rules` setting instead of a hidden database copy
+  (old edits migrate once). `/car discover` applies its suggestion when you say yes. The status-bar chip is a normal item you can hide from the
+  status bar's right-click menu. The Desktop page refreshes at once when you change a setting; "Ask Hermes" opens a new chat with Hermes'
+  own action and retries a few times. Alerts are no longer consumed by a subagent's turn. `/car notify test` says "Hermes accepted the test
+  message" (not "delivery works") and Pit Crew refuses to bind a chat without a session key. The web dashboard stops polling while hidden.
 - **Fixes from the 2026-11-09 real-car test (Home Assistant `tesla_fleet`).**
   - *Stale data shown as fresh.* An awake car no longer lifts every reading to "now". Each reading keeps its own `last_reported`
     time; only slow-changing ones (lock, doors, windows, trunk/frunk, Sentry, port, plug, limits, versions) are confirmed by the

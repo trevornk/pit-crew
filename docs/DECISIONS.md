@@ -141,7 +141,8 @@ Notable choices made while building, newest last. Format: decision — why.
   its token) and clears the state itself.
 
 ## Pass 7 — prefer the host's supervised task
-- No more `get_running_loop()` probing: `spawn_task` is attempted unconditionally; RuntimeError (older Hermes) or any failure/absence
+- No more `get_running_loop()` probing: `spawn_task` is attempted unconditionally; on Hermes v0.23.0 it needs a running loop, so at `register()` it
+  usually raises RuntimeError (some newer/patched builds run it on a Hermes-owned loop bound to the profile's secret scope; that is not v0.23.0). Any RuntimeError or any failure/absence
   → own daemon thread (the coroutine is closed so nothing is left un-awaited). The stop signal is a `threading.Event` polled by the
   coroutine, so `on_unload` works regardless of which thread/loop runs it. Pass 6's degraded mode and turn-time fallback are unchanged.
 
@@ -330,3 +331,17 @@ Notable choices made while building, newest last. Format: decision — why.
   (`gateway/run_plugin_injection.py`, "Plugin message injection was not routed"). `notify_last.ok` carries the same meaning
   (`accepted_by_hermes`). Pit Crew refuses to bind a chat without a `session_key` and never calls the key-less form (on Hermes' own
   deprecation track); an old key-less binding reports why it can't push.
+
+## Host-contract audit (2026-11-09)
+* **`dashboard/plugin_api.py` `core()`** finds the loaded plugin package in `sys.modules`, else execs its own copy. Not a documented Hermes pattern; it works because durable state lives in the shared DB. A second module copy (isolation `host`, forced reload) has `svc.ctx = None`; the page path never relies on it.
+* **Alert rules: one source of truth** (audit #16). Edits from the Pit Crew page, `car_rules` and `/car rules` now write the plugin's own
+  `rules` setting (in-process `ctx.set_config("rules.<id>.<key>", v)`; the dashboard backend, which has no ctx, uses
+  `hermes_cli.plugins_state.save_plugin_setting`, the writer Hermes' own settings form and `set_config` share on v0.23.0; that module is
+  undocumented, so it is imported guarded and a failure is reported, never swallowed). The DB key `rule_overrides` is moved into the
+  setting once and deleted; if the move fails (managed install) the old overrides keep applying until it succeeds. The
+  Settings form, the page and the tool therefore agree, and the `plugin.yaml` label is true.
+* **`/car discover`**: on "yes" it applies `ha_slug`, `ha_profile` and `adapter` with `ctx.set_config` (present on v0.23.0); if that fails or
+  the user says no it prints the manual steps as before.
+* **Approval hook state read** (audit #6): `pre_tool_call` reuses a car read at most `max_state_age_s` old (policy still judges per-field
+  freshness) so a slow Home Assistant/Tesla call can't hit Hermes' 30 s hook timeout (which fails closed and mutes the hook for 60 s);
+  the tool's own preflight is always a forced live read before anything is sent. The adapter's own timeout is not changed.

@@ -178,30 +178,36 @@ page into a Desktop app that connects to it remotely.
 
 ### Get alerts on your phone
 
-Alerts are always stored (Pit Crew page, `/car alerts`) and mentioned the next time you talk to Hermes. To have them
-**pushed** into a chat, run `/car notify here` in that chat and allow plugin messages once:
+Alerts are always stored (Pit Crew page, `/car alerts`) and mentioned the next time you talk to Hermes. To have them **pushed** to
+the app you use, give Pit Crew a Hermes *delivery target*: the same string a cron job's `deliver` takes. Pit Crew then sends each alert
+through Hermes' own cross-platform send (the code behind cron delivery and `hermes send`): a plain message to the platform, no agent
+turn, no gateway session needed, and it works from any Hermes process that has the platform set up.
 
-```yaml
-# config.yaml
-plugins:
-  entries:
-    pit-crew:
-      allow_gateway_injection: true
+```
+/car notify here                      # in a Telegram/Discord/Matrix/Signal/Slack chat: use this chat
+/car notify telegram                  # Telegram home channel
+/car notify telegram:-1001234567890   # a specific Telegram chat (add :topic for a topic)
+/car notify discord:#car              # a Discord channel (by name needs Hermes' channel directory; an id always works)
+/car notify matrix:!room:example.org  # a Matrix room
+/car notify signal:+15551234567       # a Signal number
+/car notify list                      # what Hermes knows about
+/car notify test                      # send a test message now and show the platform's answer
 ```
 
-Pushes are delivered by the gateway process, so keep the gateway running. To check delivery end to end, run `/car notify test` in
-the bound chat: it sends "Pit Crew test alert: delivery works" through the same path as real alerts (no alert is created) and
-tells you whether Hermes **accepted** it. Hermes routes the message afterwards and only logs a chat it cannot reach, so "accepted" means
-"it should appear shortly"; if it doesn't, check the gateway log for "Plugin message injection was not routed" (the gateway had no
-matching live session or delivery adapter for the bound chat: run `/car notify here` again in that chat). Pit Crew binds only a chat
-that gives it a session key and never uses Hermes' key-less injection.
+Or set **Alerts · Where alerts go** (`alert_target`) in Settings → Plugins → Pit Crew. **The setting wins** when it is set; otherwise the
+target stored by `/car notify`. The platform itself (bot token, Matrix login, home channel for a bare name) is set up in Hermes as for
+cron; Pit Crew stores no credentials. `/car notify test` and every real push report Hermes' own answer: success means the platform
+accepted the message, and a failure is shown with the platform's reason (wrong target, bot blocked, platform not configured, no
+home channel). A failed push is retried with backoff (30 s, doubling to 30 min) for 6 hours, then given up on and said so; the alert stays in
+`/car alerts` and in your next chat's context either way. It is **not** cancelled by the alert being shown in some other chat.
 
-If a push fails, Pit Crew now says *why* (for example "this Hermes process is not the messaging gateway"), in `/car notify test`,
-`/car notify` and `/car status`. A failed push is **not** cancelled by the alert being shown in some other chat's next reply: Pit Crew
-keeps the push owed to the bound chat and retries with backoff (30 s, then doubling to 30 min) for 6 hours, then gives up and says so
-(the alert stays in `/car alerts`). Pushes are delivered by Hermes' messaging gateway process; the Desktop app or a CLI session cannot
-push into a Matrix/Telegram chat, so another process takes over the watcher when one cannot (the cost is a retry delay, not a lost alert).
-An alert about charging stopping is not raised when Pit Crew itself stopped the charge in the last 30 minutes.
+On the Desktop app or CLI with **no messaging platform**, there is nothing to push to: `/car notify here` says so, alerts show on the
+Pit Crew page and in the next chat. `allow_gateway_injection` is no longer needed. An alert about charging stopping is not raised when
+Pit Crew itself stopped the charge in the last 30 minutes.
+
+*Tested:* Matrix (live), and against the real Hermes send code with a fake network layer for Telegram, Discord (by id), Signal and Matrix targets.
+Slack, WhatsApp, SMS, e-mail and other platforms use the same call but were not tested; Discord/Slack channel *names* need Hermes' channel directory
+(`/car notify list`).
 
 ## Safe by design
 
@@ -281,7 +287,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 | Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
 | Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer*, the *Tire pressure* sensors and the *Tire pressure warning* sensors (`/car` shows the steps). |
 | Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |
-| Alerts show on the page but never reach your phone | `/car notify here` in that chat, `allow_gateway_injection: true`, and keep the gateway running. `/car notify status` shows the last attempt. |
+| Alerts show on the page but never reach your phone | Set where they go: `/car notify here` in that chat, or `/car notify telegram` (etc.), then `/car notify test`. `/car notify status` shows the target and Hermes' answer to the last attempt. |
 | "Practice run" when you wanted to send | You're in practice mode: **Go live** (page) or `/car live`. |
 | Settings changed but nothing happened | They apply immediately: run `/car`. Check *Connection · Which car*. |
 
@@ -290,7 +296,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 **Tools** (the agent uses them): `car_status`, `car_history`, `car_readiness`, `car_command`, `car_alerts`, `car_rules`.
 
 **`/car`**: `ready [when] [mi]` · `lock` · `warm [°F]` · `alerts [ack [id]]` · `live [hours]` · `practice` · `log [n]` ·
-`rules` · `notify here|off|status|test` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
+`rules` · `notify here|<target>|off|status|test|list` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
 (`arm` and `disarm` still work as aliases.)
 
 **Automations** (ordinary cron jobs, one command each): `/blueprint pit-crew:morning-brief`, `:precondition`, `:nightly-security`.
@@ -305,6 +311,7 @@ and distances, simulator state), readable only by you. No VINs; VIN and token pa
 * **Network:** only to the services you configure. No telemetry.
 * **Credentials:** declared secrets, read only through Hermes' secret scope; never in config, logs or output. Pit Crew stores no OAuth tokens or key files.
 * **Reads outside its data:** only a custom Home Assistant mapping file, if you point *brand mapping* at one.
+* **Pushed alerts:** if you set a delivery target, alert text (zone name, rule, percentages; no coordinates, VIN or credentials) is sent to that platform via Hermes. Leave it empty to keep alerts local.
 * **Background process:** one watcher polls every 2 minutes (15 while the car sleeps) and never wakes the car.
 * **Risk:** once live *and* approved, software can unlock and open a real car. Read [docs/SAFETY.md](docs/SAFETY.md), start in
   practice mode, use a dedicated Home Assistant user, and don't expose the Hermes dashboard to the internet.

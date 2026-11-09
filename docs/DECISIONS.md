@@ -37,9 +37,27 @@ Notable choices made while building, newest last. Format: decision — why.
 ## Delivery of proactive alerts
 - Alerts are always stored (Desktop feed, `/car alerts`, `car_alerts`) and surfaced to the model on the next turn through a
   `pre_llm_call` context injection.
-- Push to the user's chat uses `ctx.inject_message(session_key=...)` to a chat the user binds with `/car notify here`
-  (needs `plugins.entries.pit-crew.allow_gateway_injection: true`, documented). `post_message` only works inside a live
-  turn and cron delivery is job-scoped, so neither can serve a free-running watcher.
+- Push goes through Hermes' cross-platform send (`tools.send_message_tool.send_message_tool({"action":"send","target":...,
+  "message":...})`, the function behind cron `deliver=`, `hermes send` (hermes_cli/send_cmd.py:233-240) and the kanban notifier) to a
+  *delivery target* string (`telegram`, `discord:#car`, `matrix:!room:server`, `signal:+1...`, bare platform = home channel).
+  **Why not `ctx.inject_message` (the earlier design):** it needs a live messaging gateway in the *calling* process
+  (hermes_cli/plugins_injection.py:52-53, "no live gateway is available" in a Desktop/CLI process), a gateway session-store entry for the key
+  (gateway/run_plugin_injection.py:195, silent "not routed" when the room, which cron posts to daily, had none), and it starts an
+  agent turn in that chat for every alert. A plain platform message needs none of that. The inject path was removed, not kept as a fallback:
+  where `send_message` is unavailable it could not work either (same host), and a half-working second path hid the failures.
+  **Why not `ctx.dispatch_tool("send_message", ...)`** (plugins.md:112, the brief's first idea): `send_message` is intentionally *not* a registered tool
+  (tools/send_message_tool.py:25-27, toolsets.py:186 "no agent-callable send_message tool"; a real registry lookup returns `None`), so it would answer "Unknown
+  tool". Importing the function is how Hermes' own non-agent callers use it. It is a private-ish module path, so the import is guarded and a missing
+  tool is reported ("cannot do a cross-platform send from here"), never crashed on.
+  **Target from `/car notify here`:** read from Hermes' session context variables (`gateway.session_context.get_session_env`: platform, chat id, thread id,
+  bound for plugin commands by `GatewayRunner._session_env_scope`, gateway/run.py:3998), not parsed from the session key: Hermes' own `_parse_session_key`
+  (gateway/run.py:2946) splits on `:` and cannot hold a Matrix room id (`!room:server`). Matrix gets no thread suffix for the same reason.
+  **Precedence:** the `alert_target` setting wins when non-empty, else the target stored by `/car notify`; one rule, shown in `/car notify status`.
+  **Scope:** the send runs in the caller's context. `Watcher.run` polls and delivers in one `asyncio.to_thread` call, which copies the context, so the
+  platform token is read through `agent.secret_scope`/`gateway.config._getenv` in exactly the scope the HA token was read in. A process without a scope
+  fails with Hermes' own error, reported, and the watcher lease moves to a process that can send (`kind` scope/unavailable); a wrong target or a platform
+  that is down fails everywhere, so those do not move the lease. A Desktop/CLI-only user has no platform: alerts stay stored, on the page and in
+  the next-turn context.
 
 ## Desktop page
 - **Own confirmation dialog instead of `ConfirmDialog`.** The SDK's `ConfirmDialog` focuses *Confirm* and makes Enter/Space
@@ -324,13 +342,11 @@ Notable choices made while building, newest last. Format: decision — why.
 * **seat_heat read-back skipped.** tesla_fleet exposes `select.<slug>_seat_heater_*` (options off/low/medium/high) and the sanitized
   fixture has the two front ones, but confirming needs five new state fields, a new profile field kind (option text to level), simulator
   and display changes, and the rear seats are absent from the fixture. Not clean; seat_heat stays `sent_unconfirmed`.
-* **`/car notify test`** uses the same `inject_message` call as real pushes with a framing line telling the model it is a test and to
-  send no command. It writes no alert row and does not update `notify_last`, so it cannot change status, rules or dedupe. It reports
-  failure with the same hint as a refused real push. Wording is deliberately "Hermes accepted the test message; it should appear shortly":
-  `inject_message` returning True means a host accepted it, and an unroutable key is found afterwards and only logged
-  (`gateway/run_plugin_injection.py`, "Plugin message injection was not routed"). `notify_last.ok` carries the same meaning
-  (`accepted_by_hermes`). Pit Crew refuses to bind a chat without a `session_key` and never calls the key-less form (on Hermes' own
-  deprecation track); an old key-less binding reports why it can't push.
+* **`/car notify test`** uses the same `send_message` call as real pushes (a plain labelled message, no framing for a model). It writes no
+  alert row and does not update `notify_last`, so it cannot change status, rules or dedupe. It reports Hermes' own answer: `send_message_tool` returns
+  `{"success": true}` once the platform API accepted the message, else `{"error": ...}` (target not resolvable, platform not configured, no home channel,
+  platform error), shown with the reason. That is delivery to the platform, not proof a person read it. (Earlier versions used `inject_message`, whose True
+  meant only "a host accepted it"; see "Delivery of proactive alerts".)
 
 ## Host-contract audit (2026-11-09)
 * **`dashboard/plugin_api.py` `core()`** finds the loaded plugin package in `sys.modules`, else execs its own copy. Not a documented Hermes pattern; it works because durable state lives in the shared DB. A second module copy (isolation `host`, forced reload) has `svc.ctx = None`; the page path never relies on it.

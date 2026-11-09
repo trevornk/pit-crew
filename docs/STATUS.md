@@ -113,7 +113,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
 3. **Safety** — dry-run default, timed arming, policy engine, human approval via Hermes' pipeline with positive
    confirmation, fail-closed when unattended, rate limit + de-dupe, read-back, SQLite audit log, redaction, `car_command`.
 4. **Proactive** — watcher (task/thread, lease, sleep-aware, never wakes), twelve rules, delivery (stored + next-turn context +
-   push via `inject_message` to a chat bound with `/car notify here`), `car_alerts`, `car_rules`, `/car`, 3 blueprints, skill.
+   push through Hermes' own cross-platform send to a delivery target set with `alert_target` or `/car notify`), `car_alerts`, `car_rules`, `/car`, 3 blueprints, skill.
 5. **Desktop** — page + chip + nav + backend (`dashboard/plugin_api.py`); renders with the simulator.
 6. **Docs** — README, SAFETY, ADAPTERS, DECISIONS, DEMO, CHANGELOG, `catalog/pit-crew.yaml` draft.
 
@@ -131,7 +131,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
 
 * **Never run against the owner's live Home Assistant / TeslaMate / car** (hard boundary of this build). Mapping and
   service shapes were verified only against the sanitized recordings and fake servers.
-* **Real gateway surfaces** — approval via Telegram/Discord buttons, `inject_message` push to a real chat, and
+* **Real gateway surfaces** — approval via Telegram/Discord buttons, chat pushes on Telegram/Discord/Slack/Signal (Matrix live-tested by the owner; the others only against Hermes' real send code with a fake network layer), and
   `/car arm`'s `ask_choice` on each surface were not exercised (no live gateway in the sandbox). Unit-tested with stubs; the
   CLI approval path is tested for real. If a surface doesn't fire `post_approval_response`, the audit shows "approved by Hermes (no prompt)"
   rather than "you approved" (Pit Crew follows the user's Hermes approval setting; `require_human_for` is the opt-in to always demand a person).
@@ -146,7 +146,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
    Install from a git clone (the dev venv lives outside the repo at `~/.hermes/cache/scratch/pit-crew-venv`).
 2. Configure HA: URL + token, `/car discover`, set `ha_profile=tesla_fleet` and the slug; keep disarmed; compare `/car` with
    the Tesla app; then `/car arm 1`, try `lock` → `climate_on` → (approval) `unlock` at home.
-3. `/car notify here` in the home channel + `allow_gateway_injection: true`; trigger via the simulator first.
+3. `/car notify here` in the home channel (or `/car notify telegram`), then `/car notify test`; trigger via the simulator first.
 4. Take screenshots (`docs/screenshots/`), fill `catalog/pit-crew.yaml` `sha`/`image`/`screenshots`, open the catalog PR
    from the final public commit. Rename (if desired) = search-replace in `constants.py`, `plugin.yaml`,
    `dashboard/manifest.json`, `desktop/plugin.js` (+ the README/doc strings).

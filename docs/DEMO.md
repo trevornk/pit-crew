@@ -2,8 +2,7 @@
 
 Screen: Hermes Desktop with the **Pit Crew** page (sidebar entry "Pit Crew") beside the chat, captions burned in.
 Go live before recording (`/car live 1`). Use the simulator for everything except the one real-car shot. Hide zone names and the HA URL
-(there is no VIN anywhere). One surface per beat. Pre-check that the Telegram push really arrives (`/car notify here`,
-`allow_gateway_injection: true`) on the exact surface you record.
+(there is no VIN anywhere). One surface per beat. Pre-check that the Telegram push really arrives (`/car notify here`, then `/car notify test`) on the exact surface you record.
 
 | t | Shot | Caption / what it proves |
 |---|---|---|

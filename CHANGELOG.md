@@ -1,6 +1,14 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Alerts are delivered through Hermes' own cross-platform send, to any platform.** Pushes no longer use `ctx.inject_message`
+  (which needed a live gateway in the calling process, a gateway session entry for the chat, and started an agent turn for every
+  alert). Set **Alerts · Where alerts go** (`alert_target`) or use `/car notify here|<target>` with a cron-style target (`telegram`,
+  `discord:#car`, `matrix:!room:server`, `signal:+1...`). `/car notify here` derives the target from the chat's platform/chat id/thread
+  (Hermes' session context), `/car notify list` shows Hermes' targets, `/car notify test` reports the platform's answer. The setting wins over
+  the command. Pushes are plain messages (no agent turn); retry/backoff unchanged; `allow_gateway_injection` is no longer needed. Old
+  session-key bindings cannot be converted: run `/car notify here` again. Tested live on Matrix only; other platforms against Hermes'
+  real send code with a fake network layer.
 - **Approval-class commands now follow your Hermes approval setting.** Unlock, trunk, frunk, vent, Sentry-off, honk and flash no longer
   second-guess Hermes: with approvals on (manual, or smart: Hermes asks a person for plugin approvals) Hermes asks you; with
   `approvals.mode: off` or yolo, or an already-allowed key, Hermes doesn't ask and neither does Pit Crew. The result says "Sent without

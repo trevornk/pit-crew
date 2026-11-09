@@ -65,6 +65,13 @@ jobs:
           PY
 
       - name: Hermes validates the plugin (manifest, capability probe, security scan)
+        # --install-deps asks GitHub/PyPI to resolve Hermes' own dependency set, which can fail transiently (a 504 was seen);
+        # retry a few times so only a real validation failure turns the build red.
         run: |
-          mkdir -p "$RUNNER_TEMP/hermes-home"
-          HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps
+          for attempt in 1 2 3; do
+            rm -rf "$RUNNER_TEMP/hermes-home" && mkdir -p "$RUNNER_TEMP/hermes-home"
+            if HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps; then exit 0; fi
+            echo "validate attempt $attempt failed" >&2
+            sleep 15
+          done
+          exit 1

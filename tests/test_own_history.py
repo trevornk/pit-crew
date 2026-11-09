@@ -44,6 +44,19 @@ def test_charging_session_recorded_with_energy_cost_and_zone(svc, stub, clock):
     assert svc.store.query("SELECT zone FROM charges")[0]["zone"] == "home"
 
 
+def test_trip_that_starts_by_unplugging_is_not_swallowed_by_the_charging_reading(svc, stub, clock):
+    """Regression (G2): 'the previous reading was charging' used to classify the whole next interval as charging,
+    even when the car had been unplugged and the odometer had moved 12 miles."""
+    stub.values.update(odometer_mi=5000.0, battery_pct=60.0, range_mi=170.0, charging_state="charging",
+                       plugged_in=True, charge_power_kw=7.0, location_zone="home")
+    svc.get_state(force=True)
+    tick(svc, clock, 600, odometer_mi=5012.0, battery_pct=56.0, range_mi=140.0, charging_state="disconnected",
+         plugged_in=False, charge_power_kw=0.0, location_zone="work")
+    tick(svc, clock, 3600)
+    drives = svc.history_provider.drives(*window(svc))
+    assert len(drives) == 1 and drives[0].miles == pytest.approx(12.0, abs=0.01)
+
+
 def test_odometer_drive_recorded_with_distance_energy_and_efficiency(svc, stub, clock):
     stub.values.update(odometer_mi=1000.0, battery_pct=70.0, range_mi=200.0, moving=True, speed_mph=40.0, location_zone="home")
     svc.get_state(force=True)
@@ -134,20 +147,67 @@ def test_history_off_still_reports_cleanly(stub_service, stub):
     assert out["ok"] is False and "no history source" in out["error"]
 
 
-def test_simulated_car_records_new_activity_on_top_of_its_synthetic_past(service):
+def _sim_trips(service, since):
+    """Real (>= 0.1 mi) trips the combined provider reports from ``since`` to the end of time."""
+    return [d for d in service.history_provider.drives(since, 1e12) if d.miles >= 0.1]
+
+
+def _drive_and_settle(service, clock):
     sim = service.adapter
-    before = json.loads(tools.car_history({"kind": "summary", "days": 60}))["driving"]["trips"]
     service.get_state(force=True)
+    clock.advance(120)                      # the recorder needs time between two readings to see a trip
     sim.control("drive", miles=12, to="work")
     service.get_state(force=True)
+    clock.advance(120)
     sim.control("advance", minutes=10)
     service.get_state(force=True)
+    clock.advance(120)
     sim.control("advance", minutes=120)
     service.get_state(force=True)
+
+
+def test_simulated_car_records_new_activity_on_top_of_its_synthetic_past(service, clock):
+    # A FIXED window: the car_history "last N days" window rolls forward as time advances and drops the
+    # oldest synthetic trips, so counting it before/after was only true by luck of the time of day (flaky in CI).
+    since = service.now() - 30 * 86400
+    before = _sim_trips(service, since)
+    assert len(before) > 20                                    # the synthetic past is there
+    _drive_and_settle(service, clock)
     prov = service.history_provider
     assert prov.kind == "own+simulator" and prov.coverage_start() is not None
-    assert prov.drives(0, 1e12)[-1].end < 1e12
-    assert json.loads(tools.car_history({"kind": "summary", "days": 60}))["driving"]["trips"] >= before
+    after = _sim_trips(service, since)
+    assert len(after) == len(before) + 1                       # nothing synthetic lost, exactly the new trip added
+    assert after[:-1] == before and after[-1].miles == pytest.approx(12.0, abs=1.5)
+    assert prov.drives(0, 1e12)[-1].end <= service.now()
+    assert json.loads(tools.car_history({"kind": "summary", "days": 60}))["driving"]["trips"] > 0
+
+
+@pytest.mark.parametrize("tz", ["UTC", "America/Chicago", "Pacific/Auckland"])
+@pytest.mark.parametrize("hour", [0, 3, 6, 7, 8, 11, 12, 14, 18, 23])
+def test_simulated_history_follows_the_service_clock_at_any_time_of_day(make_service, clock, monkeypatch, tz, hour):
+    """Regression (G2): the simulator and its synthetic past used to read the real wall clock, ignoring the
+    service's clock. Results then depended on when the suite ran. Everything now keys off the injected clock."""
+    import time as _time
+
+    monkeypatch.setenv("TZ", tz)
+    _time.tzset()
+    try:
+        lt = _time.localtime(clock.t)
+        clock.t -= lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec        # local midnight on the fake day
+        clock.t += hour * 3600 + 60
+        svc = make_service()
+        assert abs(svc.adapter.clock() - clock.t) < 1.0                  # the sim is on the injected clock
+        since = svc.now() - 30 * 86400
+        before = _sim_trips(svc, since)
+        gen_again = _sim_trips(make_service(), since)
+        assert [(d.start, d.miles) for d in gen_again] == [(d.start, d.miles) for d in before]   # deterministic
+        _drive_and_settle(svc, clock)
+        after = _sim_trips(svc, since)
+        assert len(after) == len(before) + 1 and after[:-1] == before
+        assert all(d.end < svc.now() for d in before)                    # the synthetic past is in the past
+    finally:
+        monkeypatch.delenv("TZ")
+        _time.tzset()
 
 
 def test_import_from_teslamate_is_idempotent_and_does_not_duplicate_recorded(stub_service, stub, clock):

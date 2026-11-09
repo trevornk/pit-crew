@@ -100,6 +100,12 @@ class Recorder:
     # -- classification ---------------------------------------------------------------------------
     @staticmethod
     def _classify(prev: Dict[str, Any], cur: Dict[str, Any], dt: float) -> str:
+        # A car that was charging and is no longer, with the odometer moved, was unplugged and driven in this interval.
+        # (Checked first: otherwise "was charging" swallowed the whole interval and the first leg of the trip was lost;
+        # for a car that jumps straight to its destination, e.g. the simulator, the entire trip.)
+        if (prev["cs"] in ACTIVELY_CHARGING and cur["cs"] not in ACTIVELY_CHARGING
+                and prev["odo"] is not None and cur["odo"] is not None and cur["odo"] - prev["odo"] > 0.05):
+            return "drive"
         if (prev["cs"] in ACTIVELY_CHARGING or cur["cs"] in ACTIVELY_CHARGING
                 or (prev["pct"] is not None and cur["pct"] is not None and cur["pct"] - prev["pct"] >= 1
                     and cur["plugged"] and prev["plugged"])):

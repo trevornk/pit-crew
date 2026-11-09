@@ -1,0 +1,1066 @@
+{
+ "source": "Home Assistant core dev @ 4368abee2a92 (2026-11-09) homeassistant/components/teslemetry/strings.json (entity names) + entity_registry_enabled_default=False in the platform files. Tessie and Teslemetry set translation_key = the data key, so a name's slug is the entity id suffix.",
+ "entities": {
+  "sensor": {
+   "battery_energy_exported": {
+    "name": "Battery exported"
+   },
+   "battery_energy_imported_from_generator": {
+    "name": "Battery imported from generator"
+   },
+   "battery_energy_imported_from_grid": {
+    "name": "Battery imported from grid"
+   },
+   "battery_energy_imported_from_solar": {
+    "name": "Battery imported from solar"
+   },
+   "battery_power": {
+    "name": "Battery power"
+   },
+   "bms_state": {
+    "name": "BMS state",
+    "disabled_by_default": true
+   },
+   "brake_pedal_position": {
+    "name": "Brake pedal position",
+    "disabled_by_default": true
+   },
+   "brick_voltage_max": {
+    "name": "Brick voltage max",
+    "disabled_by_default": true
+   },
+   "brick_voltage_min": {
+    "name": "Brick voltage min",
+    "disabled_by_default": true
+   },
+   "charge_rate_mile_per_hour": {
+    "name": "Charge rate",
+    "disabled_by_default": true
+   },
+   "charge_state_battery_level": {
+    "name": "Battery level"
+   },
+   "charge_state_battery_range": {
+    "name": "Battery range",
+    "disabled_by_default": true
+   },
+   "charge_state_charge_energy_added": {
+    "name": "Charge energy added"
+   },
+   "charge_state_charge_rate": {
+    "name": "Charge rate"
+   },
+   "charge_state_charger_actual_current": {
+    "name": "Charger current"
+   },
+   "charge_state_charger_power": {
+    "name": "Charger power"
+   },
+   "charge_state_charger_voltage": {
+    "name": "Charger voltage"
+   },
+   "charge_state_charging_state": {
+    "name": "Charging"
+   },
+   "charge_state_conn_charge_cable": {
+    "name": "Charge cable",
+    "disabled_by_default": true
+   },
+   "charge_state_est_battery_range": {
+    "name": "Estimate battery range"
+   },
+   "charge_state_fast_charger_type": {
+    "name": "Fast charger type",
+    "disabled_by_default": true
+   },
+   "charge_state_ideal_battery_range": {
+    "name": "Ideal battery range"
+   },
+   "charge_state_minutes_to_full_charge": {
+    "name": "Time to full charge"
+   },
+   "charge_state_usable_battery_level": {
+    "name": "Usable battery level",
+    "disabled_by_default": true
+   },
+   "climate_state_driver_temp_setting": {
+    "name": "Driver temperature setting",
+    "disabled_by_default": true
+   },
+   "climate_state_inside_temp": {
+    "name": "Inside temperature"
+   },
+   "climate_state_outside_temp": {
+    "name": "Outside temperature"
+   },
+   "climate_state_passenger_temp_setting": {
+    "name": "Passenger temperature setting",
+    "disabled_by_default": true
+   },
+   "conductor_power": {
+    "name": "Conductor power",
+    "disabled_by_default": true
+   },
+   "consumer_energy_imported_from_battery": {
+    "name": "Consumer imported from battery"
+   },
+   "consumer_energy_imported_from_generator": {
+    "name": "Consumer imported from generator"
+   },
+   "consumer_energy_imported_from_grid": {
+    "name": "Consumer imported from grid"
+   },
+   "consumer_energy_imported_from_solar": {
+    "name": "Consumer imported from solar"
+   },
+   "credit_balance": {
+    "name": "Teslemetry command credits"
+   },
+   "credit_quota": {
+    "name": "Teslemetry command quota used"
+   },
+   "cruise_follow_distance": {
+    "name": "Cruise follow distance",
+    "disabled_by_default": true
+   },
+   "cruise_set_speed": {
+    "name": "Cruise set speed",
+    "disabled_by_default": true
+   },
+   "current_limit_mph": {
+    "name": "Current speed limit",
+    "disabled_by_default": true
+   },
+   "dc_charging_energy_in": {
+    "name": "DC charging energy in",
+    "disabled_by_default": true
+   },
+   "dc_charging_power": {
+    "name": "DC charging power",
+    "disabled_by_default": true
+   },
+   "di_axle_speed_f": {
+    "name": "Front drive inverter axle speed",
+    "disabled_by_default": true
+   },
+   "di_axle_speed_r": {
+    "name": "Rear drive inverter axle speed",
+    "disabled_by_default": true
+   },
+   "di_axle_speed_rel": {
+    "name": "Rear left drive inverter axle speed",
+    "disabled_by_default": true
+   },
+   "di_axle_speed_rer": {
+    "name": "Rear right drive inverter axle speed",
+    "disabled_by_default": true
+   },
+   "di_heatsink_tf": {
+    "name": "Front drive inverter heatsink temperature",
+    "disabled_by_default": true
+   },
+   "di_heatsink_tr": {
+    "name": "Rear drive inverter heatsink temperature",
+    "disabled_by_default": true
+   },
+   "di_heatsink_trel": {
+    "name": "Rear left drive inverter heatsink temperature",
+    "disabled_by_default": true
+   },
+   "di_heatsink_trer": {
+    "name": "Rear right drive inverter heatsink temperature",
+    "disabled_by_default": true
+   },
+   "di_inverter_tf": {
+    "name": "Front drive inverter temperature",
+    "disabled_by_default": true
+   },
+   "di_inverter_tr": {
+    "name": "Rear drive inverter temperature",
+    "disabled_by_default": true
+   },
+   "di_inverter_trel": {
+    "name": "Rear left drive inverter temperature",
+    "disabled_by_default": true
+   },
+   "di_inverter_trer": {
+    "name": "Rear right drive inverter temperature",
+    "disabled_by_default": true
+   },
+   "di_motor_current_f": {
+    "name": "Front drive inverter motor current",
+    "disabled_by_default": true
+   },
+   "di_motor_current_r": {
+    "name": "Rear drive inverter motor current",
+    "disabled_by_default": true
+   },
+   "di_motor_current_rel": {
+    "name": "Rear left drive inverter motor current",
+    "disabled_by_default": true
+   },
+   "di_motor_current_rer": {
+    "name": "Rear right drive inverter motor current",
+    "disabled_by_default": true
+   },
+   "di_slave_torque_cmd": {
+    "name": "Secondary drive unit torque",
+    "disabled_by_default": true
+   },
+   "di_state_f": {
+    "name": "Front drive inverter",
+    "disabled_by_default": true
+   },
+   "di_state_r": {
+    "name": "Rear drive inverter",
+    "disabled_by_default": true
+   },
+   "di_state_rel": {
+    "name": "Rear left drive inverter",
+    "disabled_by_default": true
+   },
+   "di_state_rer": {
+    "name": "Rear right drive inverter",
+    "disabled_by_default": true
+   },
+   "di_stator_temp_f": {
+    "name": "Front drive unit stator temperature",
+    "disabled_by_default": true
+   },
+   "di_stator_temp_r": {
+    "name": "Rear drive unit stator temperature",
+    "disabled_by_default": true
+   },
+   "di_stator_temp_rel": {
+    "name": "Rear left drive unit stator temperature",
+    "disabled_by_default": true
+   },
+   "di_stator_temp_rer": {
+    "name": "Rear right drive unit stator temperature",
+    "disabled_by_default": true
+   },
+   "di_torque_actual_f": {
+    "name": "Front drive unit actual torque",
+    "disabled_by_default": true
+   },
+   "di_torque_actual_r": {
+    "name": "Rear drive unit actual torque",
+    "disabled_by_default": true
+   },
+   "di_torque_actual_rel": {
+    "name": "Rear left drive unit actual torque",
+    "disabled_by_default": true
+   },
+   "di_torque_actual_rer": {
+    "name": "Rear right drive unit actual torque",
+    "disabled_by_default": true
+   },
+   "di_torquemotor": {
+    "name": "Drive unit torque",
+    "disabled_by_default": true
+   },
+   "di_vbat_f": {
+    "name": "Front drive inverter battery voltage",
+    "disabled_by_default": true
+   },
+   "di_vbat_r": {
+    "name": "Rear drive inverter battery voltage",
+    "disabled_by_default": true
+   },
+   "di_vbat_rel": {
+    "name": "Rear left drive inverter battery voltage",
+    "disabled_by_default": true
+   },
+   "di_vbat_rer": {
+    "name": "Rear right drive inverter battery voltage",
+    "disabled_by_default": true
+   },
+   "drive_state_active_route_destination": {
+    "name": "Destination",
+    "disabled_by_default": true
+   },
+   "drive_state_active_route_energy_at_arrival": {
+    "name": "State of charge at arrival",
+    "disabled_by_default": true
+   },
+   "drive_state_active_route_miles_to_arrival": {
+    "name": "Distance to arrival"
+   },
+   "drive_state_active_route_minutes_to_arrival": {
+    "name": "Time to arrival"
+   },
+   "drive_state_active_route_traffic_minutes_delay": {
+    "name": "Traffic delay",
+    "disabled_by_default": true
+   },
+   "drive_state_power": {
+    "name": "Power",
+    "disabled_by_default": true
+   },
+   "drive_state_shift_state": {
+    "name": "Shift state",
+    "disabled_by_default": true
+   },
+   "drive_state_speed": {
+    "name": "Speed",
+    "disabled_by_default": true
+   },
+   "energy_remaining": {
+    "name": "Energy remaining",
+    "disabled_by_default": true
+   },
+   "estimated_hours_to_charge_termination": {
+    "name": "Estimated hours to charge termination",
+    "disabled_by_default": true
+   },
+   "forward_collision_warning": {
+    "name": "Forward collision warning",
+    "disabled_by_default": true
+   },
+   "generator_energy_exported": {
+    "name": "Generator exported"
+   },
+   "generator_power": {
+    "name": "Generator power",
+    "disabled_by_default": true
+   },
+   "gps_heading": {
+    "name": "GPS heading",
+    "disabled_by_default": true
+   },
+   "grid_energy_exported_from_battery": {
+    "name": "Grid exported from battery"
+   },
+   "grid_energy_exported_from_generator": {
+    "name": "Grid exported from generator"
+   },
+   "grid_energy_exported_from_solar": {
+    "name": "Grid exported from solar"
+   },
+   "grid_energy_imported": {
+    "name": "Grid imported"
+   },
+   "grid_power": {
+    "name": "Grid power"
+   },
+   "grid_services_energy_exported": {
+    "name": "Grid services exported"
+   },
+   "grid_services_energy_imported": {
+    "name": "Grid services imported"
+   },
+   "grid_services_power": {
+    "name": "Grid services power"
+   },
+   "guest_mode_mobile_access_state": {
+    "name": "Guest mode mobile access",
+    "disabled_by_default": true
+   },
+   "homelink_device_count": {
+    "name": "Homelink devices",
+    "disabled_by_default": true
+   },
+   "hvac_fan_speed": {
+    "name": "HVAC fan speed setting",
+    "disabled_by_default": true
+   },
+   "hvac_fan_status": {
+    "name": "HVAC fan speed",
+    "disabled_by_default": true
+   },
+   "hvac_left_temperature_request": {
+    "name": "Left temperature request",
+    "disabled_by_default": true
+   },
+   "hvac_power_state": {
+    "name": "HVAC power state",
+    "disabled_by_default": true
+   },
+   "hvac_right_temperature_request": {
+    "name": "Right temperature request",
+    "disabled_by_default": true
+   },
+   "island_status": {
+    "name": "Island status"
+   },
+   "isolation_resistance": {
+    "name": "Isolation resistance",
+    "disabled_by_default": true
+   },
+   "lane_departure_avoidance": {
+    "name": "Lane departure avoidance",
+    "disabled_by_default": true
+   },
+   "lateral_acceleration": {
+    "name": "Lateral acceleration",
+    "disabled_by_default": true
+   },
+   "lifetime_energy_gained_regen": {
+    "name": "Lifetime energy gained regen",
+    "disabled_by_default": true
+   },
+   "lifetime_energy_used": {
+    "name": "Lifetime energy used",
+    "disabled_by_default": true
+   },
+   "lifetime_energy_used_drive": {
+    "name": "Lifetime energy used drive"
+   },
+   "lights_turn_signal": {
+    "name": "Turn signal",
+    "disabled_by_default": true
+   },
+   "load_power": {
+    "name": "Load power"
+   },
+   "longitudinal_acceleration": {
+    "name": "Longitudinal acceleration",
+    "disabled_by_default": true
+   },
+   "miles_since_reset": {
+    "name": "Miles since reset",
+    "disabled_by_default": true
+   },
+   "module_temp_max": {
+    "name": "Module temperature maximum",
+    "disabled_by_default": true
+   },
+   "module_temp_min": {
+    "name": "Module temperature minimum",
+    "disabled_by_default": true
+   },
+   "pack_current": {
+    "name": "Pack current",
+    "disabled_by_default": true
+   },
+   "pack_voltage": {
+    "name": "Pack voltage",
+    "disabled_by_default": true
+   },
+   "paired_phone_key_and_key_fob_qty": {
+    "name": "Paired phone key and key fob quantity",
+    "disabled_by_default": true
+   },
+   "pedal_position": {
+    "name": "Pedal position",
+    "disabled_by_default": true
+   },
+   "percentage_charged": {
+    "name": "Percentage charged"
+   },
+   "powershare_hours_left": {
+    "name": "Powershare hours left",
+    "disabled_by_default": true
+   },
+   "powershare_instantaneous_power_kw": {
+    "name": "Powershare instantaneous power",
+    "disabled_by_default": true
+   },
+   "powershare_status": {
+    "name": "Powershare status",
+    "disabled_by_default": true
+   },
+   "powershare_stop_reason": {
+    "name": "Powershare stop reason",
+    "disabled_by_default": true
+   },
+   "powershare_type": {
+    "name": "Powershare type",
+    "disabled_by_default": true
+   },
+   "pv_string_a_current": {
+    "name": "PV string A current"
+   },
+   "pv_string_a_voltage": {
+    "name": "PV string A voltage"
+   },
+   "pv_string_b_current": {
+    "name": "PV string B current"
+   },
+   "pv_string_b_voltage": {
+    "name": "PV string B voltage"
+   },
+   "pv_string_c_current": {
+    "name": "PV string C current"
+   },
+   "pv_string_c_voltage": {
+    "name": "PV string C voltage"
+   },
+   "pv_string_d_current": {
+    "name": "PV string D current"
+   },
+   "pv_string_d_voltage": {
+    "name": "PV string D voltage"
+   },
+   "pv_string_e_current": {
+    "name": "PV string E current"
+   },
+   "pv_string_e_voltage": {
+    "name": "PV string E voltage"
+   },
+   "pv_string_f_current": {
+    "name": "PV string F current"
+   },
+   "pv_string_f_voltage": {
+    "name": "PV string F voltage"
+   },
+   "rated_range": {
+    "name": "Rated range",
+    "disabled_by_default": true
+   },
+   "route_last_updated": {
+    "name": "Route last updated"
+   },
+   "scheduled_charging_mode": {
+    "name": "Scheduled charging mode",
+    "disabled_by_default": true
+   },
+   "self_driving_miles_since_reset": {
+    "name": "Self-driving miles since reset",
+    "disabled_by_default": true
+   },
+   "sentry_mode": {
+    "name": "Sentry mode"
+   },
+   "software_update_expected_duration_minutes": {
+    "name": "Software update expected duration",
+    "disabled_by_default": true
+   },
+   "solar_energy_exported": {
+    "name": "Solar exported"
+   },
+   "solar_power": {
+    "name": "Solar power"
+   },
+   "solar_rgm_power": {
+    "name": "Solar RGM power",
+    "disabled_by_default": true
+   },
+   "speed_limit_warning": {
+    "name": "Speed limit warning",
+    "disabled_by_default": true
+   },
+   "tonneau_tent_mode": {
+    "name": "Tonneau tent mode",
+    "disabled_by_default": true
+   },
+   "total_battery_charge": {
+    "name": "Battery charged"
+   },
+   "total_battery_discharge": {
+    "name": "Battery discharged"
+   },
+   "total_grid_energy_exported": {
+    "name": "Grid exported"
+   },
+   "total_home_usage": {
+    "name": "Home usage"
+   },
+   "total_solar_generation": {
+    "name": "Solar generated"
+   },
+   "tpms_hard_warnings": {
+    "name": "Tire pressure hard warnings",
+    "disabled_by_default": true
+   },
+   "tpms_soft_warnings": {
+    "name": "Tire pressure soft warnings",
+    "disabled_by_default": true
+   },
+   "vehicle_state_odometer": {
+    "name": "Odometer",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_pressure_fl": {
+    "name": "Tire pressure front left",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_pressure_fr": {
+    "name": "Tire pressure front right",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_pressure_rl": {
+    "name": "Tire pressure rear left",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_pressure_rr": {
+    "name": "Tire pressure rear right",
+    "disabled_by_default": true
+   },
+   "vin": {
+    "name": "[%key:component::teslemetry::common::vehicle%]"
+   },
+   "vpp_backup_reserve_percent": {
+    "name": "VPP backup reserve"
+   },
+   "wall_connector_energy": {
+    "name": "Energy delivered"
+   },
+   "wall_connector_fault_state": {
+    "name": "Fault state code",
+    "disabled_by_default": true
+   },
+   "wall_connector_power": {
+    "name": "Power"
+   },
+   "wall_connector_state": {
+    "name": "State code",
+    "disabled_by_default": true
+   }
+  },
+  "binary_sensor": {
+   "automatic_blind_spot_camera": {
+    "name": "Automatic blind spot camera",
+    "disabled_by_default": true
+   },
+   "automatic_emergency_braking_off": {
+    "name": "Automatic emergency braking off",
+    "disabled_by_default": true
+   },
+   "backup_capable": {
+    "name": "Backup capable"
+   },
+   "blind_spot_collision_warning_chime": {
+    "name": "Blind spot collision warning chime",
+    "disabled_by_default": true
+   },
+   "bluetooth": {
+    "name": "Bluetooth",
+    "disabled_by_default": true
+   },
+   "bluetooth_session": {
+    "name": "Bluetooth session",
+    "disabled_by_default": true
+   },
+   "bms_full_charge_complete": {
+    "name": "BMS full charge",
+    "disabled_by_default": true
+   },
+   "brake_pedal": {
+    "name": "Brake pedal",
+    "disabled_by_default": true
+   },
+   "cellular": {
+    "name": "Cellular"
+   },
+   "charge_enable_request": {
+    "name": "Charge enable request",
+    "disabled_by_default": true
+   },
+   "charge_port_cold_weather_mode": {
+    "name": "Charge port cold weather mode",
+    "disabled_by_default": true
+   },
+   "charge_state_battery_heater_on": {
+    "name": "Battery heater",
+    "disabled_by_default": true
+   },
+   "charge_state_charger_phases": {
+    "name": "Charger has multiple phases",
+    "disabled_by_default": true
+   },
+   "charge_state_conn_charge_cable": {
+    "name": "Charge cable"
+   },
+   "charge_state_preconditioning_enabled": {
+    "name": "Preconditioning enabled",
+    "disabled_by_default": true
+   },
+   "charge_state_scheduled_charging_pending": {
+    "name": "Scheduled charging pending",
+    "disabled_by_default": true
+   },
+   "charge_state_trip_charging": {
+    "name": "Trip charging",
+    "disabled_by_default": true
+   },
+   "climate_state_cabin_overheat_protection_actively_cooling": {
+    "name": "Cabin overheat protection active",
+    "disabled_by_default": true
+   },
+   "climate_state_is_preconditioning": {
+    "name": "Preconditioning",
+    "disabled_by_default": true
+   },
+   "climate_state_is_rear_defroster_on": {
+    "name": "Rear defroster",
+    "disabled_by_default": true
+   },
+   "components_grid_services_enabled": {
+    "name": "Grid services enabled"
+   },
+   "contactor_closed": {
+    "name": "Contactor closed"
+   },
+   "dc_dc_enable": {
+    "name": "DC to DC converter",
+    "disabled_by_default": true
+   },
+   "defrost_for_preconditioning": {
+    "name": "Defrost for preconditioning",
+    "disabled_by_default": true
+   },
+   "drive_rail": {
+    "name": "Drive rail",
+    "disabled_by_default": true
+   },
+   "driver_seat_belt": {
+    "name": "Driver seat belt warning",
+    "disabled_by_default": true
+   },
+   "driver_seat_occupied": {
+    "name": "Driver seat occupied",
+    "disabled_by_default": true
+   },
+   "emergency_lane_departure_avoidance": {
+    "name": "Emergency lane departure avoidance",
+    "disabled_by_default": true
+   },
+   "escan_firmware_updating": {
+    "name": "ESCAN firmware updating"
+   },
+   "europe_vehicle": {
+    "name": "European vehicle",
+    "disabled_by_default": true
+   },
+   "fast_charger_present": {
+    "name": "Fast charger present",
+    "disabled_by_default": true
+   },
+   "gps_state": {
+    "name": "GPS state",
+    "disabled_by_default": true
+   },
+   "grid_ok": {
+    "name": "Grid OK"
+   },
+   "grid_services_active": {
+    "name": "Grid services active"
+   },
+   "grid_status": {
+    "name": "Grid status"
+   },
+   "guest_mode_enabled": {
+    "name": "Guest mode enabled",
+    "disabled_by_default": true
+   },
+   "homelink_nearby": {
+    "name": "Homelink nearby",
+    "disabled_by_default": true
+   },
+   "hvac_auto_mode": {
+    "name": "HVAC auto mode",
+    "disabled_by_default": true
+   },
+   "hvil": {
+    "name": "High voltage interlock loop fault",
+    "disabled_by_default": true
+   },
+   "lights_hazards_active": {
+    "name": "Hazard lights",
+    "disabled_by_default": true
+   },
+   "lights_high_beams": {
+    "name": "High beams",
+    "disabled_by_default": true
+   },
+   "located_at_favorite": {
+    "name": "Located at favorite",
+    "disabled_by_default": true
+   },
+   "located_at_home": {
+    "name": "Located at home"
+   },
+   "located_at_work": {
+    "name": "Located at work"
+   },
+   "microgrid_ok": {
+    "name": "Microgrid OK"
+   },
+   "offroad_lightbar_present": {
+    "name": "Offroad lightbar",
+    "disabled_by_default": true
+   },
+   "pin_to_drive_enabled": {
+    "name": "PIN to Drive enabled",
+    "disabled_by_default": true
+   },
+   "pw3can_firmware_updating": {
+    "name": "PW3CAN firmware updating"
+   },
+   "rear_display_hvac_enabled": {
+    "name": "Rear display HVAC",
+    "disabled_by_default": true
+   },
+   "remote_start_enabled": {
+    "name": "Remote start",
+    "disabled_by_default": true
+   },
+   "right_hand_drive": {
+    "name": "Right-hand drive",
+    "disabled_by_default": true
+   },
+   "seat_vent_enabled": {
+    "name": "Seat vent enabled",
+    "disabled_by_default": true
+   },
+   "service_mode": {
+    "name": "Service mode",
+    "disabled_by_default": true
+   },
+   "site_manager_running": {
+    "name": "Site manager running"
+   },
+   "site_running": {
+    "name": "Site running"
+   },
+   "speed_limit_mode": {
+    "name": "Speed limited",
+    "disabled_by_default": true
+   },
+   "state": {
+    "name": "Status"
+   },
+   "storm_mode_active": {
+    "name": "Storm watch active"
+   },
+   "supercharger_session_trip_planner": {
+    "name": "Supercharger session trip planner",
+    "disabled_by_default": true
+   },
+   "vehicle_state_dashcam_state": {
+    "name": "Dashcam",
+    "disabled_by_default": true
+   },
+   "vehicle_state_df": {
+    "name": "Front driver door"
+   },
+   "vehicle_state_dr": {
+    "name": "Rear driver door"
+   },
+   "vehicle_state_fd_window": {
+    "name": "Front driver window"
+   },
+   "vehicle_state_fp_window": {
+    "name": "Front passenger window"
+   },
+   "vehicle_state_is_user_present": {
+    "name": "User present"
+   },
+   "vehicle_state_pf": {
+    "name": "Front passenger door"
+   },
+   "vehicle_state_pr": {
+    "name": "Rear passenger door"
+   },
+   "vehicle_state_rd_window": {
+    "name": "Rear driver window"
+   },
+   "vehicle_state_rp_window": {
+    "name": "Rear passenger window"
+   },
+   "vehicle_state_tpms_soft_warning_fl": {
+    "name": "Tire pressure warning front left",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_soft_warning_fr": {
+    "name": "Tire pressure warning front right",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_soft_warning_rl": {
+    "name": "Tire pressure warning rear left",
+    "disabled_by_default": true
+   },
+   "vehicle_state_tpms_soft_warning_rr": {
+    "name": "Tire pressure warning rear right",
+    "disabled_by_default": true
+   },
+   "wifi": {
+    "name": "Wi-Fi"
+   },
+   "wiper_heat_enabled": {
+    "name": "Wiper heat",
+    "disabled_by_default": true
+   }
+  },
+  "lock": {
+   "charge_state_charge_port_latch": {
+    "name": "Charge cable lock"
+   },
+   "vehicle_state_locked": {
+    "name": "Lock"
+   },
+   "vehicle_state_speed_limit_mode_active": {
+    "name": "Speed limit"
+   }
+  },
+  "cover": {
+   "charge_state_charge_port_door_open": {
+    "name": "Charge port door"
+   },
+   "tonneau": {
+    "name": "Tonneau"
+   },
+   "vehicle_state_ft": {
+    "name": "Frunk"
+   },
+   "vehicle_state_rt": {
+    "name": "Trunk"
+   },
+   "vehicle_state_sun_roof_state": {
+    "name": "Sunroof",
+    "disabled_by_default": true
+   },
+   "windows": {
+    "name": "Vent windows"
+   }
+  },
+  "climate": {
+   "climate_state_cabin_overheat_protection": {
+    "name": "Cabin overheat protection",
+    "disabled_by_default": true
+   },
+   "driver_temp": {
+    "name": "Climate"
+   }
+  },
+  "number": {
+   "backup_reserve_percent": {
+    "name": "Backup reserve"
+   },
+   "charge_on_solar_lower_limit": {
+    "name": "Charge on solar lower limit"
+   },
+   "charge_state_charge_current_request": {
+    "name": "Charge current"
+   },
+   "charge_state_charge_limit_soc": {
+    "name": "Charge limit"
+   },
+   "off_grid_vehicle_charging_reserve_percent": {
+    "name": "Off-grid reserve"
+   }
+  },
+  "switch": {
+   "charge_on_solar": {
+    "name": "Charge on solar"
+   },
+   "charge_state_charging_state": {
+    "name": "Charge"
+   },
+   "climate_state_auto_seat_climate_left": {
+    "name": "Auto seat climate left"
+   },
+   "climate_state_auto_seat_climate_right": {
+    "name": "Auto seat climate right"
+   },
+   "climate_state_auto_steering_wheel_heat": {
+    "name": "Auto steering wheel heater"
+   },
+   "climate_state_defrost_mode": {
+    "name": "Defrost"
+   },
+   "components_disallow_charge_from_grid_with_solar_installed": {
+    "name": "Allow charging from grid"
+   },
+   "guest_mode_enabled": {
+    "name": "Guest mode"
+   },
+   "user_settings_storm_mode_enabled": {
+    "name": "Storm watch"
+   },
+   "vehicle_state_sentry_mode": {
+    "name": "Sentry mode"
+   },
+   "vehicle_state_valet_mode": {
+    "name": "Valet mode"
+   }
+  },
+  "select": {
+   "climate_state_seat_fan_front_left": {
+    "name": "Seat cooler front left"
+   },
+   "climate_state_seat_fan_front_right": {
+    "name": "Seat cooler front right"
+   },
+   "climate_state_seat_heater_left": {
+    "name": "Seat heater front left"
+   },
+   "climate_state_seat_heater_rear_center": {
+    "name": "Seat heater rear center",
+    "disabled_by_default": true
+   },
+   "climate_state_seat_heater_rear_left": {
+    "name": "Seat heater rear left",
+    "disabled_by_default": true
+   },
+   "climate_state_seat_heater_rear_right": {
+    "name": "Seat heater rear right",
+    "disabled_by_default": true
+   },
+   "climate_state_seat_heater_right": {
+    "name": "Seat heater front right"
+   },
+   "climate_state_seat_heater_third_row_left": {
+    "name": "Seat heater third row left",
+    "disabled_by_default": true
+   },
+   "climate_state_seat_heater_third_row_right": {
+    "name": "Seat heater third row right",
+    "disabled_by_default": true
+   },
+   "climate_state_steering_wheel_heat_level": {
+    "name": "Steering wheel heater"
+   },
+   "components_customer_preferred_export_rule": {
+    "name": "Allow export"
+   },
+   "default_real_mode": {
+    "name": "Operation mode"
+   }
+  },
+  "button": {
+   "boombox": {
+    "name": "Play fart"
+   },
+   "disable_keep_accessory_power_mode": {
+    "name": "Disable keep accessory power"
+   },
+   "enable_keep_accessory_power_mode": {
+    "name": "Enable keep accessory power"
+   },
+   "enable_keyless_driving": {
+    "name": "Keyless driving"
+   },
+   "flash_lights": {
+    "name": "Flash lights"
+   },
+   "homelink": {
+    "name": "Homelink"
+   },
+   "honk": {
+    "name": "Honk horn"
+   },
+   "wake": {
+    "name": "Wake"
+   }
+  },
+  "device_tracker": {
+   "location": {
+    "name": "Location"
+   },
+   "origin": {
+    "name": "Origin",
+    "disabled_by_default": true
+   },
+   "route": {
+    "name": "Route"
+   }
+  },
+  "update": {
+   "vehicle_state_software_update_status": {
+    "name": "Update"
+   }
+  }
+ }
+}

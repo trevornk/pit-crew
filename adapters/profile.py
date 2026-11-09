@@ -78,6 +78,10 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             continue
         if spec.get("disabled_by_default") and not isinstance(spec.get("enable_as"), str):
             problems.append(f"field '{name}' is disabled_by_default and needs 'enable_as' (the entity's name in Home Assistant)")
+        if spec.get("data_time_entity") is not None and not isinstance(spec["data_time_entity"], str):
+            problems.append(f"field '{name}': 'data_time_entity' must be an entity id")
+        if spec.get("data_time_required") and not spec.get("data_time_entity"):
+            problems.append(f"field '{name}': 'data_time_required' needs 'data_time_entity'")
         alts = spec.get("alt_entities")
         if alts is not None and not (isinstance(alts, list) and all(isinstance(a, str) for a in alts)):
             problems.append(f"field '{name}': 'alt_entities' must be a list of entity ids")

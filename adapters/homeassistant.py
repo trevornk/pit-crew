@@ -193,6 +193,21 @@ class HomeAssistantAdapter(CarAdapter):
             return FieldValue(None, None, False)
         return FieldValue(value, stamp)
 
+    def _apply_data_time(self, spec: Mapping[str, Any], fv: FieldValue, states: Mapping[str, Dict[str, Any]]) -> FieldValue:
+        """Cloud-polled integrations (kia_uvo) write the same cached copy into Home Assistant every few minutes, so HA's own
+        stamp says "fresh" for data that may be hours old. A field with ``data_time_entity`` takes the car's data time from
+        that timestamp sensor instead; with ``data_time_required`` it is unavailable when that time cannot be read (fail
+        closed: a parked-by-gear claim never rests on data of unknown age)."""
+        tmpl = spec.get("data_time_entity")
+        if not tmpl or not fv.available:
+            return fv
+        obj = states.get(str(tmpl).replace("{slug}", self._slug))
+        ts = parse_ha_time(obj.get("state")) if obj is not None else None
+        if ts is None:
+            return FieldValue(None, None, False) if spec.get("data_time_required") else fv
+        fv.updated_at = min(fv.updated_at, ts) if fv.updated_at is not None else ts
+        return fv
+
     @staticmethod
     def _map_openings(spec: Dict[str, Any], obj: Mapping[str, Any], low: str, attrs: Mapping[str, Any],
                       stamp: float) -> FieldValue:
@@ -311,7 +326,7 @@ class HomeAssistantAdapter(CarAdapter):
         states = self._refresh_states()
         fields: Dict[str, FieldValue] = {}
         for name, spec in self._profile["fields"].items():
-            fields[name] = self._map_field(name, spec, states, now)
+            fields[name] = self._apply_data_time(spec, self._map_field(name, spec, states, now), states)
         # Derived 'moving' from every motion source the car offers: speed, gear and (optionally) a TeslaMate-style
         # state entity whose value 'driving' means moving. Any source saying moving wins; "not moving" is only claimed
         # from sources that reported, and carries the freshest of their timestamps (policy then checks it is fresh).

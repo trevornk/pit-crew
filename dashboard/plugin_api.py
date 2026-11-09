@@ -103,7 +103,7 @@ def summary(refresh: bool = False) -> Dict[str, Any]:
     out["settings"] = {k: snap[k] for k in ("adapter", "history", "trusted_zones", "max_state_age_s", "stale_after_s",
                                            "poll_interval_s", "asleep_poll_interval_s", "watcher_enabled", "alert_push",
                                            "require_human_for", "rate_limit_commands", "rate_limit_window_s",
-                                           "default_departure", "default_trip_mi", "arm_default_hours")}
+                                           "default_departure", "default_trip_mi", "live_default_hours")}
     out["notify"] = s.watcher.deliverer.status()
     if "error" in out["adapter"]:
         out["status"].setdefault("error", out["adapter"]["error"])
@@ -213,7 +213,8 @@ def arm(body: dict) -> Dict[str, Any]:
     if body.get("confirmed") is not True:
         return _err("arming needs the confirmation dialog", status="needs_confirmation")
     try:
-        hours = _num_param(body.get("hours") or s.settings.get("arm_default_hours"), "hours")
+        raw = body.get("hours")
+        hours = None if raw in (None, "") else _num_param(raw, "hours")     # none given: the live_default_hours setting
     except ValueError as exc:
         return _err(str(exc))
     info = s.arm(hours, by="desktop")

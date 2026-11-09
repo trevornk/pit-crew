@@ -35,7 +35,7 @@ Everyday
   /car alerts [ack [id]]  open alerts (ack with no id acknowledges all)
   ...or just ask in plain language: "lock my car", "warm it up", "will I make it tomorrow?"
 Safety
-  /car live [hours]       go live: Hermes can send commands (asks first; stops by itself, 1 h default)
+  /car live [hours]       go live (asks first; stops by itself; default 1 h, setting live_default_hours)
   /car practice           back to practice mode: commands are checked and logged, nothing is sent
   /car log [n]            recent command attempts
 Setup

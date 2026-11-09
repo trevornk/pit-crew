@@ -53,7 +53,7 @@ DEFAULTS: Dict[str, Any] = {
     "rate_limit_window_s": 600,      # ... per this many seconds
     "dedupe_window_s": 60,           # identical live command inside this window is skipped
     "require_human_for": [],         # approval-class commands that ALWAYS need a person, even if Hermes approvals are off
-    "arm_default_hours": 1,          # how long `/car arm` stays armed
+    "live_default_hours": 1,         # how long Go live / `/car live` (no number) lasts; 1-24, never "forever"
     # --- watcher -------------------------------------------------------------------------
     "watcher_enabled": True,
     "poll_interval_s": 120,
@@ -80,8 +80,23 @@ ADAPTER_KEYS = ("adapter", "history", "car_name", "tesla_mode", "tesla_vin", "te
 
 # The commands the old ``approval_confirmation: strict`` covered; an explicit ``strict`` migrates to exactly these.
 LEGACY_STRICT_COMMANDS = ("unlock", "open_trunk", "open_frunk", "vent_windows", "sentry_off")
+# The default live-mode length is a whole number of hours in this range (an explicit `/car live N` keeps 15 min - 72 h).
+LIVE_DEFAULT_HOURS_MIN = 1
+LIVE_DEFAULT_HOURS_MAX = 24
+
 # Every approval-class command; the only values ``require_human_for`` accepts.
 APPROVAL_COMMANDS = ("unlock", "open_trunk", "open_frunk", "vent_windows", "sentry_off", "honk", "flash")
+
+
+def clean_live_default_hours(value: Any) -> int:
+    """A whole number of hours from 1 to 24 (bad values fall back to 1). Live mode always ends by itself."""
+    try:
+        h = float(value)
+    except (TypeError, ValueError):
+        return DEFAULTS["live_default_hours"]
+    if h != h:  # NaN
+        return DEFAULTS["live_default_hours"]
+    return int(max(LIVE_DEFAULT_HOURS_MIN, min(LIVE_DEFAULT_HOURS_MAX, round(h))))
 
 
 def clean_require_human_for(value: Any) -> List[str]:
@@ -137,8 +152,12 @@ class Settings:
         # Migration: the old ``approval_confirmation: strict`` (only if the user set it explicitly) becomes the opt-in list.
         if raw.get("require_human_for") is None and str(raw.get("approval_confirmation") or "").strip().lower() == "strict":
             merged["require_human_for"] = list(LEGACY_STRICT_COMMANDS)
+        # Migration: the old ``arm_default_hours`` setting is the default live length unless the new one is set.
+        if raw.get("live_default_hours") is None and raw.get("arm_default_hours") is not None:
+            merged["live_default_hours"] = _coerce("live_default_hours", raw["arm_default_hours"])
         merged.update(self._overrides)
         merged["require_human_for"] = clean_require_human_for(merged["require_human_for"])
+        merged["live_default_hours"] = clean_live_default_hours(merged["live_default_hours"])
         return merged
 
     def get(self, key: str) -> Any:

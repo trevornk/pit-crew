@@ -231,7 +231,7 @@ function ConnectCard({ summary }) {
 function GoLiveDialog({ summary, onClose, onDone }) {
   const cancelRef = useRef(null)
   const [busy, setBusy] = useState(false)
-  const hours = (summary.armed && summary.armed.default_hours) || summary.settings.arm_default_hours || 1
+  const hours = (summary.armed && summary.armed.default_hours) || summary.settings.live_default_hours || 1
   const go = async () => {
     setBusy(true)
     const r = await attempt('Going live', () => api('/arm', { method: 'POST', body: { confirmed: true, hours } }))

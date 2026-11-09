@@ -50,6 +50,7 @@ DEFAULTS: Dict[str, Any] = {
     "stale_after_s": 900,            # fields older than this are labelled stale
     "allow_unknown_motion": False,   # parked-ness unprovable (no FRESH speed/gear/driving data): refuse (fail closed)
     "verify_timeout_s": 20,
+    "refresh_after_command": True,   # slow-reporting HA profiles (tesla_fleet): ask HA to re-read the car once after a command
     "verify_interval_s": 2.0,
     "rate_limit_commands": 10,       # live commands allowed ...
     "rate_limit_window_s": 600,      # ... per this many seconds

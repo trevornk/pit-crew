@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from ..brain.commands import Capabilities
 from ..brain.models import FIELD_NAMES, FieldValue, VehicleState
@@ -259,6 +260,99 @@ class TeslaMateLive(CarAdapter):
         return status_to_state(data, name, now)
 
 
+#: Fields the overlay may take from TeslaMate when its reading is newer than Home Assistant's.
+OVERLAY_FIELDS = ("locked", "doors_open", "windows_open", "trunk_open", "frunk_open", "sentry_on", "shift_state",
+                  "speed_mph", "moving", "location_zone", "charging_state", "charge_power_kw", "battery_pct", "range_mi")
+MOTION_FIELDS = ("shift_state", "speed_mph", "moving")
+#: TeslaMateApi's /status has NO per-field or per-poll time (only ``state_since``, when the car's state last changed;
+#: verified in teslamateapi src/v1_TeslaMateAPICarsStatus.go @ 3e158df). While the car is awake TeslaMate keeps polling
+#: it, but the API does not say when it last did, so an unchanged reading is treated as this many seconds old.
+TM_AWAKE_AGE_S = 60.0
+SOURCE_NOTE = ("TeslaMateApi gives no per-field times: its readings are aged from the car's last state change "
+               "(state_since) while the car sleeps, as {age} s old while it is awake, or from Pit Crew's previous look at "
+               "TeslaMate when the value changed since. Each merged field shows the source whose reading is newer.")
+
+
+def _says_moving(name: str, value: Any) -> bool:
+    if name == "moving":
+        return value is True
+    if name == "speed_mph":
+        n = _num(value)
+        return n is not None and n > 1.0
+    return isinstance(value, str) and value.upper() in ("D", "R", "N")
+
+
+class TeslaMateOverlay:
+    """Read-only fresher-state source next to Home Assistant (never commands; :class:`TeslaMateClient` only GETs).
+
+    Each read stamps every overlay field honestly (see :data:`SOURCE_NOTE`). Pit Crew remembers what it last saw per
+    field: a value that differs from the previous look was published by TeslaMate *after* that look, so its time is at
+    least the previous look's time. :meth:`baseline` takes such a look right after a command was sent, which is what
+    lets a read-back confirm from TeslaMate (only a reading stamped after the send counts)."""
+
+    def __init__(self, client: TeslaMateClient) -> None:
+        self._client = client
+        self._seen: Dict[str, Tuple[Any, float, float]] = {}    # field -> (value, time of that look, changed no earlier than)
+        self._lock = threading.Lock()
+        self.last_error: Optional[str] = None
+
+    def baseline(self, at: float) -> None:
+        self.read(at)
+
+    def read(self, now: float) -> Optional[VehicleState]:
+        try:
+            data = self._client.status()
+        except AdapterError as exc:
+            self.last_error = str(exc)
+            return None
+        if not data or not data.get("status"):
+            self.last_error = "TeslaMate API returned no status; check TeslaMate · Car id"
+            return None
+        self.last_error = None
+        st = status_to_state(data, "", now, source="teslamate")
+        status = data.get("status") or {}
+        tm_state = str(status.get("state") or "").lower()
+        since = _ts(status.get("state_since"))
+        sleepy = tm_state in SLEEPY_STATES and since is not None
+        with self._lock:
+            for name in OVERLAY_FIELDS:
+                fv = st.fields.get(name)
+                if fv is None or not fv.available:
+                    continue
+                base = since if sleepy else now - TM_AWAKE_AGE_S
+                prev = self._seen.get(name)
+                changed_lb = prev[2] if prev is not None and prev[0] == fv.value else (prev[1] if prev else 0.0)
+                fv.updated_at = min(now, max(base, changed_lb))
+                fv.source = "teslamate"
+                self._seen[name] = (fv.value, now, changed_lb)
+        return st
+
+    @staticmethod
+    def merge(fields: Dict[str, FieldValue], tm: VehicleState, car_reported_at: Optional[float]) -> None:
+        """Per field, keep whichever source reported more recently. A Home Assistant value that is only the integration's
+        optimistic write counts as of HA's last real re-read. Motion fails closed: if either source says moving (D/R/N,
+        speed > 1), that reading is kept whatever its age, as everywhere else in Pit Crew."""
+        for name in OVERLAY_FIELDS:
+            t = tm.fields.get(name)
+            h = fields.get(name)
+            if t is None or not t.available:
+                if h is not None and h.available:
+                    h.source = "home_assistant"
+                continue
+            if h is None or not h.available:
+                fields[name] = t
+                continue
+            h_time = (car_reported_at or 0.0) if h.assumed else (h.updated_at or 0.0)
+            if name in MOTION_FIELDS and _says_moving(name, h.value) != _says_moving(name, t.value):
+                take_tm = _says_moving(name, t.value)
+            else:
+                take_tm = (t.updated_at or 0.0) > h_time
+            if take_tm:
+                fields[name] = t
+            else:
+                h.source = "home_assistant"
+
+
 class TeslaMateHistory(HistoryProvider):
     kind = "teslamate"
     label = "TeslaMate history"
@@ -300,6 +394,18 @@ def _client(ctx: BuildContext) -> TeslaMateClient:
     except (TypeError, ValueError):
         raise AdapterError("TeslaMate · Car id must be a whole number (usually 1)") from None
     return TeslaMateClient(str(s.get("teslamate_url") or ""), car_id, ctx.secret(ENV_TESLAMATE_TOKEN))
+
+
+def build_teslamate_overlay(ctx: BuildContext) -> Optional[TeslaMateOverlay]:
+    """The optional TeslaMate overlay next to Home Assistant: only when ``teslamate_url`` is set. A TeslaMate problem never
+    stops Home Assistant from working (logged; Pit Crew then reads Home Assistant only)."""
+    if not str(ctx.settings.get("teslamate_url") or "").strip():
+        return None
+    try:
+        return TeslaMateOverlay(_client(ctx))
+    except AdapterError as exc:
+        logger.info("TeslaMate overlay disabled: %s", exc)
+        return None
 
 
 def build_teslamate_live(ctx: BuildContext) -> TeslaMateLive:

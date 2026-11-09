@@ -181,6 +181,12 @@ counts as a parked indicator **only if that sensor is readable** (otherwise the 
   happens only for a command the human explicitly allowed (`wake_ok`), once, or — with `wake_for_commands: auto` — for a
   command the user asked for; never for polling. Latitude/longitude, when zones are configured, are
   converted to a zone name inside the adapter and discarded.
+* **The re-read after a command never wakes the car either** (Home Assistant Tesla Fleet, `refresh_after_command`): Home Assistant's
+  refresh asks Tesla whether the car is online (free) and only then fetches its data. It runs once per live command with an observable
+  result, never for status reads or the watcher, and a re-read that finds the car asleep confirms nothing.
+* **TeslaMate next to Home Assistant is read-only** (GET `/api/v1/cars/:id/status` only). It can make a reading fresher, never a command
+  possible: a merged reading still goes through every policy check, motion from either source that says moving wins, and a TeslaMate
+  reading confirms a command only when it is stamped after the send.
 * Page-initiated commands are audited as surface `desktop`. (Pass 8: the old single-use `/preflight` tokens are no longer a way to
   approve anything — approval-class commands are refused from the page.)
 * **Freshness is per reading (pass 8).** Home Assistant timestamps an entity with when its value last *changed*, so while the car

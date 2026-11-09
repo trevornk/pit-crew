@@ -445,3 +445,39 @@ both by hand; vent/close windows physically worked but read `not_confirmed`.
   car_status later". Other profiles keep the full wait (and the long charging window where it can help). Rejected: shortening
   `verify_timeout_s` globally (it would cut the wait where a report can arrive in time).
 
+## Fresher car state (worker 12, owner request 2026-11-09)
+The owner found a 10-minute-old picture of the car confusing. Two changes; neither touches what counts as proof.
+* **One re-read after a command (reverses the RESULT10 rejection of `homeassistant.update_entity`).** The owner's agent judged one
+  vehicle-data request per user command (~$0.002 at Tesla's 500 requests per $1) worth a truthful confirmation. Home Assistant core
+  `dev` @ c459f2ef54b3868be07bc1a6738bf0c6b836060d: `homeassistant.update_entity` (components/homeassistant/services.py L197-203) ->
+  `entity.async_update_ha_state(True)` (helpers/entity.py L1018-1039; an exception is logged and swallowed, so a 200 proves nothing)
+  -> `CoordinatorEntity.async_update` -> `coordinator.async_request_refresh()` (helpers/update_coordinator.py L729-740, L319-324;
+  debouncer `immediate=True`, cooldown 10 s, awaited, so HA answers once the refresh finished, or at once when a refresh ran < 10 s
+  before). tesla_fleet's vehicle coordinator (coordinator.py L174-205) first calls the free `vehicle()` and returns its old data when the
+  car is not online, so **a refresh never wakes the car**; only an online car costs a `vehicle_data` request. Every entity is then
+  re-written (`always_update` defaults True, update_coordinator.py L607-613; entity.py L90-94), including when the car was asleep.
+  * Design: profile `refresh_after_command: {entity: sensor.{slug}_battery_level, settle_s: 5}` (tesla_fleet only; teslemetry/tessie
+    report within seconds). Setting `refresh_after_command` (default true). After a live command with an observable result on a slow
+    profile (the existing single-read path), the engine waits the settle delay (Tesla needs a moment), POSTs `update_entity` once, then
+    reads once. Settle + request are bounded by `REFRESH_BUDGET_S = 10`. Not for status reads (only the engine's send path calls it),
+    not for flash/honk, not when the car reported the requested state < 60 s before ("already").
+  * Verdict: `confirmed` only when the car's report written after the command shows the change, with the existing rules (no assumed
+    value) plus: the re-read must show the car awake (an asleep car's refresh re-writes old data). A re-read after the command that
+    shows the old value is `not_confirmed`; anything else (request failed, HA did not re-read, car asleep, data unavailable) is
+    `accepted` with the reason. `readback.refreshed` marks this path; audit detail adds settle + request time.
+  * Found while testing: `update_entity` re-writes the requested entity itself even when the coordinator skips the refresh
+    (cooldown). That stamp would have looked like a car re-read and turned an optimistic write into "confirmed". The refresh entity is
+    therefore never re-read evidence (`_not_evidence`), its own stamp is capped to the last real re-read, and it does not feed the
+    "confirmed while online" promotion.
+* **TeslaMate as an optional fresher source next to Home Assistant.** When `teslamate_url` is set with the HA adapter, every state read
+  also GETs TeslaMateApi `/api/v1/cars/:id/status` and merges, per field (locked, doors, windows, trunk, frunk, Sentry, shift/speed/moving,
+  place, charging state/power, battery/range), whichever source reported more recently. TeslaMateApi (src/v1_TeslaMateAPICarsStatus.go @
+  3e158df077165237130072c82d07878ab448f4f8) exposes **no per-field or per-poll time**, only `state` and `state_since`. So: asleep /
+  offline / suspended -> values as of `state_since`; awake -> 60 s old (`TM_AWAKE_AGE_S`, an assumption: the API does not say when
+  TeslaMate last polled); a value that differs from Pit Crew's previous look -> as of that look (it was published after it). An HA value
+  that is only an optimistic write competes with HA's last real re-read time. Motion fails closed: if either source says D/R/N or speed
+  > 1, that reading is kept whatever its age. Read-back: right after a command is accepted the engine calls `adapter.after_send`, which
+  takes a TeslaMate look; a later change is therefore stamped after the send, and a TeslaMate-sourced reading must be stamped strictly
+  after the send (no 5 s skew allowance) to count. TeslaMate never commands (the client only has GET). `car_status` shows
+  `freshness.field_sources` and `freshness.source_note`. TeslaMate down -> HA only, said in `source_note`. Without a TeslaMate URL
+  nothing changes. HA's TeslaMate MQTT entities are not used (the owner's HA has only four).

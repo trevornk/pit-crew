@@ -367,6 +367,9 @@ class SimulatorAdapter(CarAdapter):
             return {"ok": True, "action": action, "note": note, "sim_time": self._wall() + float(st["offset_s"])}
 
     def _control(self, st: Dict[str, Any], action: str, kw: Mapping[str, Any]) -> str:
+        for key, val in kw.items():          # a NaN/inf would be persisted in the clock offset and break the car for good
+            if isinstance(val, float) and not math.isfinite(val):
+                raise AdapterError(f"{key} must be a finite number")
         if action == "advance":
             minutes = float(kw.get("minutes", 30))
             if minutes <= 0 or minutes > 60 * 24 * 7:

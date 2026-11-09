@@ -9,6 +9,7 @@ touching the brain: subclass :class:`CarAdapter`, register a factory with
 from __future__ import annotations
 
 import logging
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Optional
@@ -172,6 +173,7 @@ HistoryFactory = Callable[[BuildContext], Optional[HistoryProvider]]
 _ADAPTERS: Dict[str, AdapterFactory] = {}
 _HISTORY: Dict[str, HistoryFactory] = {}
 _entry_points_loaded = False
+_entry_points_lock = threading.Lock()
 
 
 def register_adapter(kind: str, factory: AdapterFactory, *, replace: bool = False) -> None:
@@ -198,10 +200,16 @@ def load_entry_point_adapters() -> List[str]:
     logged and skipped; it can never break the plugin.
     """
     global _entry_points_loaded
+    with _entry_points_lock:
+        if _entry_points_loaded:
+            return []
+        loaded = _load_entry_point_adapters()
+        _entry_points_loaded = True            # only once the registry is complete: another thread waits on the lock
+    return loaded
+
+
+def _load_entry_point_adapters() -> List[str]:
     loaded: List[str] = []
-    if _entry_points_loaded:
-        return loaded
-    _entry_points_loaded = True
     try:
         from importlib.metadata import entry_points
         eps = entry_points()

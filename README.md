@@ -12,7 +12,7 @@ sleep. When it wants to touch the car, it asks you first.
 ![The Pit Crew page in Hermes Desktop](docs/screenshots/pit-crew-page.png)
 -->
 
-![Hermes 0.23+](https://img.shields.io/badge/Hermes-%E2%89%A50.23-blue) ![MIT](https://img.shields.io/badge/license-MIT-green) ![Works with no car](https://img.shields.io/badge/works%20with-no%20car-lightgrey)
+[![CI](https://github.com/trevornk/pit-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/trevornk/pit-crew/actions/workflows/ci.yml) ![Hermes 0.23+](https://img.shields.io/badge/Hermes-%E2%89%A50.23-blue) ![MIT](https://img.shields.io/badge/license-MIT-green) ![Works with no car](https://img.shields.io/badge/works%20with-no%20car-lightgrey)
 
 ## A day with Pit Crew
 
@@ -99,13 +99,18 @@ Pit Crew holds none).
      ```
 3. Run `/car discover`. It reads Home Assistant read-only, finds your car and tells you the *Car name* (like `my_car` for
    `sensor.my_car_battery_level`) and the *brand mapping* (for a Tesla: `tesla_fleet`). Enter both (`ha_slug`, `ha_profile`).
-4. **Tesla Fleet integration:** enable two entities Home Assistant ships disabled, *Shift state* and *Speed* (Settings →
-   Devices & services → Tesla Fleet → your car → disabled entities). Without a motion source Pit Crew refuses
-   unlock/trunk/frunk/vent, because it can't prove the car is parked. `/car` warns you if they're missing.
+4. **Tesla Fleet integration:** Home Assistant ships several useful entities disabled: *Shift state* and *Speed* (without a
+   motion source Pit Crew refuses unlock/trunk/frunk/vent, because it can't prove the car is parked), *Odometer*, and the four
+   *Tire pressure* sensors (needed for the low-tire and fast-air-loss alerts). Enable them: Settings → Devices & services →
+   Tesla Fleet → your car → entities → show disabled entities. `/car discover`, `/car` and `car_status` list exactly which ones
+   are still missing.
 5. `/car`: compare with the car's app. Stay in practice mode until the numbers match.
 
-Bundled mappings: `tesla_fleet` (built and tested against sanitized recordings of a real Model Y), `bmw_connected_drive`
-and `kia_hyundai_connect` (**starters, untested**). Another brand? `/car discover` proposes a generic mapping, and a mapping
+Bundled mappings: `tesla_fleet` (built and tested against sanitized recordings of a real Model Y, and its entity names
+checked against Home Assistant core's source); `kia_hyundai_connect` for the **HACS custom integration**
+[kia_uvo](https://github.com/Hyundai-Kia-Connect/kia_uvo) v4 and `bmw_connected_drive` (**verified against each integration's
+source and test data, not run on a real car**). Note: Home Assistant **removed** the BMW Connected Drive integration in March
+2026 after BMW blocked third-party access, so that mapping only fits an install that still has the old entities. Another brand? `/car discover` proposes a generic mapping, and a mapping
 is a small JSON file ([docs/ADAPTERS.md](docs/ADAPTERS.md)).
 </details>
 
@@ -181,11 +186,11 @@ Full details and the threat model: [docs/SAFETY.md](docs/SAFETY.md).
 
 | | |
 |---|---|
-| **Status** | Battery, range, charging, lock, doors, windows, trunk/frunk, Sentry, cabin and outside temperature, which *place* the car is at, software update, each with how fresh it is. What a car can't report is shown as unavailable, never guessed. |
+| **Status** | Battery, range, charging, lock, doors, windows, trunk/frunk, Sentry, cabin and outside temperature, tire pressures (psi), which *place* the car is at, software update, each with how fresh it is. What a car can't report is shown as unavailable, never guessed. |
 | **History** | Trips, charging sessions, cost, efficiency by temperature, week-over-week trend, battery health, all recorded by Pit Crew itself. |
 | **Readiness** | "Will I be ready?": the charge you need (your efficiency + margin + reserve) versus what you'll have, and what to do about it. |
 | **Commands** | One gated command tool; shortcuts `/car lock`, `/car warm [°F]`; everything else in plain language. |
-| **Watcher** | Nine toggleable alerts: left unlocked away from home, unlocked at home at night, window/door/trunk open, plugged in but not charging, charging stopped early, not enough charge for tomorrow, Sentry off away from home, cabin dangerously hot/cold with someone inside, software update. |
+| **Watcher** | Eleven toggleable alerts: left unlocked away from home, unlocked at home at night, window/door/trunk open, plugged in but not charging, charging stopped early, not enough charge for tomorrow, Sentry off away from home, cabin dangerously hot/cold with someone inside, a low tire, a tire losing air fast, software update. Stale or missing readings never raise an alert. |
 | **Surfaces** | `/car`, the Pit Crew page in Hermes Desktop (with a status-bar chip), the web dashboard tab, three one-command automations (morning brief, warm up before you leave, nightly lock check), and a bundled skill that teaches the agent to use it well. |
 
 ## What has and hasn't been verified
@@ -221,6 +226,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 | Page says *Connect your car* | Open Settings → Plugins → Pit Crew and fill in the section for your connection (or the config.yaml/.env lines above). The page shows exactly what's missing. |
 | *Pit Crew isn't running on this Hermes* | `hermes plugins enable pit-crew`, restart Hermes. Desktop on another machine: see above. |
 | Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
+| Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer* and the *Tire pressure* sensors (`/car` shows the steps). |
 | Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |
 | Alerts show on the page but never reach your phone | `/car notify here` in that chat, `allow_gateway_injection: true`, and keep the gateway running. `/car notify status` shows the last attempt. |
 | "Practice run" when you wanted to send | You're in practice mode: **Go live** (page) or `/car live`. |

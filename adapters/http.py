@@ -77,6 +77,9 @@ def json_request(method: str, url: str, *, token: Optional[str] = None, body: Op
         with opener.open(req, timeout=timeout) as resp:  # noqa: S310 - scheme checked
             raw = resp.read(MAX_BODY_BYTES + 1)
     except urllib.error.HTTPError as exc:
+        if exc.code in (502, 503, 504):
+            # a gateway/timeout answer says nothing about whether the request was carried out: callers must read back
+            raise AdapterUnavailable(_http_error_message(what, where, exc.code)) from None
         raise AdapterError(_http_error_message(what, where, exc.code)) from None
     except (urllib.error.URLError, socket.timeout, ConnectionError, ssl.SSLError, OSError,
             http.client.HTTPException) as exc:
@@ -87,9 +90,14 @@ def json_request(method: str, url: str, *, token: Optional[str] = None, body: Op
     if not raw.strip():
         return None
     try:
-        return json.loads(raw.decode("utf-8"))
-    except ValueError:
+        return json.loads(raw.decode("utf-8"), parse_constant=_reject_constant)
+    except (ValueError, RecursionError):      # RecursionError: a pathologically nested body is not data either
         raise AdapterError(f"{what} at {where} returned something that is not JSON") from None
+
+
+def _reject_constant(name: str) -> Any:
+    """Python's parser accepts bare NaN / Infinity; no real service means those, and they defeat every comparison."""
+    raise ValueError(f"{name} is not valid JSON")
 
 
 def _http_error_message(what: str, where: str, code: int) -> str:

@@ -11,6 +11,7 @@ live-state adapter (no commands).
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -56,7 +57,7 @@ def _conv(raw: Mapping[str, Any]):
 
 
 def _num(value: Any) -> Optional[float]:
-    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
 
 
 class TeslaMateClient:
@@ -117,7 +118,7 @@ def normalize_drive(raw: Mapping[str, Any]) -> Optional[DriveRecord]:
     miles = odo if odo > 0 else ((avg or 0.0) * dur / 60.0)
     kwh = _num(raw.get("energy_consumed_net"))
     cons = _num(raw.get("consumption_net"))     # kWh per km in a metric install
-    wh_mi = (kwh * 1000.0 / miles) if (kwh is not None and miles >= 0.3) else (None if cons is None else cons / mult)
+    wh_mi = (kwh * 1000.0 / miles) if (kwh is not None and miles >= 0.3) else (None if cons is None else cons * 1000.0 / mult)
     smax = _num(raw.get("speed_max"))
     batt = raw.get("battery_details") or {}
     return DriveRecord(
@@ -294,8 +295,11 @@ class TeslaMateHistory(HistoryProvider):
 
 def _client(ctx: BuildContext) -> TeslaMateClient:
     s = ctx.settings
-    return TeslaMateClient(str(s.get("teslamate_url") or ""), int(s.get("teslamate_car_id") or 1),
-                           ctx.secret(ENV_TESLAMATE_TOKEN))
+    try:
+        car_id = int(s.get("teslamate_car_id") or 1)
+    except (TypeError, ValueError):
+        raise AdapterError("TeslaMate · Car id must be a whole number (usually 1)") from None
+    return TeslaMateClient(str(s.get("teslamate_url") or ""), car_id, ctx.secret(ENV_TESLAMATE_TOKEN))
 
 
 def build_teslamate_live(ctx: BuildContext) -> TeslaMateLive:

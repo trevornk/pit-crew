@@ -141,7 +141,9 @@ def test_teslamate_state_entity_as_extra_motion_source(make_service, ha, clock):
     assert "moving" in svc.run_command("unlock", {}, surface="test", approval=HUMAN)["message"]
     ha.set_state(TM, "online"); fresh(ha)
     clock.advance(130); fresh(ha, age_s=5)
-    assert svc.run_command("unlock", {}, surface="test", approval=HUMAN)["status"] == "confirmed"      # fresh, not driving
+    res = svc.run_command("unlock", {}, surface="test", approval=HUMAN)                  # fresh, not driving: sent
+    # sent; whether it reads as confirmed is the read-back's business (test_car_session_1109), not this test's
+    assert res["status"] in ("confirmed", "sent_unconfirmed") and res["policy"]["allowed"]
     # stale TeslaMate state => unknown again => refused
     ha.states["lock.demo_car_lock"]["state"] = "locked"
     ha.states[TM]["last_reported"] = iso(NOW - 3000)

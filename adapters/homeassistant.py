@@ -41,6 +41,8 @@ CONFIRMABLE_FIELDS = frozenset({"locked", "doors_open", "windows_open", "trunk_o
 NEVER_EVIDENCE = frozenset({"moving"})
 #: the evidence of a live poll must be this fresh (the default stale limit) for any promotion to happen
 CONFIRM_MAX_AGE_S = 900.0
+#: a coordinator refresh writes every entity of the car in the same event-loop pass; stamps this close count as that pass
+REFRESH_TOLERANCE_S = 2.0
 
 
 def _finite(value: float) -> float:
@@ -88,6 +90,21 @@ class HomeAssistantAdapter(CarAdapter):
         self._have_states = False
         self.label = profile.get("label") or "Home Assistant car"
         self.tested = bool(profile.get("tested"))
+        #: integrations that write the commanded entity's state themselves as soon as the API call returns
+        self.optimistic = bool(profile.get("optimistic_commands"))
+        self._targets = self._command_targets(profile, self._slug)
+
+    @staticmethod
+    def _command_targets(profile: Mapping[str, Any], slug: str) -> frozenset:
+        """Every entity a profile command acts on: the entities an optimistic integration writes itself."""
+        out = set()
+        for cspec in (profile.get("commands") or {}).values():
+            for step in cspec.get("steps") or []:
+                if "entity" in step:
+                    out.add(str(step["entity"]).replace("{slug}", slug))
+                elif "entity_by_arg" in step:
+                    out.update(str(e).replace("{slug}", slug) for e in (step["entity_by_arg"].get("map") or {}).values())
+        return frozenset(out)
 
     # -- HTTP -----------------------------------------------------------------------------
     def _get(self, path: str) -> Any:
@@ -267,6 +284,43 @@ class HomeAssistantAdapter(CarAdapter):
             return False, self._stamp(obj) or now
         return None  # offline (could be driving through a dead zone), start, or any unknown value: no vote
 
+    def _mark_assumed(self, fields: Dict[str, FieldValue], states: Mapping[str, Dict[str, Any]]) -> Optional[float]:
+        """Optimistic integrations (tesla_fleet, teslemetry, tessie: ``self._attr_is_locked = False;
+        self.async_write_ha_state()`` right after the API call) make a commanded entity *look* like the car reported the
+        new value, a second after the command, although the car was never re-read. Only a coordinator refresh re-reads
+        the car, and a refresh re-writes every entity of the car in one pass, including the sensors no command touches.
+
+        So: the newest stamp among the mapped entities that no command writes is when the car was last re-read
+        (returned). A field read from a command-target entity whose own stamp is newer than that was written by the
+        integration itself, not by a re-read: it is marked ``assumed``. Errs towards "assumed" (e.g. a streamed update on
+        teslemetry): under-claiming is the safe direction."""
+        reread: List[float] = []
+        for name, spec in self._profile["fields"].items():
+            if name in NEVER_EVIDENCE or name not in fields or not fields[name].available:
+                continue
+            ids = self._entity(name, spec) if spec.get("kind") != "open_list" else \
+                [str(e).replace("{slug}", self._slug) for e in spec["entities"].values()]
+            for eid in ids:
+                obj = states.get(eid)
+                if obj is None or eid in self._targets:
+                    continue
+                st = self._stamp(obj)
+                if st is not None:
+                    reread.append(st)
+                break
+        last_reread = max(reread) if reread else None
+        for name, spec in self._profile["fields"].items():
+            fv = fields.get(name)
+            if fv is None or not fv.available or spec.get("kind") == "open_list":
+                continue
+            eid = next((i for i in self._entity(name, spec) if i in states), None)
+            if eid is None or eid not in self._targets:
+                continue
+            own = self._stamp(states[eid])
+            if own is not None and (last_reread is None or own > last_reread + REFRESH_TOLERANCE_S):
+                fv.assumed = True
+        return last_reread
+
     @staticmethod
     def _confirm_while_online(fields: Dict[str, FieldValue], now: float) -> None:
         """R1 (revised after the 2026-11-09 real-car test): HA only moves an entity's ``last_reported`` when the integration
@@ -282,7 +336,8 @@ class HomeAssistantAdapter(CarAdapter):
         if not (asleep and asleep.available and asleep.value is False):
             return
         live = [f.updated_at for n, f in fields.items()
-                if n not in CONFIRMABLE_FIELDS and n not in NEVER_EVIDENCE and f.available and f.updated_at]
+                if n not in CONFIRMABLE_FIELDS and n not in NEVER_EVIDENCE and f.available and f.updated_at
+                and not f.assumed]
         if not live:
             return
         newest = max(live)
@@ -290,7 +345,7 @@ class HomeAssistantAdapter(CarAdapter):
             return
         for name in CONFIRMABLE_FIELDS:
             f = fields.get(name)
-            if f is not None and f.available and f.updated_at is not None and f.updated_at < newest:
+            if f is not None and f.available and not f.assumed and f.updated_at is not None and f.updated_at < newest:
                 f.changed_at = f.updated_at
                 f.updated_at = newest
 
@@ -359,6 +414,11 @@ class HomeAssistantAdapter(CarAdapter):
         fields: Dict[str, FieldValue] = {}
         for name, spec in self._profile["fields"].items():
             fields[name] = self._apply_untrusted(spec, self._apply_data_time(spec, self._map_field(name, spec, states, now), states))
+        hints: Dict[str, Any] = {}
+        if self.optimistic:
+            refreshed = self._mark_assumed(fields, states)
+            if refreshed is not None:
+                hints["car_reported_at"] = refreshed
         # Derived 'moving' from every motion source the car offers: speed, gear and (optionally) a TeslaMate-style
         # state entity whose value 'driving' means moving. Any source saying moving wins; "not moving" is only claimed
         # from sources that reported, and carries the freshest of their timestamps (policy then checks it is fresh).
@@ -387,7 +447,6 @@ class HomeAssistantAdapter(CarAdapter):
         self._confirm_while_online(fields, now)
         for name in FIELD_NAMES:
             fields.setdefault(name, FieldValue(None, None, False))
-        hints: Dict[str, Any] = {}
         if self._profile.get("tire_min_psi_default"):
             hints["tire_min_psi"] = float(self._profile["tire_min_psi_default"])
         return VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields, hints=hints)

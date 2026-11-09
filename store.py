@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS audit (
     approval TEXT,                 -- not_required | confirmed | missing | denied | unattended
     status TEXT NOT NULL,          -- dry_run | confirmed | sent_unconfirmed | blocked | failed | duplicate | rate_limited | invalid | unsupported
     detail TEXT,
-    readback TEXT,                 -- confirmed | not_confirmed | unverifiable | n/a
+    readback TEXT,                 -- confirmed | accepted | not_confirmed | unverifiable | n/a
     readback_ts REAL,
     adapter TEXT
 );

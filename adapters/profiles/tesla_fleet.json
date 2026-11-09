@@ -3,6 +3,7 @@
   "label": "Tesla via the Home Assistant 'tesla_fleet' integration",
   "integration": "tesla_fleet",
   "tested": true,
+  "optimistic_commands": true,
   "notes": "Verified against a real Model Y's entity and service shapes (tests/fixtures/live-sanitized). Entities are named <domain>.<slug>_<thing>; set ha_slug to your car's slug (e.g. 'my_car' for lock.my_car_lock). Verified against Home Assistant core's tesla_fleet sensor.py (keys vehicle_state_odometer and vehicle_state_tpms_pressure_fl/fr/rl/rr, ids sensor.<slug>_odometer and sensor.<slug>_tire_pressure_front_left…). Home Assistant ships those four tire sensors, the Odometer, Shift state and Speed DISABLED; the fields marked disabled_by_default stay unavailable until you enable them in Home Assistant. HA has no recommended-tire-pressure entity, so low-tire alerts default to 38 psi (90% of a Model 3/Y's 42 psi placard); set the rule's min_psi for other models.",
   "moving_state_entity": "sensor.teslamate_{slug}_state",
   "motion_hint": "Home Assistant ships the Tesla Fleet 'Shift state' and 'Speed' entities DISABLED. Enable them: Home Assistant → Settings → Devices & services → Tesla Fleet → (your car) → disabled entities → enable 'Shift state' and 'Speed'. Alternatively map a TeslaMate state entity (sensor.teslamate_<car>_state, 'driving' = moving) with ha_entity_overrides {\"moving_state_entity\": \"...\"}.",

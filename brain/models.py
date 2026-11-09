@@ -97,6 +97,10 @@ class FieldValue:
     available: bool = True
     #: when the value last actually *changed*, if the adapter knows it and it is older than ``updated_at``
     changed_at: Optional[float] = None
+    #: True when the value was last written by the integration itself right after a command (an *optimistic* write:
+    #: Home Assistant's tesla_fleet/teslemetry/tessie set the entity to the commanded value as soon as the API call
+    #: returns) and the car has not been re-read since. It is the integration's assumption, not the car's report.
+    assumed: bool = False
 
 
 def unavailable() -> FieldValue:
@@ -148,7 +152,8 @@ class VehicleState:
         return max(0.0, now - fv.updated_at)
 
     def newest_update(self) -> Optional[float]:
-        stamps = [f.updated_at for f in self.fields.values() if f.available and f.updated_at]
+        """The newest time the car reported anything (an integration's optimistic write after a command does not count)."""
+        stamps = [f.updated_at for f in self.fields.values() if f.available and f.updated_at and not f.assumed]
         return max(stamps) if stamps else None
 
     def oldest_update(self, names: Optional[Iterable[str]] = None) -> Optional[float]:
@@ -166,7 +171,8 @@ class VehicleState:
     def copy(self) -> "VehicleState":
         return VehicleState(
             name=self.name, source=self.source, captured_at=self.captured_at,
-            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at) for k, v in self.fields.items()},
+            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at, v.assumed)
+                    for k, v in self.fields.items()},
             simulated=self.simulated, hints=dict(self.hints),
         )
 
@@ -260,6 +266,7 @@ class VehicleState:
         stale = {n: int(a) for n in FIELD_NAMES
                  if (a := self.age_s(n, now)) is not None and a > stale_after_s}
         unavailable_fields = [n for n, f in self.fields.items() if not f.available]
+        assumed = [n for n, f in self.fields.items() if f.available and f.assumed]
         newest = self.newest_update()
         return {
             "vehicle": {"name": self.name, "source": self.source, "simulated": self.simulated},
@@ -279,6 +286,8 @@ class VehicleState:
                 "stale_fields": stale,
                 "stale_after_s": int(stale_after_s),
                 "unavailable_fields": unavailable_fields,
+                # values the integration set itself after a command; the car has not re-reported them yet
+                "assumed_after_command": assumed,
             },
         }
 

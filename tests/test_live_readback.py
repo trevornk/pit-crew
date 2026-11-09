@@ -93,7 +93,7 @@ def test_charge_start_when_already_charging_with_fresh_data_says_so(make_service
     svc = svc_for(make_service, ha, clock)
     res = svc.run_command("charge_start", {}, surface="test")
     assert res["status"] == "confirmed" and res["readback"].get("already") == "charging"
-    assert "already showed this" in res["message"]
+    assert "reported this (charging) less than a minute before" in res["message"]
 
 
 # -- charge_amps: the number entity is HA's own echo; the car's actual current is the evidence -----------------------------
@@ -128,7 +128,7 @@ def test_close_windows_when_already_closed_says_already_closed(make_service, ha,
     svc = svc_for(make_service, ha, clock)
     res = svc.run_command("close_windows", {}, surface="test")
     assert res["status"] == "confirmed" and res["readback"]["already"] == "closed"
-    assert "already closed" in res["readback"]["detail"] and "already showed this (closed)" in res["message"]
+    assert "already closed" in res["readback"]["detail"] and "reported this (closed) less than a minute before" in res["message"]
 
 
 def test_lock_when_already_locked_says_so(make_service, ha, clock):
@@ -139,8 +139,17 @@ def test_lock_when_already_locked_says_so(make_service, ha, clock):
 
 
 def test_lock_that_really_changes_is_a_normal_confirmation(make_service, ha, clock):
+    """Confirmed once the integration has re-read the car after the command (HA's own optimistic write is not enough:
+    see test_car_session_1109)."""
     ha.set_state("lock.demo_car_lock", "unlocked")
     svc = svc_for(make_service, ha, clock)
+    real_sleep = svc._sleep
+
+    def sleep(sec):
+        real_sleep(sec)
+        for eid in ha.states:                                   # a coordinator pass re-writes every entity
+            ha.states[eid]["last_reported"] = iso(clock.t)
+    svc._sleep = sleep
     res = svc.run_command("lock", {}, surface="test")
     assert res["status"] == "confirmed" and "already" not in res["readback"]
     assert "the car confirmed it" in res["message"]

@@ -5,12 +5,18 @@ Everything below is tested (`tests/test_safety_engine.py`, `tests/test_approval_
 
 ## The short version
 
-1. **Practice mode by default.** Out of the box, commands are checked and logged but the car is **never contacted**. The
-   reply says "PRACTICE RUN … the car was NOT contacted".
-2. **You go live on purpose.** **Go live** (the Pit Crew page) or `/car live` (asks you to confirm) lets Hermes send
-   commands for a limited time (default 1 h, between 15 minutes and 72 hours) and then it switches itself back.
-   `/car practice` (or **Stop**) works any time. A standing "Always live" setting (Advanced, `armed: true`) exists for people
-   who want it; it is not recommended. (`/car arm` and `/car disarm` are aliases.)
+1. **Practice mode by default.** Out of the box (`live_mode: on_demand`), commands are checked and logged but the car is
+   **never contacted**. The reply says "PRACTICE RUN … the car was NOT contacted".
+2. **You decide how it goes live** (**Safety · Live mode**, `live_mode`):
+   * `on_demand` (default): **Go live** (the Pit Crew page) or `/car live` (asks you to confirm) lets Hermes send commands
+     for a limited time (default `live_default_hours` = 1 h; `/car live N` 15 minutes to 72 hours) and then it switches itself back.
+   * `always`: commands are sent for real without going live first. `/car stop` (or **Stop**) pauses it into practice mode
+     until you run `/car live` (or press **Go live**) again, which resumes it with **no expiry**. Status, chip and page say
+     which applies: *Live: always on* / *Paused (practice) — /car live to resume* / *Live until 4:39 PM*.
+   * `/car stop` (= `/car practice`) works any time in both modes. (`/car arm` and `/car disarm` are aliases.) The old
+     standing `armed: true` setting is read as `live_mode: always` when `live_mode` is not set.
+   * Nothing else differs between the modes: every check below applies the same. **The agent can never go live itself:**
+     no tool arms, and no tool changes these settings; only the setting, your slash command or your click.
 3. **Risky commands need a human.** Unlock, trunk, frunk, window venting, Sentry-off, honk and flash go through Hermes'
    own approval prompt — the same one used for dangerous shell commands — on whatever surface you're using
    (Desktop, CLI, Telegram…). Locking, closing windows and turning Sentry on move the car toward *safer* and need no approval.
@@ -90,17 +96,51 @@ Design points:
 |---|---|---|
 | bounds | temps, charge limit, amps | outside 59–82 °F, 50–100 %, 1–charger max A |
 | parked | unlock, trunk, frunk, vent, honk, flash | the car is moving — **or its parked-ness cannot be proven** (fail closed; see below) |
-| fresh state | unlock, trunk, frunk, vent, Sentry off | data older than `max_state_age_s` (default 10 min) |
-| trusted zone | unlock, trunk, frunk | not at a `trusted_zones` place (default `home`) — unless the user insists (`override_zone`), which is shown prominently in the approval prompt |
-| asleep | every command | the car is asleep (waking drains battery) — unless the user agreed (`wake_ok`) |
+| fresh state | unlock, trunk, frunk, vent, Sentry off | data older than `max_state_age_s` (default 10 min; 1 min to 1 h, cannot be switched off) |
+| trusted zone | unlock, trunk, frunk | `zone_rule: trusted_zones` (default) and not at a `trusted_zones` place (default `home`) — unless the user insists once (`override_zone`), which is shown prominently in the approval prompt. `zone_rule: anywhere` drops this check |
+| asleep | every command | the car is asleep (waking drains battery) — unless the user agreed (`wake_ok`), or `wake_for_commands: auto` (then a command the user asked for may wake it; status reads never do) |
 | plugged in | start charging | the car is not plugged in |
-| rate limit | live commands | more than N per window (default 10 per 10 min) |
-| duplicate | live commands | the identical command was sent within 60 s |
+| rate limit | live commands | more than `rate_limit_commands` per `rate_limit_window_s` (default 10 per 10 min; 1-60 per 1 min-1 day) |
+| duplicate | live commands | the identical command was sent within `dedupe_window_s` (default 60 s; 5-600 s) |
+
+Every refusal names the setting that would allow it, by its label in the settings form and its key, e.g. *"Refused: the car is
+at 'away', away from your trusted zones (home). To allow unlock/trunk/frunk anywhere, set “Safety · Unlock/trunk/frunk zone”
+(zone_rule) to 'anywhere' in Pit Crew settings."* Refusals no setting can lift say so.
+
+### Owner-adjustable protections vs fixed invariants
+
+| Adjustable (setting; default) | Risk when loosened |
+|---|---|
+| `live_mode` (`on_demand`) | `always`: anything that gets Hermes to call `car_command` sends at once; safe-direction and comfort commands need no approval. Keep Hermes approvals on (or use `require_human_for`) if other people can talk to your Hermes. |
+| `zone_rule` (`trusted_zones`) | `anywhere`: unlock/trunk/frunk work wherever the car is parked. Someone near the car when it opens could take things. |
+| `wake_for_commands` (`ask`) | `auto`: a requested command wakes the car (battery) without a second question. |
+| `max_state_age_s` (600 s, 60-3600) | Acting on an older picture of the car. |
+| `rate_limit_*`, `dedupe_window_s` | More commands in a burst; a repeated message is more likely to send twice with a short window. |
+| `require_human_for` (empty) | Tightens only. |
+| `allow_unknown_motion` (off) | Acting when parked-ness cannot be told. Never overrides a reading that says the car is moving. |
+| Hermes' approval mode | Hermes' own setting. |
+
+| Fixed (not a setting) | Why |
+|---|---|
+| Never unlock/open while moving or not provably parked | A door or trunk opening on the road hurts people; no convenience is worth it. |
+| Approval-class commands never from unattended/cron/background runs | No person is there to answer; a schedule must not open a car. |
+| The agent cannot arm itself or change these settings | A prompt-injected or confused model must not be able to lower its own guard. |
+| Truthful results (sent vs accepted vs confirmed) | Not a protection but a promise: you decide what to do next from it. |
+
+### The walk back to the car (mall case)
+
+With `live_mode: always`, `zone_rule: anywhere` and `wake_for_commands: auto`, "open the trunk" as you walk out of a shop to
+the parked, sleeping car is sent (after Hermes' approval step, per your Hermes setting). Parked is proven because the car
+reports it is **asleep right now** (a fresh asleep reading): a Tesla cannot sleep in gear. A stale asleep reading proves
+nothing, a car that is awake needs fresh gear/speed as before, and any reading of D/R/N or a speed above 1 mph — even an old
+one — still refuses. Caveat: Home Assistant's Tesla Fleet *status* sensor reports "offline" the same as asleep; an offline car
+cannot receive the command anyway, and a car that comes back online and moves reports gear/speed again.
 
 ### Parked must be *proven*, with fresh data
 
 "Parked" needs at least one **fresh** (within `max_state_age_s`, default 10 min) indicator that says so: a speed near zero, a
-gear of P, a `driving`-state entity that says anything but `driving`, or the car being plugged in. Any indicator that says
+gear of P, a `driving`-state entity that says anything but `driving`, the car being plugged in, or the car reporting that it
+is asleep. Any indicator that says
 "moving" refuses the command. A stale reading proves nothing, and **if nothing proves it, the command is refused** —
 `allow_unknown_motion` defaults to **false** (a live test found that the default used to fail open for a Home Assistant
 `tesla_fleet` car, because HA ships its *Shift state* and *Speed* entities disabled).
@@ -138,7 +178,8 @@ counts as a parked indicator **only if that sensor is readable** (otherwise the 
   Assistant's Tesla Fleet integration, which holds those tokens itself.)
 * **Direct Tesla modes never wake the car to poll.** Polling asks the cheap vehicle-state endpoint; only an online car gets a data
   call, an asleep car's last data is shown as stale, calls are rate-limited (`tesla_min_poll_s`, back-off on HTTP 429). Waking
-  happens only for a command the human explicitly allowed (`wake_ok`), once. Latitude/longitude, when zones are configured, are
+  happens only for a command the human explicitly allowed (`wake_ok`), once, or — with `wake_for_commands: auto` — for a
+  command the user asked for; never for polling. Latitude/longitude, when zones are configured, are
   converted to a zone name inside the adapter and discarded.
 * Page-initiated commands are audited as surface `desktop`. (Pass 8: the old single-use `/preflight` tokens are no longer a way to
   approve anything — approval-class commands are refused from the page.)

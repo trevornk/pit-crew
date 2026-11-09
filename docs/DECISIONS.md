@@ -16,8 +16,9 @@ Notable choices made while building, newest last. Format: decision — why.
 - **Location is a zone, never coordinates.** `VehicleState` has no latitude/longitude field at all, so they cannot leak.
 
 ## Safety
-- **Dry-run by default.** `armed: false` means commands are validated, policy-checked, audited and *not sent*. `/car arm`
-  arms for a limited time (`arm_default_hours`, default 1h) and auto-disarms; `armed: true` in settings is a standing arm.
+- **Dry-run by default.** A fresh install (`live_mode: on_demand`) validates, policy-checks and audits commands and does *not send*
+  them. `/car live` goes live for a limited time (`live_default_hours`, default 1 h) and switches back by itself. (Superseded in
+  part by the live-mode decision below: `live_mode: always` replaces the old standing `armed: true`.)
 - **Approval uses Hermes' real pipeline, and follows the user's Hermes approval setting** (owner decision, 2026-11-09). A
   `pre_tool_call` hook returns `{"action": "approve", "rule_key": "pit-crew:<cmd>"}` for approval-class `car_command`s. If the handler
   runs, Hermes authorized that exact call under the user's own policy (manual, smart, off, yolo, an allowlist entry); denial,
@@ -405,5 +406,42 @@ both by hand; vent/close windows physically worked but read `not_confirmed`.
   around `send_command` and around the read-back); results carry `timing_ms`. Commands with no observable result (flash, honk) return
   without any read-back wait. The ~20 s the owner saw for flash is mostly outside Pit Crew (agent turn, Tesla cloud to car): see RESULT10.
 * **Live length is a setting** `live_default_hours` (whole hours 1-24, default 1; bad values fall back to 1): used by the page's Go live
-  and by `/car live` without a number. An explicit `/car live N` keeps 15 min-72 h. No "forever" (the separate `armed` Advanced setting
-  is unchanged). The old `arm_default_hours` key is read when the new one is not set. A setting never arms anything by itself.
+  and by `/car live` without a number. An explicit `/car live N` keeps 15 min-72 h. No "forever" for a timed window (worker 11: for no time
+  limit the owner picks `live_mode: always`, below). The old `arm_default_hours` key is read when the new one is not set. In
+  `on_demand` a setting never arms anything by itself.
+
+## Always available control mode, owner-adjustable protections (worker 11, owner decision 2026-11-09)
+* **`live_mode`: `on_demand` (default) | `always`.** The owner found running `/car live` before every use a dealbreaker. `always` sends
+  for real without arming; `/car stop` / Stop is a *pause* (`arm_state.paused`) that lasts until `/car live` / Go live, which resumes
+  with no expiry (a number given to `/car live` does not create a limit in this mode, and the reply says so). `on_demand` is exactly the
+  old behaviour. A stop in `on_demand` leaves no pause behind, so switching to `always` later starts live; a pause made in `always` is
+  remembered across a switch away and back. The setting is read on every check (`armed_info`), so a change in the settings form applies
+  at once; the pages re-read on `settings.changed`. The old standing `armed: true` (an Advanced checkbox) becomes `live_mode: always`
+  when `live_mode` is unset, and `armed` is no longer a form field.
+* **Status words are one set everywhere:** "Live: always on", "Paused (practice) — /car live to resume", "Live until 4:39 PM",
+  "Practice mode · nothing is sent" (`CarService.live_label`; the pages build the same words from `armed.state`).
+* **Owner-adjustable protections** are settings with plain labels and a conservative default: `zone_rule` (`trusted_zones` |
+  `anywhere`; the per-call `override_zone` stays for one-off use), `wake_for_commands` (`ask` | `auto`; `auto` lets the policy pass an
+  asleep car for a requested command and calls the direct adapter's `allow_wake_once`; status reads still never wake), and the numeric
+  ones are clamped to bounds instead of being switch-offable: `max_state_age_s` 60-3600, `rate_limit_commands` 1-60,
+  `rate_limit_window_s` 60-86400, `dedupe_window_s` 5-600. Unknown choice values fall back to the conservative default.
+* **Every refusal names the setting that would allow it** (label + key), and the ones nothing can lift say "no setting changes that".
+  The setting hint comes before the agent-directed "If the user…" sentence, so the pages' shortened refusal still shows it.
+* **Fixed invariants (not settings):**
+  * Never unlock/open while moving or not provably parked — a door or trunk opening on the road endangers people; no convenience outweighs it.
+  * Approval-class commands never from unattended/cron/background runs — nobody is there to answer, and a schedule must not open a car.
+  * The agent can never arm itself or change these settings via a tool — a confused or prompt-injected model must not lower its own guard.
+  * Truthful results (sent vs accepted vs confirmed) — not a protection, a promise; never configurable.
+* **A fresh "asleep" reading is parked evidence** (a Tesla cannot sleep in gear): the mall case. Only a reading within
+  `max_state_age_s`; "just woken" (asleep now false) is *not* evidence, because a car that just woke may be about to drive and its
+  gear reading is stale. Any reading of D/R/N or speed > 1 mph, fresh or stale, still refuses first. Known limit: HA tesla_fleet's
+  `binary_sensor.<car>_status` is off for both asleep and offline; an offline car cannot take the command, and one that comes back
+  and drives reports gear/speed again on the next poll.
+* **No waiting for a report that cannot arrive** (`report_latency_s` per HA profile: tesla_fleet 600 — coordinator polls every 600 s,
+  no streaming; teslemetry_ha 5 — streaming; tessie_ha 10 — coordinator re-reads Tessie's cache every 10 s; the simulator 0; unknown
+  = None). When the latency is more than twice the longest read-back wait for that command (`verify_timeout_s`, or a charging
+  command's 90 s window), the engine reads ONCE right after sending and answers: `confirmed` if that read already carries the car's
+  report, otherwise `readback: accepted` / `sent_unconfirmed` with "Tesla accepted it. The car reports back within ~10 min; check
+  car_status later". Other profiles keep the full wait (and the long charging window where it can help). Rejected: shortening
+  `verify_timeout_s` globally (it would cut the wait where a report can arrive in time).
+

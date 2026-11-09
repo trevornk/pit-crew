@@ -191,7 +191,10 @@ plugins:
 
 Pushes are delivered by the gateway process, so keep the gateway running. To check delivery end to end, run `/car notify test` in
 the bound chat: it sends "Pit Crew test alert: delivery works" through the same path as real alerts (no alert is created) and
-tells you whether Hermes accepted it.
+tells you whether Hermes **accepted** it. Hermes routes the message afterwards and only logs a chat it cannot reach, so "accepted" means
+"it should appear shortly"; if it doesn't, check the gateway log for "Plugin message injection was not routed" (the gateway had no
+matching live session or delivery adapter for the bound chat: run `/car notify here` again in that chat). Pit Crew binds only a chat
+that gives it a session key and never uses Hermes' key-less injection.
 
 If a push fails, Pit Crew now says *why* (for example "this Hermes process is not the messaging gateway"), in `/car notify test`,
 `/car notify` and `/car status`. A failed push is **not** cancelled by the alert being shown in some other chat's next reply: Pit Crew

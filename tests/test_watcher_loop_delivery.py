@@ -105,10 +105,14 @@ def test_push_disabled_by_setting(stub_service, stub, clock):
     assert trigger_alert(stub, clock, s)["pushed"] is False
 
 
-def test_keyless_binding_for_local_cli(svc, stub, clock):
-    svc.watcher.deliverer.bind("", "cli")
-    assert trigger_alert(stub, clock, svc)["pushed"] is True
-    assert svc.ctx.injected[-1][1] is None
+def test_binding_without_a_session_key_is_refused_and_never_injects_keyless(svc, stub, clock):
+    assert svc.watcher.deliverer.bind("", "cli") is None and svc.watcher.deliverer.target() is None
+    out = slash.handle("notify here", session_key="", platform="cli")
+    assert "nothing was bound" in out and svc.watcher.deliverer.target() is None
+    # an old key-less binding in the store is not pushed to with a key-less inject either; it says why
+    svc.store.kv_set("notify_target", {"session_key": "", "platform": "cli", "bound_at": 1.0})
+    assert trigger_alert(stub, clock, svc)["pushed"] is False and not svc.ctx.injected
+    assert "session key" in svc.store.kv_get("notify_last")["reason"]
 
 
 def test_push_text_is_scrubbed(svc, stub, clock):
@@ -270,6 +274,15 @@ def test_next_turn_context_hook_skips_cron_runs_so_alerts_are_not_swallowed(svc,
     assert pit_crew._alert_context_hook(platform="telegram") is None       # once
 
 
+def test_next_turn_context_hook_skips_subagent_turns_so_the_user_still_sees_the_alert(svc, stub, clock):
+    import pit_crew
+    trigger_alert(stub, clock, svc)
+    assert pit_crew._alert_context_hook(platform="telegram", parent_session_id="parent-1", session_id="child") is None
+    assert svc.alerts(("new",))                                              # not consumed by the child turn
+    out = pit_crew._alert_context_hook(platform="telegram", parent_session_id=None, session_id="main")
+    assert out and "unlocked and away" in out["context"]
+
+
 def test_simulated_car_alerts_are_labelled(service, clock):
     service.adapter.control("event", kind="software_update")
     service.adapter.control("leave_unlocked")
@@ -286,7 +299,8 @@ def test_notify_test_pushes_labelled_message_without_creating_alerts(svc, stub, 
     d.bind("agent:main:telegram:dm:42", "telegram")
     before_last = svc.store.kv_get("notify_last")
     out = slash.handle("notify test")
-    assert "Test alert sent" in out
+    assert out.startswith("Hermes accepted the test message") and "should appear in that chat shortly" in out
+    assert "check the gateway log" in out and "not routed" in out
     content, key = svc.ctx.injected[-1]
     assert key == "agent:main:telegram:dm:42" and "Pit Crew test alert: delivery works" in content
     assert "not typed by the user" in content and "do NOT send any car command" in content

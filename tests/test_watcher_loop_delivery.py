@@ -7,7 +7,6 @@ import pytest
 from conftest import CronCtx
 from pit_crew import slash
 from pit_crew.adapters.base import AdapterUnavailable
-from pit_crew.watcher.delivery import PUSH_PREFIX
 from pit_crew.watcher.watcher import Watcher, start_watcher, reset_started_for_tests
 
 
@@ -62,64 +61,111 @@ def test_lease_ensures_single_active_watcher(svc, stub, clock):
     other.release()
 
 
-def test_push_to_bound_chat_via_inject_message(svc, stub, clock):
+def test_push_goes_through_hermes_send_to_the_target_as_a_plain_message(svc, stub, clock, sender):
     d = svc.watcher.deliverer
-    d.bind("agent:main:telegram:dm:42", "telegram")
+    d.bind("telegram:-100123")
     res = trigger_alert(stub, clock, svc)
     assert res["pushed"] is True
-    content, key = svc.ctx.injected[-1]
-    assert key == "agent:main:telegram:dm:42" and content.startswith(PUSH_PREFIX)
-    assert "unlocked and away" in content and "do NOT send any car command" in content
+    text, target = sender.sent[-1]
+    assert target == "telegram:-100123" and text.startswith("Pit Crew car alert")
+    assert "unlocked and away" in text and "nothing is sent to the car until you say yes" in text
+    assert "not typed by the user" not in text and "Tell the user" not in text      # a message for a person, not a prompt for an agent
     assert svc.alerts(("new",)) == []              # surfaced, so the next-turn hook won't repeat it
     assert svc.alerts(("surfaced",))
+    last = svc.store.kv_get("notify_last")
+    assert last["ok"] is True and last["delivered"] is True and last["target"] == "telegram:-100123"
 
 
-def test_push_refused_by_hermes_is_reported_and_alert_stays_new(svc, stub, clock):
-    svc.ctx.inject_message = lambda *a, **k: False
-    svc.watcher.deliverer.bind("k", "telegram")
+def test_push_refused_by_the_platform_is_reported_and_alert_stays_new(svc, stub, clock, sender):
+    sender.fail("Telegram API error: chat not found", "refused")
+    svc.watcher.deliverer.bind("telegram:-100123")
     res = trigger_alert(stub, clock, svc)
     assert res["pushed"] is False
     assert svc.alerts(("new",))
     st = svc.watcher.deliverer.status()
-    assert st["last_push"]["ok"] is False and "allow_gateway_injection" in st["last_push"]["hint"]
+    assert st["last_push"]["ok"] is False and "chat not found" in st["last_push"]["hint"]
+    assert "/car notify list" in st["last_push"]["hint"]
 
 
-def test_no_binding_means_no_push_but_next_turn_context(svc, stub, clock):
+def test_no_target_means_no_push_but_next_turn_context(svc, stub, clock, sender):
     res = trigger_alert(stub, clock, svc)
-    assert res["pushed"] is False and svc.ctx.injected == []
+    assert res["pushed"] is False and sender.sent == []
     text = svc.watcher.deliverer.context_for_next_turn()
     assert "unlocked and away" in text and "don't run it without a yes" in text
     assert svc.watcher.deliverer.context_for_next_turn() is None      # only once
 
 
-def test_info_alerts_are_not_pushed(svc, stub, clock):
-    svc.watcher.deliverer.bind("k", "cli")
+def test_info_alerts_are_not_pushed(svc, stub, clock, sender):
+    svc.watcher.deliverer.bind("telegram")
     stub.values["software_update_available"] = True
     res = svc.watcher.poll_once()
-    assert res["raised"] and res["pushed"] is False and svc.ctx.injected == []
+    assert res["raised"] and res["pushed"] is False and sender.sent == []
 
 
-def test_push_disabled_by_setting(stub_service, stub, clock):
+def test_push_disabled_by_setting(stub_service, stub, clock, sender):
     s = stub_service(alert_push=False)
-    s.watcher.deliverer.bind("k", "cli")
-    assert trigger_alert(stub, clock, s)["pushed"] is False
+    s.watcher.deliverer.bind("telegram")
+    assert trigger_alert(stub, clock, s)["pushed"] is False and sender.sent == []
 
 
-def test_binding_without_a_session_key_is_refused_and_never_injects_keyless(svc, stub, clock):
-    assert svc.watcher.deliverer.bind("", "cli") is None and svc.watcher.deliverer.target() is None
-    out = slash.handle("notify here", session_key="", platform="cli")
-    assert "nothing was bound" in out and svc.watcher.deliverer.target() is None
-    # an old key-less binding in the store is not pushed to with a key-less inject either; it says why
-    svc.store.kv_set("notify_target", {"session_key": "", "platform": "cli", "bound_at": 1.0})
-    assert trigger_alert(stub, clock, svc)["pushed"] is False and not svc.ctx.injected
-    assert "session key" in svc.store.kv_get("notify_last")["reason"]
+def test_the_alert_target_setting_wins_over_the_command_binding(stub_service, stub, clock, sender):
+    s = stub_service(alert_target="discord:#car")
+    s.watcher.deliverer.bind("telegram")
+    assert s.watcher.deliverer.target() == {"target": "discord:#car", "source": "setting"}
+    assert trigger_alert(stub, clock, s)["pushed"] is True
+    assert sender.sent[-1][1] == "discord:#car"
+    assert "alert_target setting" in slash.handle("notify status")
+    assert "wins over this" in slash.handle("notify matrix:!room:example.org")
 
 
-def test_push_text_is_scrubbed(svc, stub, clock):
-    svc.watcher.deliverer.bind("k", "cli")
+def test_setting_alone_is_enough_and_off_does_not_clear_it(stub_service, stub, clock, sender):
+    s = stub_service(alert_target="signal:+15551234567")
+    assert trigger_alert(stub, clock, s)["pushed"] is True
+    assert "still set" in slash.handle("notify off")
+    assert s.watcher.deliverer.target()["target"] == "signal:+15551234567"
+
+
+def test_bad_targets_are_refused(svc):
+    assert svc.watcher.deliverer.bind("") is None and svc.watcher.deliverer.bind("not a target") is None
+    assert svc.watcher.deliverer.bind("Telegram") is None      # the command lower-cases first; bind itself is strict
+    out = slash.handle("notify not a target")
+    assert "doesn't look like a delivery target" in out and svc.watcher.deliverer.target() is None
+
+
+def test_an_old_session_key_binding_is_not_reused_and_status_says_how_to_fix_it(svc, stub, clock, sender):
+    svc.store.kv_set("notify_target", {"session_key": "agent:main:matrix:group:!r:s", "platform": "matrix", "bound_at": 1.0})
+    assert svc.watcher.deliverer.target() is None and svc.watcher.deliverer.legacy_binding()
+    assert trigger_alert(stub, clock, svc)["pushed"] is False and sender.sent == []
+    assert "run `/car notify here` again" in slash.handle("notify status")
+
+
+def test_push_text_is_scrubbed(svc, stub, clock, sender):
+    svc.watcher.deliverer.bind("telegram")
     stub.values.update(locked=False, location_zone="5YJ3E1EA7KF317000")  # absurd zone name that looks like a VIN
     svc.watcher.poll_once(); clock.advance(11 * 60); svc.watcher.poll_once()
-    assert "5YJ3E1EA7KF317000" not in svc.ctx.injected[-1][0]
+    assert "5YJ3E1EA7KF317000" not in sender.sent[-1][0]
+
+
+def test_the_send_runs_in_the_secret_scope_the_poll_ran_in(svc, stub, clock, sender, monkeypatch):
+    """Watcher.run polls AND delivers in one asyncio.to_thread call, which copies the running context: whatever secret scope the
+    host gave the watcher task (HA token and platform token alike) is what send_message sees."""
+    import contextvars
+    scope = contextvars.ContextVar("fake_secret_scope", default=None)
+    seen = []
+
+    def spy(target, text):
+        seen.append(scope.get())
+        return sender(target, text)
+    monkeypatch.setattr("pit_crew.watcher.delivery.hermes_send", spy)
+    svc.watcher.deliverer.bind("telegram")
+    stub.values.update(locked=False, location_zone="away")
+    svc.watcher.poll_once(); clock.advance(11 * 60)
+
+    async def go():
+        scope.set("owner-profile")
+        return await asyncio.to_thread(svc.watcher.poll_once)
+    res = asyncio.run(go())
+    assert res["pushed"] is True and seen == ["owner-profile"]
 
 
 def test_async_run_loop_polls_and_stops(svc, stub, clock):
@@ -246,14 +292,58 @@ def test_slash_sim_controls_only_for_simulator(service, stub_service, stub):
     assert "only works with the simulated car" in slash.handle("sim advance 5")
 
 
-def test_slash_notify_binds_session(service):
-    service.ctx = CronCtx()
-    out = slash.handle("notify here", session_key="agent:main:telegram:dm:1", platform="telegram")
-    assert "allow_gateway_injection" in out
-    assert service.watcher.deliverer.target()["session_key"] == "agent:main:telegram:dm:1"
-    assert "telegram" in slash.handle("notify status")
+def _session_vars(monkeypatch, platform, chat_id, thread_id=""):
+    """What Hermes binds while a plugin command runs (HERMES_SESSION_* context variables). Real Hermes' reader is covered in
+    test_delivery_hermes.py."""
+    env = {"HERMES_SESSION_PLATFORM": platform, "HERMES_SESSION_CHAT_ID": chat_id, "HERMES_SESSION_THREAD_ID": thread_id}
+    monkeypatch.setattr("pit_crew.watcher.delivery.session_env", lambda name: env.get(name, ""))
+
+
+@pytest.mark.parametrize("platform,chat,thread,expected", [
+    ("telegram", "-1001234567890", "", "telegram:-1001234567890"),
+    ("telegram", "-1001234567890", "17585", "telegram:-1001234567890:17585"),
+    ("discord", "38472910562837", "", "discord:38472910562837"),
+    ("matrix", "!abcDEF:example.org", "", "matrix:!abcDEF:example.org"),
+    ("matrix", "!abcDEF:example.org", "$ev1", "matrix:!abcDEF:example.org"),     # Matrix room ids contain ':'; no thread suffix
+    ("signal", "+15551234567", "", "signal:+15551234567"),
+    ("slack", "C0123ABCD", "1700.1", "slack:C0123ABCD:1700.1"),
+])
+def test_notify_here_derives_a_delivery_target_from_each_platforms_session_context(service, monkeypatch, platform, chat, thread, expected):
+    _session_vars(monkeypatch, platform, chat, thread)
+    out = slash.handle("notify here", session_key="agent:main:x", platform=platform)
+    assert f"`{expected}`" in out and "no agent turn" in out
+    assert service.watcher.deliverer.target()["target"] == expected
+    assert platform in slash.handle("notify status")
+
+
+def test_notify_here_from_a_desktop_or_cli_session_binds_nothing_and_says_so(service, monkeypatch):
+    monkeypatch.setattr("pit_crew.watcher.delivery.session_env", lambda name: "")
+    for plat in ("cli", "tui", "", "desktop"):
+        out = slash.handle("notify here", session_key="s", platform=plat)
+        assert "Desktop/CLI session" in out and "/car notify telegram" in out
+    assert service.watcher.deliverer.target() is None
+
+
+def test_notify_here_in_a_messaging_chat_without_a_chat_id_asks_for_an_explicit_target(service, monkeypatch):
+    _session_vars(monkeypatch, "telegram", "")
+    out = slash.handle("notify here", session_key="k", platform="telegram")
+    assert "did not tell me which telegram chat" in out and service.watcher.deliverer.target() is None
+
+
+@pytest.mark.parametrize("target", ["telegram", "discord:#car", "matrix:!room:example.org", "signal:+15551234567", "slack:#ops"])
+def test_notify_explicit_target_for_each_platform(service, target):
+    out = slash.handle(f"notify {target}")
+    assert f"`{target}`" in out and service.watcher.deliverer.target()["target"] == target
+    assert target in slash.handle("notify status")
     assert "no longer be pushed" in slash.handle("notify off")
-    assert "No chat is bound" in slash.handle("notify")
+    assert "No place is set" in slash.handle("notify")
+
+
+def test_notify_list_shows_hermes_targets_or_examples(service, monkeypatch):
+    monkeypatch.setattr("pit_crew.slash.list_targets", lambda: "telegram:\n  home\ndiscord:\n  #car")
+    assert "#car" in slash.handle("notify list")
+    monkeypatch.setattr("pit_crew.slash.list_targets", lambda: None)
+    assert "matrix:!room:server" in slash.handle("notify list")
 
 
 def test_slash_never_raises(service, monkeypatch):
@@ -294,45 +384,36 @@ def test_simulated_car_alerts_are_labelled(service, clock):
     assert titles and all(t.startswith("[Simulated] ") for t in titles)
 
 
-def test_notify_test_pushes_labelled_message_without_creating_alerts(svc, stub, clock):
+def test_notify_test_sends_a_labelled_message_without_creating_alerts(svc, stub, clock, sender):
     d = svc.watcher.deliverer
-    d.bind("agent:main:telegram:dm:42", "telegram")
+    d.bind("telegram:-100123")
     before_last = svc.store.kv_get("notify_last")
     out = slash.handle("notify test")
-    assert out.startswith("Hermes accepted the test message") and "should appear in that chat shortly" in out
-    assert "check the gateway log" in out and "not routed" in out
-    content, key = svc.ctx.injected[-1]
-    assert key == "agent:main:telegram:dm:42" and "Pit Crew test alert: delivery works" in content
-    assert "not typed by the user" in content and "do NOT send any car command" in content
+    assert out.startswith("Hermes delivered the test message to `telegram:-100123`") and "platform accepted it" in out
+    text, target = sender.sent[-1]
+    assert target == "telegram:-100123" and "Pit Crew test alert: delivery works" in text
     assert svc.alerts(("new", "surfaced", "acked", "resolved")) == []
     assert svc.store.kv_get("notify_last") == before_last          # status/dedupe state untouched
 
 
-def test_notify_test_reports_failure_with_the_existing_hint(svc):
-    svc.ctx.inject_message = lambda *a, **k: False
-    svc.watcher.deliverer.bind("k", "telegram")
+def test_notify_test_reports_the_platforms_answer_on_failure(svc, sender):
+    sender.fail("Telegram API error: Bad Request: chat not found", "refused")
+    svc.watcher.deliverer.bind("telegram:-1")
     out = slash.handle("notify test")
-    assert out.startswith("Test alert FAILED") and "allow_gateway_injection" in out
+    assert out.startswith("Test alert FAILED") and "chat not found" in out
     assert svc.alerts(("new",)) == []
 
 
-def test_notify_test_inject_exception_is_a_failure_not_a_crash(svc):
-    def boom(*a, **k):
-        raise RuntimeError("gateway down")
-    svc.ctx.inject_message = boom
-    svc.watcher.deliverer.bind("k", "telegram")
-    assert slash.handle("notify test").startswith("Test alert FAILED")
-
-
-def test_notify_test_without_binding_or_context(svc):
-    assert "No chat is bound" in slash.handle("notify test") and svc.ctx.injected == []
-    svc.watcher.deliverer.bind("k", "telegram")
-    svc.ctx = None
-    assert slash.handle("notify test").startswith("Test alert FAILED")
+def test_notify_test_without_a_target_or_when_send_is_unavailable(svc, sender):
+    assert "No place is set" in slash.handle("notify test") and sender.sent == []
+    svc.watcher.deliverer.bind("telegram")
+    sender.fail("send_message is not available (ImportError)", "unavailable")
+    out = slash.handle("notify test")
+    assert out.startswith("Test alert FAILED") and "cross-platform send" in out
 
 
 def test_notify_test_does_not_touch_rules_or_dedupe(svc, stub, clock):
-    svc.watcher.deliverer.bind("k", "telegram")
+    svc.watcher.deliverer.bind("telegram")
     slash.handle("notify test")
     res = trigger_alert(stub, clock, svc)           # a real alert afterwards is still raised and pushed
     assert res["pushed"] is True and len(svc.alerts(("surfaced",))) == 1

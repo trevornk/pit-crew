@@ -24,7 +24,7 @@ def _num(text: str) -> bool:
 def _count(text: str, default: int, cap: int = 1000) -> int:
     return min(int(text), cap) if text.isascii() and text.isdigit() else default
 
-from .watcher.delivery import NOT_ROUTED_HINT  # noqa: E402
+from .watcher.delivery import NO_TARGET_HINT, list_targets, target_from_session, valid_target  # noqa: E402
 from .watcher.rules import RULE_LABELS, RULES_BY_ID  # noqa: E402
 
 HELP = """\
@@ -40,7 +40,8 @@ Safety
   /car log [n]            recent command attempts
 Setup
   /car discover           find your car in Home Assistant
-  /car notify here|off|status|test   push alerts to THIS chat (test = send a test alert)
+  /car notify here|<target>|off|status|test|list   where alerts go: this chat or a target
+                          (telegram, discord:#car, matrix:!room:server; same as a cron job's deliver)
   /car import teslamate [days]  backfill trips/charges from TeslaMate (optional)
   /car rules              alert rules and thresholds
   /car desktop-install    get the Pit Crew page into a Desktop app on another machine
@@ -338,46 +339,67 @@ def _sim(svc: Any, rest: List[str]) -> str:
 
 def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
     d = svc.watcher.deliverer
-    sub = rest[0] if rest else "status"
+    sub = (rest[0] if rest else "status").lower()
     if sub == "here":
-        if d.bind(session_key, platform) is None:
-            return ("I couldn't tell which chat this is (Hermes gave this command no session key), so nothing was bound. "
-                    "Run `/car notify here` from inside the chat you want the alerts in.")
-        if svc.ctx is None:
-            return "Bound this chat, but the plugin context is unavailable so pushes may not work."
-        local = (platform or "").lower() in ("", "cli", "tui", "desktop", "local", "acp")
-        return ("Proactive car alerts will be sent to this chat.\n"
-                + ("Note: this looks like a Desktop/CLI session, not a messaging chat. Hermes delivers pushes through the "
-                   "messaging gateway process, so they may not reach a session that gateway is not serving; run "
-                   "`/car notify test` to check, or bind a messaging chat instead.\n" if local else "")
-                +
-                "If nothing arrives, Hermes may be blocking plugin messages: set "
-                "`plugins.entries.pit-crew.allow_gateway_injection: true` in config.yaml "
-                "(see README → Proactive alerts).")
+        target, why = target_from_session(platform)
+        if target is None:
+            return (f"I couldn't work out where to send alerts: {why}. Run `/car notify here` from inside the messaging chat you "
+                    "want, or name a target: `/car notify telegram`, `/car notify discord:#car`, `/car notify matrix:!room:server`. "
+                    "Without one, alerts stay in `/car alerts` and are mentioned on your next turn.")
+        return _set_target(svc, target, "this chat")
     if sub == "off":
         d.unbind()
-        return "Alerts will no longer be pushed to a chat (they still appear in `/car alerts` and are mentioned on your next turn)."
+        extra = (" (The `alert_target` plugin setting is still set, so pushes continue there; clear it in Settings.)"
+                 if str(svc.settings.get("alert_target") or "").strip() else "")
+        return ("Alerts will no longer be pushed anywhere (they still appear in `/car alerts` and are mentioned on your next turn)."
+                + extra)
     if sub == "test":
         res = d.send_test()
         if res["ok"]:
             note = "" if res.get("push_enabled") else "\n(Pushed alerts are switched off in settings, so real alerts would not be sent until you turn `alert_push` on.)"
-            return ("Hermes accepted the test message; it should appear in that chat shortly (look for “Pit Crew test alert: "
-                    "delivery works”). " + NOT_ROUTED_HINT + note)
+            return (f"Hermes delivered the test message to `{res['target']}` (the platform accepted it; look for “Pit Crew test "
+                    "alert: delivery works”)." + note)
         return "Test alert FAILED: " + str(res["hint"])
+    if sub == "list":
+        listing = list_targets()
+        return ("Places Hermes can send to (use one of these, e.g. `/car notify discord:#car`):\n" + listing if listing else
+                "Hermes gave no list of targets here. Any cron-style target works: `telegram`, `discord:#channel`, "
+                "`matrix:!room:server`, `signal:+15551234567`, `slack:#channel`.")
+    if sub != "status":
+        raw = " ".join(rest).strip()
+        plat, _, ref = raw.partition(":")
+        target = plat.lower() + (":" + ref if ref else "")
+        if not valid_target(target):
+            return ("That doesn't look like a delivery target. Examples: `telegram`, `discord:#car`, `matrix:!room:server`, "
+                    "`signal:+15551234567`. `/car notify list` shows what Hermes knows.")
+        return _set_target(svc, target, f"`{target}`")
     st = d.status()
-    t = d.target()
     if not st["bound"]:
-        return "No chat is bound for pushed alerts. Run `/car notify here` in the chat you want."
+        legacy = (" (An old binding from an earlier version can't be reused: run `/car notify here` again in the chat you want.)"
+                  if st.get("legacy_binding") else "")
+        return NO_TARGET_HINT + legacy
     last = st["last_push"]
-    tail = (f" Last push: {'accepted by Hermes (arrival in the chat is not confirmed)' if last.get('ok') else 'refused'}."
-            if last else "")
+    tail = ""
+    if last:
+        tail = (f" Last push: delivered to the platform." if last.get("ok") else " Last push: FAILED.")
     wait = ""
     if st.get("waiting_for_push"):
         wait += f"\n{st['waiting_for_push']} alert(s) are waiting to be pushed; Pit Crew keeps retrying (backing off) for 6 hours."
     if st.get("gave_up"):
         wait += f"\n{st['gave_up']} older alert(s) were never pushed and were given up on (still in `/car alerts`)."
-    return (f"Pushing alerts to a {t.get('platform') or 'local'} chat." + tail
+    src = "the alert_target setting" if st.get("source") == "setting" else "`/car notify`"
+    return (f"Pushing alerts to `{st['target']}` (from {src})." + tail
             + (f"\n{last['hint']}" if last and last.get("hint") else "") + wait)
+
+
+def _set_target(svc: Any, target: str, label: str) -> str:
+    d = svc.watcher.deliverer
+    if d.bind(target) is None:
+        return "That doesn't look like a delivery target (examples: `telegram`, `discord:#car`, `matrix:!room:server`)."
+    overridden = (f"\nNote: the `alert_target` plugin setting (`{svc.settings.get('alert_target')}`) is set and wins over this; "
+                  "clear it in Settings to use this one." if str(svc.settings.get("alert_target") or "").strip() else "")
+    return (f"Proactive car alerts will be sent to {label} as `{target}` through Hermes' own message delivery (a plain message, "
+            "no agent turn). Run `/car notify test` to check it now." + overridden)
 
 
 def _discover(svc: Any) -> str:

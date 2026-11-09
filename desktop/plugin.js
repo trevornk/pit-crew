@@ -665,7 +665,7 @@ function Settings({ summary }) {
     h('ul', { style: { margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2 } }, ...facts.map((f, i) => h('li', { key: i, style: S.small }, f))),
     h('div', { style: S.tiny }, 'Connection details, trusted places and thresholds live in Settings → Plugins → Pit Crew. Changes apply immediately.'),
     h('div', { style: { ...S.between, marginTop: 4 } }, h('strong', { style: { fontSize: 13 } }, 'Alert rules'),
-      h('span', { style: S.tiny }, summary.notify.bound ? `alerts are sent to your ${summary.notify.platform || 'local'} chat` : 'Type /car notify here in a chat to get alerts sent there')),
+      h('span', { style: S.tiny }, summary.notify.bound ? `alerts are sent to ${summary.notify.target}` : 'No alert destination: type /car notify here in a chat (or /car notify telegram) to get alerts sent there; until then they show up here and in your next chat')),
     rq.isLoading ? h(Skeleton, { style: { height: 60 } })
       : rq.isError ? h('div', { style: S.small }, 'Couldn’t load the alert rules.')
       : h('div', { style: S.grid2 }, ...((rq.data && rq.data.rules) || []).map(r => h(RuleRow, { key: r.id, rule: r }))))

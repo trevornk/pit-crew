@@ -26,7 +26,7 @@ def core() -> Any:
 
     Not a documented Hermes pattern: plugin_api.py is meant to be self-contained, and importing the plugin package is a
     convenience. It works because all durable state is in the shared plugin DB. Under ``plugins.isolation: host`` or after
-    a forced reload a second copy of the module singletons can exist, and there ``svc.ctx`` is None (no ``inject_message``,
+    a forced reload a second copy of the module singletons can exist, and there ``svc.ctx`` is None (no ctx-only APIs such as ``ask_choice``,
     ``is_unattended()`` is False). Nothing on the page path may rely on ``svc.ctx``; today nothing does."""
     global _core
     if _core is not None:

@@ -93,14 +93,39 @@ class CronCtx:
 
     def __init__(self, cron: bool = False):
         self.cron = cron
-        self.injected = []
 
     def current_cron_execution(self):
         return object() if self.cron else None
 
-    def inject_message(self, content, role="user", *, session_key=None, origin=None):
-        self.injected.append((content, session_key))
-        return True
+
+class FakeSender:
+    """Stands in for Hermes' ``send_message`` (``delivery.hermes_send``): records ``(text, target)``; scripted outcome."""
+
+    def __init__(self):
+        self.sent = []
+        self.outcome = (True, "", None)
+        self.exc = None
+
+    def fail(self, reason="Send failed: boom", kind="refused"):
+        self.outcome = (False, reason, kind)
+
+    def ok(self):
+        self.outcome = (True, "", None)
+
+    def __call__(self, target, text):
+        if self.exc:
+            raise self.exc
+        self.sent.append((text, target))
+        return self.outcome
+
+
+@pytest.fixture(autouse=True)
+def sender(monkeypatch):
+    """Every test gets a fake sender: no test can reach a real platform. Real ``send_message`` resolution is tested in
+    ``test_delivery_hermes.py`` against the real Hermes with only the network sender mocked."""
+    fs = FakeSender()
+    monkeypatch.setattr("pit_crew.watcher.delivery.hermes_send", fs)
+    return fs
 
 
 @pytest.fixture

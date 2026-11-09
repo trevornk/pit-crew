@@ -22,12 +22,6 @@ def svc(stub_service):
 
 
 # -- #1 watcher ownership ---------------------------------------------------------------------------
-class RefusingCtx(CronCtx):
-    def inject_message(self, content, role="user", *, session_key=None, origin=None):
-        self.injected.append((content, session_key))
-        return False
-
-
 def _second_service(svc, store, clock):
     from pit_crew.service import CarService
     from pit_crew.settings import Settings
@@ -38,14 +32,15 @@ def _second_service(svc, store, clock):
     return other
 
 
-def test_lease_moves_to_the_process_that_can_deliver(svc, stub, store, clock):
-    """Two watchers on one DB. A (e.g. the dashboard host) cannot inject; B (the gateway) can."""
+def test_lease_moves_to_the_process_that_can_deliver(svc, stub, store, clock, sender, monkeypatch):
+    """Two watchers on one DB. A (e.g. a process without Hermes' send) cannot send; B (the gateway) can."""
     from pit_crew.service import set_service
-    svc.ctx = RefusingCtx()
+    from pit_crew.watcher import delivery
     other = _second_service(svc, store, clock)
     set_service(svc)
     A, B = svc.watcher, Watcher(other)
-    A.deliverer.bind("sess-1", "telegram")
+    A.deliverer.bind("matrix:!room:example.org")
+    sender.fail("send_message is not available (ImportError)", "unavailable")
     stub.values.update(locked=False, location_zone="away")
     A.poll_once(); clock.advance(11 * 60)
     res = A.poll_once()                                     # raises the alert; the push is refused here
@@ -53,26 +48,36 @@ def test_lease_moves_to_the_process_that_can_deliver(svc, stub, store, clock):
     assert [a["state"] for a in svc.alerts()] == ["new"]    # nothing lost: still 'new'
     assert A._holds is False                                # A stepped aside
     clock.advance(30)
+    sender.ok()                                             # B can send
     res = B.poll_once()                                     # B takes over and delivers
     assert res["polled"] is True and res["pushed"] is True
-    assert len(other.ctx.injected) == 1
+    assert len(sender.sent) == 2 and sender.sent[-1][1] == "matrix:!room:example.org"
     assert [a["state"] for a in svc.alerts()] == ["surfaced"]
     assert A.poll_once().get("skipped")                     # A stays out while it cannot deliver
 
 
-def test_a_forced_poll_only_stores_and_the_holder_pushes_later(svc, stub, clock):
-    svc.watcher.deliverer.bind("sess-1", "telegram")
+def test_a_wrong_target_does_not_make_the_watcher_give_up_the_lease(svc, stub, clock, sender):
+    svc.watcher.deliverer.bind("telegram:-1")
+    sender.fail("Telegram API error: chat not found", "refused")       # fails the same in every process: keep polling
+    stub.values.update(locked=False, location_zone="away")
+    svc.watcher.poll_once(); clock.advance(11 * 60)
+    assert svc.watcher.poll_once()["pushed"] is False
+    assert svc.watcher._holds is True
+
+
+def test_a_forced_poll_only_stores_and_the_holder_pushes_later(svc, stub, clock, sender):
+    svc.watcher.deliverer.bind("telegram")
     stub.values.update(locked=False, location_zone="away")
     svc.watcher.poll_once(); clock.advance(11 * 60)
     svc.watcher.poll_once(force=True)                       # the dashboard's "check now": stores, does not push
-    assert svc.ctx.injected == []
+    assert sender.sent == []
     clock.advance(1)
     assert svc.watcher.poll_once()["pushed"] is True        # the lease holder pushes everything still 'new'
-    assert len(svc.ctx.injected) == 1
+    assert len(sender.sent) == 1
 
 
 def test_push_claim_is_atomic(svc, stub, clock):
-    svc.watcher.deliverer.bind("s", "t")
+    svc.watcher.deliverer.bind("telegram")
     aid = svc.store.alert_add(ts=clock.t, rule="r", dedupe_key="k", severity="high", title="t", body="b", suggestion="s")
     assert svc.store.alert_claim_push(aid, clock.t) is True
     assert svc.store.alert_claim_push(aid, clock.t) is False   # a second process cannot take it
@@ -80,13 +85,22 @@ def test_push_claim_is_atomic(svc, stub, clock):
     assert svc.store.alert_claim_push(aid, clock.t) is True
 
 
-def test_delivery_hint_is_honest(svc, stub, clock):
-    svc.ctx = RefusingCtx()
-    svc.watcher.deliverer.bind("s", "t")
+def test_delivery_hint_is_honest(svc, stub, clock, sender):
+    sender.fail("send_message is not available (ImportError)", "unavailable")
+    svc.watcher.deliverer.bind("telegram")
     stub.values.update(locked=False, location_zone="away")
     svc.watcher.poll_once(); clock.advance(11 * 60); svc.watcher.poll_once()
     hint = svc.store.kv_get("notify_last")["hint"]
-    assert "process" in hint and "gateway" in hint
+    assert "cross-platform send" in hint and "/car alerts" in hint
+
+
+def test_a_scope_failure_hands_the_lease_on_and_the_hint_says_why(svc, stub, clock, sender):
+    sender.fail("get_secret('TELEGRAM_BOT_TOKEN') called with no profile secret scope active", "scope")
+    svc.watcher.deliverer.bind("telegram")
+    stub.values.update(locked=False, location_zone="away")
+    svc.watcher.poll_once(); clock.advance(11 * 60); svc.watcher.poll_once()
+    assert svc.watcher._holds is False
+    assert "no profile secret scope for the platform's token" in svc.store.kv_get("notify_last")["hint"]
 
 
 def test_heartbeat_keeps_the_lease_while_polling_sleeps(svc, stub, clock, monkeypatch):
@@ -266,52 +280,31 @@ def test_passing_range_checks_do_not_say_outside(stub_service):
 import logging
 
 
-class NoGatewayCtx(CronCtx):
-    """What the Desktop/TUI process does: Hermes logs its refusal on `hermes_cli.plugins` and returns False."""
-    def inject_message(self, content, role="user", *, session_key=None, origin=None):
-        self.injected.append((content, session_key))
-        logging.getLogger("hermes_cli.plugins").warning("inject_message: no live gateway is available")
-        return False
-
-
-class RaisingCtx(CronCtx):
-    def inject_message(self, content, role="user", *, session_key=None, origin=None):
-        raise TimeoutError("secret detail that must not be stored")
-
-
 def _raise_alert(svc, stub, clock):
     stub.values.update(locked=False, location_zone="away")
     svc.watcher.poll_once(); clock.advance(11 * 60)
     return svc.watcher.poll_once()
 
 
-def test_failed_push_reports_the_hermes_reason(svc, stub, clock):
-    svc.ctx = NoGatewayCtx()
-    svc.watcher.deliverer.bind("s", "matrix")
+def test_failed_push_reports_the_platforms_reason(svc, stub, clock, sender):
+    sender.fail("Matrix send failed: M_FORBIDDEN not in room", "refused")
+    svc.watcher.deliverer.bind("matrix:!r:example.org")
     _raise_alert(svc, stub, clock)
     last = svc.store.kv_get("notify_last")
-    assert last["ok"] is False and "not the messaging gateway" in last["reason"] and last["reason"] in last["hint"]
+    assert last["ok"] is False and "M_FORBIDDEN" in last["reason"] and last["reason"] in last["hint"]
 
 
-def test_failed_push_reports_exception_type_not_its_message(svc, stub, clock):
-    svc.ctx = RaisingCtx()
-    svc.watcher.deliverer.bind("s", "matrix")
-    _raise_alert(svc, stub, clock)
-    last = svc.store.kv_get("notify_last")
-    assert "TimeoutError" in last["reason"] and "secret detail" not in str(last)
-
-
-def test_test_push_failure_names_the_reason(svc):
-    svc.ctx = NoGatewayCtx()
-    svc.watcher.deliverer.bind("s", "matrix")
+def test_test_push_failure_names_the_reason(svc, sender):
+    sender.fail("Unknown or unregistered plugin platform: foo", "refused")
+    svc.watcher.deliverer.bind("foo")
     res = svc.watcher.deliverer.send_test()
-    assert res["ok"] is False and "messaging gateway" in res["why"] and "Reason:" in res["hint"]
+    assert res["ok"] is False and "unregistered" in res["why"] and "could not deliver it" in res["hint"]
 
 
-def test_surfacing_in_another_chat_does_not_cancel_the_push_and_it_is_retried_with_backoff(svc, stub, clock):
-    svc.ctx = NoGatewayCtx()
+def test_surfacing_in_another_chat_does_not_cancel_the_push_and_it_is_retried_with_backoff(svc, stub, clock, sender):
+    sender.fail()
     d = svc.watcher.deliverer
-    d.bind("matrix-chat", "matrix")
+    d.bind("matrix:!r:example.org")
     _raise_alert(svc, stub, clock)
     assert [a["state"] for a in svc.alerts()] == ["new"]
     assert d.context_for_next_turn()                       # an unrelated Desktop turn picks it up
@@ -319,23 +312,22 @@ def test_surfacing_in_another_chat_does_not_cancel_the_push_and_it_is_retried_wi
     row = svc.store.alerts_list(("surfaced",))[0]
     assert row["pushed_ts"] is None and row["push_attempts"] == 1 and row["next_push_ts"] > clock.t
     assert d.push_pending() is False                       # backing off: not retried yet
-    assert len(svc.ctx.injected) == 1
-    # the gateway process comes up with a working injector
-    svc.ctx = CronCtx()
+    assert len(sender.sent) == 1
+    sender.ok()                                            # the platform works again
     clock.advance(31)
-    assert d.push_pending() is True and len(svc.ctx.injected) == 1
-    assert svc.ctx.injected[0][1] == "matrix-chat"
+    assert d.push_pending() is True and len(sender.sent) == 2
+    assert sender.sent[-1][1] == "matrix:!r:example.org"
     row = svc.store.alerts_list(("surfaced",))[0]
     assert row["pushed_ts"] is not None
     clock.advance(10)
     assert d.push_pending() is False                       # delivered once, never again
 
 
-def test_backoff_grows_and_the_push_is_given_up_after_six_hours_and_status_says_so(svc, stub, clock):
+def test_backoff_grows_and_the_push_is_given_up_after_six_hours_and_status_says_so(svc, stub, clock, sender):
     from pit_crew.watcher import delivery
-    svc.ctx = NoGatewayCtx()
+    sender.fail()
     d = svc.watcher.deliverer
-    d.bind("s", "matrix")
+    d.bind("matrix:!r:example.org")
     _raise_alert(svc, stub, clock)
     waits = []
     for _ in range(4):
@@ -346,22 +338,24 @@ def test_backoff_grows_and_the_push_is_given_up_after_six_hours_and_status_says_
     assert waits == sorted(waits) and waits[-1] > waits[0]
     assert d.status()["waiting_for_push"] == 1
     clock.advance(delivery.PUSH_GIVEUP_S + 1)
-    svc.ctx = CronCtx()
-    assert d.push_pending() is False and svc.ctx.injected == []
+    sender.ok()
+    n = len(sender.sent)
+    assert d.push_pending() is False and len(sender.sent) == n
     st = d.status()
     assert st["waiting_for_push"] == 0 and st["gave_up"] == 1
 
 
-def test_an_acked_alert_is_not_pushed_later(svc, stub, clock):
-    svc.ctx = NoGatewayCtx()
+def test_an_acked_alert_is_not_pushed_later(svc, stub, clock, sender):
+    sender.fail()
     d = svc.watcher.deliverer
-    d.bind("s", "matrix")
+    d.bind("matrix:!r:example.org")
     _raise_alert(svc, stub, clock)
     aid = svc.store.alerts_list(("new",))[0]["id"]
     svc.store.alert_set_state(aid, "acked")
-    svc.ctx = CronCtx()
+    sender.ok()
+    n = len(sender.sent)
     clock.advance(3600)
-    assert d.push_pending() is False and svc.ctx.injected == []
+    assert d.push_pending() is False and len(sender.sent) == n
 
 
 def test_old_pushing_rows_are_migrated_back_to_new(tmp_path):

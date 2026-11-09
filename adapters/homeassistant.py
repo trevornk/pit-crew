@@ -31,6 +31,16 @@ CLOSED_WORDS = frozenset({"CLOSED", "OFF", "FALSE", "CLOSING"})
 STATE_FETCH_TTL_S = 3.0
 # TeslaMate states that positively mean "not driving". Everything else (offline, start, unknown strings) is NO vote.
 PARKED_STATES = frozenset({"asleep", "online", "charging", "suspended", "updating"})
+#: fields whose value HA does not re-write while unchanged (a shut door, a plugged cable); they are confirmed by the car's live
+#: fields while it is online. Charging state/power/current, motion, location and the live readings are deliberately absent.
+CONFIRMABLE_FIELDS = frozenset({"locked", "doors_open", "windows_open", "trunk_open", "frunk_open", "sentry_on",
+                                "charge_port_open", "plugged_in", "charge_limit_pct", "charge_current_max_a",
+                                "software_update_available", "software_version", "target_temp_f",
+                                "tire_rec_front_psi", "tire_rec_rear_psi", "asleep"})
+#: derived/odd fields that are not evidence of a recent poll
+NEVER_EVIDENCE = frozenset({"moving"})
+#: the evidence of a live poll must be this fresh (the default stale limit) for any promotion to happen
+CONFIRM_MAX_AGE_S = 900.0
 
 
 def _finite(value: float) -> float:
@@ -258,21 +268,29 @@ class HomeAssistantAdapter(CarAdapter):
         return None  # offline (could be driving through a dead zone), start, or any unknown value: no vote
 
     @staticmethod
-    def _confirm_while_online(fields: Dict[str, FieldValue]) -> None:
-        """R1: HA stamps an entity with when its value last *changed* (``last_reported`` only moves on a new report), so a
-        door that has been shut for two days looks two days stale even though the integration just polled it. While the
-        car is online (its connectivity entity says so), every available reading was confirmed by the newest stamp among
-        the car's entities; use that as each reading's freshness and remember the real change time in ``changed_at``.
-        An asleep/offline car keeps per-entity stamps (an unchanged value is not confirmed by a sleeping car)."""
+    def _confirm_while_online(fields: Dict[str, FieldValue], now: float) -> None:
+        """R1 (revised after the 2026-11-09 real-car test): HA only moves an entity's ``last_reported`` when the integration
+        writes it, and tesla_fleet does not re-write an unchanged door/lock/window/port value, so a shut door looks days old
+        although the car is fine. While the car is online, the *slow-changing* fields in :data:`CONFIRMABLE_FIELDS` are
+        therefore confirmed as of the newest stamp among the car's *live* fields (battery, range, temperatures...) -- proof the
+        integration is polling right now -- and ``changed_at`` keeps the real stamp. That proof must itself be no older than
+        :data:`CONFIRM_MAX_AGE_S`.
+        Everything else keeps its own honest ``last_reported`` age. In particular charging state / power / current are NEVER
+        promoted: the real test showed "charging" for 36 min after the car had stopped, because HA had not re-written those
+        sensors. An awake car does not mean HA has fresh values."""
         asleep = fields.get("asleep")
         if not (asleep and asleep.available and asleep.value is False):
             return
-        stamps = [f.updated_at for f in fields.values() if f.available and f.updated_at]
-        if not stamps:
+        live = [f.updated_at for n, f in fields.items()
+                if n not in CONFIRMABLE_FIELDS and n not in NEVER_EVIDENCE and f.available and f.updated_at]
+        if not live:
             return
-        newest = max(stamps)
-        for f in fields.values():
-            if f.available and f.updated_at is not None and f.updated_at < newest:
+        newest = max(live)
+        if now - newest > CONFIRM_MAX_AGE_S:
+            return
+        for name in CONFIRMABLE_FIELDS:
+            f = fields.get(name)
+            if f is not None and f.available and f.updated_at is not None and f.updated_at < newest:
                 f.changed_at = f.updated_at
                 f.updated_at = newest
 
@@ -366,7 +384,7 @@ class HomeAssistantAdapter(CarAdapter):
         if plug and plug.available and plug.value is False and (
                 cstate is None or not cstate.available or cstate.value in ("stopped", "unknown")):
             fields["charging_state"] = FieldValue("disconnected", plug.updated_at)
-        self._confirm_while_online(fields)
+        self._confirm_while_online(fields, now)
         for name in FIELD_NAMES:
             fields.setdefault(name, FieldValue(None, None, False))
         hints: Dict[str, Any] = {}

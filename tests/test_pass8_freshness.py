@@ -28,7 +28,7 @@ def test_r1_unchanged_values_are_confirmed_fresh_while_online(ha):
     st = state(ha)
     # raw HA stamps: charge cable 02:31, frunk Nov 5, lock 19:52 — all "stale" by last-changed. None may be now.
     for f in ("plugged_in", "frunk_open", "locked", "range_mi", "doors_open", "windows_open"):
-        assert st.age_s(f, NOW) <= 600, f
+        assert st.age_s(f, NOW) <= 900, f   # live evidence (range 23:49:23) is 12 min old: inside the stale limit
     assert st.fields["frunk_open"].changed_at is not None and st.fields["frunk_open"].changed_at < NOW - 86400
 
 
@@ -167,3 +167,40 @@ def test_r13_default_zone_is_a_real_zone_when_the_os_names_one():
     assert tz is not None
     if "zoneinfo/" in os.path.realpath("/etc/localtime"):
         assert isinstance(tz, ZoneInfo)        # DST-aware, not today's fixed offset
+
+
+# -- 2026-11-09 real-car test: an awake car does not mean HA has fresh charging values ---------------------------------
+def _iso(ts):
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+
+
+def _stamp_all(ha, age_s):
+    for obj in ha.states.values():
+        obj["last_reported"] = obj["last_updated"] = obj["last_changed"] = _iso(NOW - age_s)
+
+
+def test_b1_stale_charging_sensors_stay_stale_while_car_is_awake(ha):
+    _stamp_all(ha, 5)                                            # integration just polled: everything fresh...
+    for eid in ("sensor.demo_car_charging", "sensor.demo_car_charger_power"):     # ...except what HA did not re-write
+        ha.states[eid]["last_reported"] = ha.states[eid]["last_updated"] = ha.states[eid]["last_changed"] = _iso(NOW - 2160)
+    st = state(ha)
+    assert st.value("asleep") is False
+    assert st.age_s("charging_state", NOW) == pytest.approx(2160, abs=1)
+    assert st.age_s("charge_power_kw", NOW) == pytest.approx(2160, abs=1)
+    assert st.age_s("battery_pct", NOW) <= 10
+    # the public view labels it stale, with its age
+    pub = st.to_public(NOW, 900.0)
+    stale = pub["freshness"]["stale_fields"]
+    assert "charging_state" in stale and "charge_power_kw" in stale and "battery_pct" not in stale
+
+
+def test_b1_slow_fields_are_still_confirmed_by_live_fields_but_never_by_stale_ones(ha):
+    _stamp_all(ha, 5)
+    ha.states["lock.demo_car_lock"]["last_reported"] = ha.states["lock.demo_car_lock"]["last_updated"] = _iso(NOW - 90000)
+    assert state(ha).age_s("locked", NOW) <= 10                  # live battery/range prove the poll: the lock is confirmed
+    _stamp_all(ha, 3000)                                         # nothing live in the last 50 min: nothing is promoted
+    ha.states["lock.demo_car_lock"]["last_reported"] = ha.states["lock.demo_car_lock"]["last_updated"] = _iso(NOW - 90000)
+    st = state(ha)
+    assert st.age_s("locked", NOW) > 80000 and st.age_s("battery_pct", NOW) > 2900
+

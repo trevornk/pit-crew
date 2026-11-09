@@ -144,3 +144,16 @@ def test_lock_that_really_changes_is_a_normal_confirmation(make_service, ha, clo
     res = svc.run_command("lock", {}, surface="test")
     assert res["status"] == "confirmed" and "already" not in res["readback"]
     assert "the car confirmed it" in res["message"]
+
+
+# -- B4 -------------------------------------------------------------------------------------------------------------------
+def test_defrost_is_described_as_maximum_heat_and_fan(make_service, ha, clock):
+    from pit_crew import schemas
+    from pit_crew.brain.commands import COMMANDS
+    assert "MAXIMUM" in schemas.CAR_COMMAND["description"] and "heat" in schemas.CAR_COMMAND["description"]
+    assert "MAXIMUM" in COMMANDS["defrost"].summary
+    svc = svc_for(make_service, ha, clock)
+    live = svc.run_command("defrost", {"on": True}, surface="test")
+    assert "MAXIMUM" in live["message"] and "Heads-up" in live["message"]
+    off = svc.run_command("defrost", {"on": False}, surface="test")
+    assert "Heads-up" not in off["message"]

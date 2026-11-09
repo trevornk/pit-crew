@@ -1,6 +1,19 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Commands can be always available.** New setting **Safety · Live mode** (`live_mode`): `on_demand` (default, unchanged: practice
+  until `/car live` / Go live, which ends by itself) or `always` (sent for real without `/car live`; `/car stop` / Stop pauses into
+  practice until `/car live` / Go live resumes it, with no expiry). `/car`, the pages and the status-bar chip say "Live: always on",
+  "Paused (practice) — /car live to resume" or "Live until 4:39 PM". The old Advanced `armed: true` is read as `always`. Every other
+  check is unchanged, and no tool can go live or change a setting.
+- **Owner-adjustable protections.** **Safety · Unlock/trunk/frunk zone** (`zone_rule`: `trusted_zones` | `anywhere`) and **Safety · Wake
+  a sleeping car for a command** (`wake_for_commands`: `ask` | `auto`); freshness (60-3600 s), rate limit and repeat window are clamped
+  to bounds. Every refusal names the setting that would allow it. A car that reports it is asleep right now counts as parked (a
+  Tesla cannot sleep in gear), so "open the trunk" works on the walk back to a parked car with `always` + `anywhere` + `auto`; any
+  reading of D/R/N or speed still refuses. Fixed invariants are listed in docs/SAFETY.md and docs/DECISIONS.md.
+- **No waiting for a report that cannot come.** Home Assistant profiles declare how fast the car's own report arrives
+  (`report_latency_s`: tesla_fleet 600 s, teslemetry 5 s, tessie 10 s). On tesla_fleet Pit Crew reads once after sending and answers
+  at once ("Tesla accepted it. The car reports back within ~10 min; check car_status later") instead of a 20-90 s wait.
 - **Second real-car session (approval commands) fixes.** "Confirmed" now means the car reported it: Home Assistant's Tesla
   integrations write a command's new state themselves the moment Tesla accepts it, so that is reported as *accepted, not confirmed yet*
   (`readback: accepted`) until a re-read of the car shows it. "Already locked/closed" needs the car's own report from under a minute

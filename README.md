@@ -51,10 +51,11 @@ will I be ready for a 40-mile trip tomorrow at 7:30?
 /car sim drive 10 away        ... and drive away from home
 /car sim advance 15           fast-forward 15 minutes: the watcher raises an alert
 /car lock                     fix it (practice mode: checked and logged, nothing is sent)
-/car live                     go live (you confirm; it stops by itself after 1 h, or your "Go live for" setting)
+/car live                     go live (you confirm; it stops by itself after 1 h, or your "Go live for" setting;
+                              with Live mode "always" there is nothing to do: it is live until you /car stop)
 unlock my car                 Hermes asks YOU to approve, then reads the car back
 /car log                      the audit trail
-/car practice                 back to practice mode
+/car stop                     back to practice mode (in "always" mode: a pause until /car live)
 ```
 
 Right after `drive … away`, unlock is correctly **refused** (it only works at home): read the reason, then try
@@ -213,10 +214,17 @@ Slack, WhatsApp, SMS, e-mail and other platforms use the same call but were not 
 
 Safety isn't a setting you remember to turn on; it's how Pit Crew works.
 
-* **Practice mode first.** Until you tap **Go live**, commands are checked and logged but never sent. Going live stops by
-  itself: after **Safety · Go live for (hours, 1-24)** (`live_default_hours`, default 1 h) for the button and a plain `/car live`, or
-  after the hours you type (`/car live 3`; 15 min to 72 h). There is no "forever" setting for Go live, and nothing goes live unless you
-  type the command or click the button.
+* **You choose how commands go live** (**Safety · Live mode**, `live_mode`):
+  * `on_demand` (the default for a new install): practice mode until you tap **Go live** or type `/car live`; commands are
+    checked and logged but never sent until then. Going live stops by itself: after **Safety · Go live for (hours, 1-24)**
+    (`live_default_hours`, default 1 h) for the button and a plain `/car live`, or after the hours you type (`/car live 3`;
+    15 min to 72 h).
+  * `always`: commands are sent for real without `/car live` first, so "open the trunk" just works. `/car stop` (or **Stop**
+    on the page) pauses it: practice mode until you run `/car live` or press **Go live** again, which resumes it with no time
+    limit. `/car`, the page and the status-bar chip always say which applies: *Live: always on*, *Paused (practice) — /car
+    live to resume*, or *Live until 4:39 PM*.
+  * Either way every other protection below still applies, and Hermes itself can never go live or change these settings:
+    only the setting, your `/car live` or your click.
 * **"Confirmed" means the car said so.** Home Assistant's Tesla integrations show a command's result the moment Tesla accepts it, before
   the car is re-read (tesla_fleet re-reads about every 10 minutes). Pit Crew does not count that as confirmation: it says "accepted, the
   car hasn't reported back yet" until a real re-read shows the change, and only says "already locked/closed" when the car reported it
@@ -230,9 +238,32 @@ Safety isn't a setting you remember to turn on; it's how Pit Crew works.
   always *no* (Pit Crew keeps that floor even when Hermes' `cron_mode` is `approve`).
 * **It refuses when it can't be sure.** Not while the car is moving; not on stale data; not if the car is asleep (it won't
   wake it to be nice); unlock only at places you trust; bounded temperatures, limits and amps; rate-limited; repeats skipped.
+  Every refusal names the setting that would allow it, if there is one.
+* **You can adjust the protections that are a matter of taste** (Settings → Plugins → Pit Crew, *Safety* section; a new
+  install starts at the careful choice):
+
+  | Setting | Choices (default first) | Risk of loosening it |
+  |---|---|---|
+  | Live mode (`live_mode`) | `on_demand` · `always` | With `always`, a chat that convinces Hermes can send right away; keep Hermes approvals on for unlock/trunk if others can talk to it. |
+  | Unlock/trunk/frunk zone (`zone_rule`) | `trusted_zones` · `anywhere` | With `anywhere`, the car can be opened wherever it is parked (the walk back to the car in a car park). |
+  | Wake a sleeping car for a command (`wake_for_commands`) | `ask` · `auto` | With `auto`, a command you asked for wakes the car (some battery) without a second question. Status reads never wake it. |
+  | Refuse risky commands when data is older than (`max_state_age_s`) | 600 s; 60-3600 | Older data means acting on an older picture of the car. It cannot be switched off. |
+  | Max commands per window / window (`rate_limit_commands`, `rate_limit_window_s`) | 10 per 600 s; 1-60 per 60 s-1 day | |
+  | Ignore a repeated command for (`dedupe_window_s`) | 60 s; 5-600 | |
+  | Always ask a person for these (`require_human_for`) | none | (Tightens, never loosens.) |
+  | Hermes' own approval mode | Hermes' setting, not Pit Crew's | See above. |
+
+  Some things are **not** settings, on purpose: nothing unlocks or opens while the car is moving or can't be shown to be
+  parked; unlock/trunk/frunk/vent/Sentry-off/honk/flash never run from a scheduled or background job; Hermes cannot go live or
+  change these settings itself; and results always say truthfully whether the car confirmed a command or Tesla only accepted it.
+  A car that reports it is **asleep** right now counts as parked (a Tesla cannot sleep in gear), so with `anywhere` and `auto`,
+  "open the trunk" works as you walk back to the car — but a reading of D/R/N or a speed still refuses it.
 * **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through). It
   only counts a reading the car's integration wrote *after* the command, never a switch Home Assistant flipped on its own, and it
-  says "already locked / closed" when that was the case. Charging commands wait up to 90 s for the car's report.
+  says "already locked / closed" when that was the case. Charging commands wait up to 90 s for the car's report where that
+  helps. Tesla Fleet in Home Assistant only re-reads the car every ~10 minutes, so there Pit Crew doesn't make you wait for a
+  report that can't come in time: it reads once and answers straight away ("Tesla accepted it; the car reports back within
+  ~10 min; check status later").
 * **Defrost runs heat and fan at maximum** (a Tesla's max defrost). Pit Crew's agent is told to say so, and the result reminds you; do
   not turn it on with a person or pet in the car without telling them first.
 * **Everything is on the record:** who asked, what happened, whether you approved.
@@ -279,7 +310,8 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 **Do I need a car?** No. The default connection is a simulated car.
 **Does it need TeslaMate?** No. It records its own history. TeslaMate import is optional.
 **Can it unlock my car by itself?** Not from a scheduled job, ever. In chat, unlock follows your Hermes approval setting: Hermes asks you when its approvals are on; if you turned them off (or use yolo) it doesn't, and neither does Pit Crew unless you list unlock under *Always ask a person for these*.
-**Does it wake my car and drain the battery?** No. It reads cheap state only; commands that wake the car need your OK.
+**Does it wake my car and drain the battery?** No. It reads cheap state only; commands that wake the car need your OK (or
+the *Wake a sleeping car for a command* setting at `auto`, for commands you ask for).
 **What does it send out?** Only requests to services you configured (your Home Assistant, Teslemetry/Tessie, TeslaMateApi). No telemetry.
 **Does it store my location?** No coordinates. It keeps place names ("home", "away") and trip distances.
 **Which Hermes?** 0.23 or newer.
@@ -293,16 +325,16 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 | `/car` says "Unknown subcommand" for something that should exist | The process answering still runs old code: restart `hermes dashboard` / Desktop and the gateway (`hermes gateway restart`), or update from Desktop → Capabilities → Plugins (see [Update and restart](#update-and-restart)). The reply names the running version. |
 | Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
 | Odometer or tire pressure show "not reported" | Home Assistant ships those entities disabled: enable *Odometer*, the *Tire pressure* sensors and the *Tire pressure warning* sensors (`/car` shows the steps). |
-| Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |
+| Unlock is refused: "away from your trusted zones" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. To allow it anywhere, set *Safety · Unlock/trunk/frunk zone* to `anywhere`. |
 | Alerts show on the page but never reach your phone | Set where they go: `/car notify here` in that chat, or `/car notify telegram` (etc.), then `/car notify test`. `/car notify status` shows the target and Hermes' answer to the last attempt. |
-| "Practice run" when you wanted to send | You're in practice mode: **Go live** (page) or `/car live`. |
+| "Practice run" when you wanted to send | You're in practice mode (or paused): **Go live** (page) or `/car live`. To skip this step for good, set *Safety · Live mode* to `always`. |
 | Settings changed but nothing happened | They apply immediately: run `/car`. Check *Connection · Which car*. |
 
 ## Reference
 
 **Tools** (the agent uses them): `car_status`, `car_history`, `car_readiness`, `car_command`, `car_alerts`, `car_rules`.
 
-**`/car`**: `ready [when] [mi]` · `lock` · `warm [°F]` · `alerts [ack [id]]` · `live [hours]` · `practice` · `log [n]` ·
+**`/car`**: `ready [when] [mi]` · `lock` · `warm [°F]` · `alerts [ack [id]]` · `live [hours]` · `stop` (= `practice`) · `log [n]` ·
 `rules` · `notify here|<target>|off|status|test|list` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
 (`arm` and `disarm` still work as aliases.)
 

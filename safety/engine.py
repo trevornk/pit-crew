@@ -449,11 +449,14 @@ class SafetyEngine:
             if verdict:
                 obs = self._observed_at(last, names)
                 assumed = any(last.fields[n].assumed for n in names if n in last.fields)
+                estimated = any(last.fields[n].estimated for n in names if n in last.fields)
                 if already:     # the car itself said so < 1 min before; HA re-writing the same value changes nothing
                     return {"status": "confirmed", "at": svc._wall(), "at_local": fmt_clock(svc.local_dt(svc.now())),
                             "already": already, "detail": f"already {already} before the command; nothing needed to change"}
                 if assumed:
                     saw_assumed = True      # the integration's own optimistic write: not the car's report
+                elif estimated:
+                    saw_old_match = True        # an estimated stamp is not a report from the car: no proof either way
                 elif sent_at is None or (obs is not None and self._after_send(last, names, obs, sent_at)):
                     at = svc._wall()
                     return {"status": "confirmed", "at": at, "at_local": fmt_clock(svc.local_dt(svc.now())),
@@ -565,11 +568,12 @@ class SafetyEngine:
     @staticmethod
     def _reported_age(state: VehicleState, names: Tuple[str, ...]) -> Optional[float]:
         """How long before ``state`` was captured the car itself last reported all of ``names`` (None: unknown, or one
-        of them is only the integration's optimistic assumption)."""
+        of them is only the integration's optimistic assumption or an estimated stamp, neither of which proves the car
+        reported recently)."""
         stamps = []
         for n in names:
             fv = state.fields.get(n)
-            if fv is None or not fv.available or fv.updated_at is None or fv.assumed:
+            if fv is None or not fv.available or fv.updated_at is None or fv.assumed or fv.estimated:
                 return None
             stamps.append(fv.updated_at)
         return max(0.0, state.captured_at - min(stamps)) if stamps else None

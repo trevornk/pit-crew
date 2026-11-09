@@ -323,6 +323,9 @@ class TeslaMateOverlay:
                 prev = self._seen.get(name)
                 changed_lb = prev[2] if prev is not None and prev[0] == fv.value else (prev[1] if prev else 0.0)
                 fv.updated_at = min(now, max(base, changed_lb))
+                # only a stamp that came from the awake-car assumption is an estimate; state_since and an observed change
+                # (the value differed from Pit Crew's earlier look) are real times
+                fv.estimated = not sleepy and base >= changed_lb
                 fv.source = "teslamate"
                 self._seen[name] = (fv.value, now, changed_lb)
         return st

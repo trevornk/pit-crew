@@ -384,3 +384,31 @@ def test_assumed_ha_value_loses_to_a_teslamate_reading_newer_than_has_last_rerea
     svc.run_command("open_trunk", {}, surface="tool", approval=AUTO)
     st = svc.get_state(force=True)
     assert st.value("trunk_open") is False and st.fields["trunk_open"].source == "teslamate"
+
+
+# == 3. an estimated TeslaMate stamp is never proof the car reported recently ========================================
+def test_estimated_teslamate_unlocked_never_means_already_unlocked(make_service, ha, clock, tm):
+    """2026-11-09 hand-lock case with TeslaMate configured: the owner locked by hand; TeslaMate has not seen it and still
+    says unlocked (stamped by the awake-car assumption, exactly 60 s old); HA's own reading is 5 minutes old. The unlock
+    must be sent, never reported as a no-op 'already unlocked'."""
+    ha.set_state(LOCK, "unlocked")
+    stamp(ha, LOCK, NOW - 300)
+    tm.status["car_status"]["locked"] = False
+    svc = with_tm(make_service, ha, clock, tm, refresh_after_command=False)
+    st = svc.get_state(force=True)
+    assert st.fields["locked"].source == "teslamate" and st.fields["locked"].estimated
+    res = svc.run_command("unlock", {}, surface="tool", approval=AUTO)
+    assert ("lock/unlock", {"entity_id": LOCK}) in ha.service_calls
+    assert "already" not in res["readback"] and res["readback"]["status"] != "confirmed"
+    assert "already unlocked" not in str(res).lower() and "nothing needed to change" not in str(res)
+
+
+def test_estimated_stamps_are_flagged_only_for_the_awake_assumption(make_service, ha, clock, tm):
+    svc = with_tm(make_service, ha, clock, tm)
+    tm.status["state"] = "asleep"
+    tm.status["state_since"] = iso(NOW - 3600)
+    st = svc.get_state(force=True)
+    tm_fields = [f for f in st.fields.values() if f.source == "teslamate"]
+    assert tm_fields and not any(f.estimated for f in tm_fields)         # state_since is a real time
+    pub = svc.get_state(force=True).to_public(now=clock.t)["freshness"]
+    assert "estimated_times" not in pub

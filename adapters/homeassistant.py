@@ -490,7 +490,7 @@ class HomeAssistantAdapter(CarAdapter):
                   and _says_moving(n, fields[n].value)]
         if moving:
             newest = max(moving, key=lambda f: f.updated_at or now)
-            fields["moving"] = FieldValue(True, newest.updated_at or now, source=newest.source)
+            fields["moving"] = FieldValue(True, newest.updated_at or now, source=newest.source, estimated=newest.estimated)
 
     def after_send(self, now: float) -> None:
         """TeslaMate baseline right after a command was accepted: a change TeslaMate shows later was reported after it."""

@@ -103,6 +103,10 @@ class FieldValue:
     assumed: bool = False
     #: which source supplied this reading when a state merges two sources (``home_assistant`` / ``teslamate``); else None
     source: Optional[str] = None
+    #: True when ``updated_at`` is an ESTIMATE (TeslaMate while the car is awake: "fetch time minus an assumed age"), not a
+    #: time the car or a source actually reported. Never proof that the car reported recently: it cannot satisfy "already
+    #: in that state" and cannot confirm a read-back. It is still usable for stale-state safety checks.
+    estimated: bool = False
 
 
 def unavailable() -> FieldValue:
@@ -173,7 +177,7 @@ class VehicleState:
     def copy(self) -> "VehicleState":
         return VehicleState(
             name=self.name, source=self.source, captured_at=self.captured_at,
-            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at, v.assumed, v.source)
+            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at, v.assumed, v.source, v.estimated)
                     for k, v in self.fields.items()},
             simulated=self.simulated, hints=dict(self.hints),
         )
@@ -273,6 +277,7 @@ class VehicleState:
                  if (a := self.age_s(n, now)) is not None and a > stale_after_s}
         unavailable_fields = [n for n, f in self.fields.items() if not f.available]
         assumed = [n for n, f in self.fields.items() if f.available and f.assumed]
+        estimated = [n for n, f in self.fields.items() if f.available and f.estimated]
         newest = self.newest_update()
         return {
             "vehicle": {"name": self.name, "source": self.source, "simulated": self.simulated},
@@ -294,6 +299,7 @@ class VehicleState:
                 "unavailable_fields": unavailable_fields,
                 # values the integration set itself after a command; the car has not re-reported them yet
                 "assumed_after_command": assumed,
+                **({"estimated_times": estimated} if estimated else {}),
                 **self._source_info(),
             },
         }

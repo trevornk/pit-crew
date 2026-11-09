@@ -136,6 +136,8 @@
     const psi = [["FL", "front_left_psi"], ["FR", "front_right_psi"], ["RL", "rear_left_psi"], ["RR", "rear_right_psi"]].filter(function (p) { return tires[p[1]] != null; });
     const lowest = psi.length ? Math.min.apply(null, psi.map(function (p) { return tires[p[1]]; })) : null;
     const fr = st.freshness || {}, stale = fr.stale_fields || {}, unavailable = fr.unavailable_fields || [];
+    const warned = [["FL", "front_left_warning", "tire_warn_fl"], ["FR", "front_right_warning", "tire_warn_fr"], ["RL", "rear_left_warning", "tire_warn_rl"], ["RR", "rear_right_warning", "tire_warn_rr"]]
+      .filter(function (p) { return tires[p[1]] === true && stale[p[2]] == null; }).map(function (p) { return p[0]; });
     const newest = fr.newest_update_age_s;
     function fresh(fields) {
       const f = fields.filter(function (x) { return unavailable.indexOf(x) < 0; })[0];
@@ -153,7 +155,7 @@
       h(Tile, { label: "Frunk", value: flag(sec.frunk_open, "Open", "Closed"), fresh: fresh(["frunk_open"]) }),
       h(Tile, { label: "Sentry", value: flag(sec.sentry_on, "On", "Off"), fresh: fresh(["sentry_on"]) }),
       h(Tile, { label: "Charging", value: chg.charging_state ? (CHARGE_WORDS[chg.charging_state] || cap(chg.charging_state)) : "—", fresh: fresh(["charging_state"]) }),
-      h(Tile, { label: "Tires", value: lowest != null ? num(lowest) + " psi lowest" : "—", sub: psi.length ? psi.map(function (p) { return p[0] + " " + num(tires[p[1]]); }).join(" · ") : null, fresh: fresh(["tire_psi_fl", "tire_psi_fr", "tire_psi_rl", "tire_psi_rr"]) }),
+      h(Tile, { label: "Tires", value: warned.length ? "Car warns: " + warned.join(", ") : lowest != null ? num(lowest) + " psi lowest" : "—", sub: psi.length ? psi.map(function (p) { return p[0] + " " + num(tires[p[1]]); }).join(" · ") : null, fresh: fresh(["tire_psi_fl", "tire_psi_fr", "tire_psi_rl", "tire_psi_rr", "tire_warn_fl", "tire_warn_fr", "tire_warn_rl", "tire_warn_rr"]) }),
       h(Tile, { label: "Software", value: sw.software_update_available ? "Update waiting" : "Up to date", sub: sw.software_version || null }));
   }
 
@@ -398,7 +400,7 @@
     }
     if (!s) return h("div", { style: { padding: 24 } }, "Loading Pit Crew…");
     const st = s.status || {}, armed = s.armed || {};
-    const hours = armed.default_hours || 8;
+    const hours = armed.default_hours || 1;
     const down = !st.ok;
     return h("div", { style: { display: "flex", flexDirection: "column", gap: 16, maxWidth: 1040, margin: "0 auto", padding: 20 } },
       err[0] ? h("section", { style: Object.assign({}, box, { borderLeft: "3px solid rgba(220,80,60,.9)" }) },

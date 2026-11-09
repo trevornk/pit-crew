@@ -6,7 +6,21 @@ Renaming the plugin means changing the values here, ``plugin.yaml`` (``name``), 
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
+def _read_version() -> str:
+    """The running plugin's version, read from plugin.yaml (the one place it is written down)."""
+    try:
+        text = (Path(__file__).resolve().parent / "plugin.yaml").read_text(encoding="utf-8")
+        m = re.search(r"^version:\s*[\"']?([^\s\"'#]+)", text, re.MULTILINE)
+        return m.group(1) if m else "unknown"
+    except OSError:
+        return "unknown"
+
+
 PLUGIN_ID = "pit-crew"
+VERSION = _read_version()
 DISPLAY_NAME = "Pit Crew"
 SLASH_COMMAND = "car"
 TOOLSET = "pit_crew"

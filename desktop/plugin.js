@@ -225,7 +225,7 @@ function ConnectCard({ summary }) {
 function GoLiveDialog({ summary, onClose, onDone }) {
   const cancelRef = useRef(null)
   const [busy, setBusy] = useState(false)
-  const hours = (summary.armed && summary.armed.default_hours) || summary.settings.arm_default_hours || 8
+  const hours = (summary.armed && summary.armed.default_hours) || summary.settings.arm_default_hours || 1
   const go = async () => {
     setBusy(true)
     const r = await attempt('Going live', () => api('/arm', { method: 'POST', body: { confirmed: true, hours } }))
@@ -281,10 +281,13 @@ function Warnings({ v, summary }) {
 
 // ----------------------------------------------------------------------------- tiles
 function Tiles({ v }) {
-  const { ok, sec, chg, cli, sw, tires, tileFresh, unavailable } = v
+  const { ok, sec, chg, cli, sw, tires, tileFresh, staleAge, unavailable } = v
   if (!ok) return null
   const psi = [['FL', 'front_left_psi'], ['FR', 'front_right_psi'], ['RL', 'rear_left_psi'], ['RR', 'rear_right_psi']].filter(([, k]) => tires[k] != null)
   const lowest = psi.length ? Math.min(...psi.map(([, k]) => tires[k])) : null
+  // the car's own TPMS warning, shown only while that reading is fresh
+  const warned = [['FL', 'front_left_warning', 'tire_warn_fl'], ['FR', 'front_right_warning', 'tire_warn_fr'], ['RL', 'rear_left_warning', 'tire_warn_rl'], ['RR', 'rear_right_warning', 'tire_warn_rr']]
+    .filter(([, k, f]) => tires[k] === true && staleAge(f) == null).map(([n]) => n)
   const openList = (val, none) => (Array.isArray(val) ? (val.length ? `${val.length} open` : none) : val === undefined ? '—' : val ? 'Open' : none)
   const names = val => (Array.isArray(val) && val.length ? val.map(x => x.replace(/_/g, ' ')).join(', ') : null)
   const flag = (val, on, off) => (val === undefined ? '—' : val ? on : off)
@@ -299,9 +302,9 @@ function Tiles({ v }) {
     h(Tile, { label: 'Sentry', icon: 'eye', value: flag(sec.sentry_on, 'On', 'Off'), fresh: tileFresh(['sentry_on']) }),
     h(Tile, { label: 'Charging', icon: 'plug', value: chg.charging_state ? (CHARGE_WORDS[chg.charging_state] || cap(chg.charging_state)) : '—',
       sub: chg.charge_current_a ? `${num(chg.charge_current_a)} A · ${num(chg.charger_voltage_v)} V` : null, fresh: tileFresh(['charging_state']) }),
-    h(Tile, { label: 'Tires', icon: 'circle-large', value: lowest != null ? `${num(lowest)} psi lowest` : '—',
+    h(Tile, { label: 'Tires', icon: 'circle-large', value: warned.length ? `Car warns: ${warned.join(', ')}` : lowest != null ? `${num(lowest)} psi lowest` : '—',
       sub: psi.length ? psi.map(([n, k]) => `${n} ${num(tires[k])}`).join(' · ') : null,
-      fresh: tileFresh(['tire_psi_fl', 'tire_psi_fr', 'tire_psi_rl', 'tire_psi_rr']) }),
+      fresh: tileFresh(['tire_psi_fl', 'tire_psi_fr', 'tire_psi_rl', 'tire_psi_rr', 'tire_warn_fl', 'tire_warn_fr', 'tire_warn_rl', 'tire_warn_rr']) }),
     h(Tile, { label: 'Software', icon: 'versions', value: sw.software_update_available ? 'Update waiting' : 'Up to date',
       sub: [sw.software_version, sw.odometer_mi != null ? `${num(sw.odometer_mi)} mi` : null].filter(Boolean).join(' · '),
       fresh: unavailable.has('software_update_available') ? tileFresh(['software_update_available']) : null }))
@@ -406,7 +409,7 @@ function SafetyDialog({ request, summary, onClose }) {
   }
   const ask = async () => { setBusy(true); try { await askHermes(pf.ask_hermes); onClose() } finally { setBusy(false) } }
   // Practice mode: one click goes live (still behind this dialog) and then sends, or drafts the request for Hermes.
-  const hours = (summary && summary.armed && summary.armed.default_hours) || 8
+  const hours = (summary && summary.armed && summary.armed.default_hours) || 1
   const goLiveAnd = async next => {
     setBusy(true)
     try {

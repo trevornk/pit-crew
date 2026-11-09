@@ -131,7 +131,7 @@ def test_arm_reports_the_real_hours(api):
 def test_summary_has_mode_and_connection(api):
     s = api.summary()
     assert s["armed"]["mode"] == "practice" and s["connection"]["connected"] is True
-    assert s["armed"]["default_hours"] == 8
+    assert s["armed"]["default_hours"] == 1
 
 
 def test_tool_results_use_practice_wording(service):
@@ -157,12 +157,12 @@ def test_web_alert_fix_asks_for_confirmation_first(service, tmp_path):
                                 "/command": {"ok": True, "message": "sent"}, "/arm": {"ok": True}}, clicks=["Lock it"])
     posts = [c[0].rsplit("/", 1)[-1] for c in out["calls"] if c[1] == "POST"]
     assert posts == ["preflight"]                       # a click on the alert only previews; nothing was sent
-    assert "Go live for 8 h &amp; send" in out["html"] and "Practice run" in out["html"]
+    assert "Go live for 1 h &amp; send" in out["html"] and "Practice run" in out["html"]
 
 
 @needs_web_render
 def test_web_go_live_is_inline_with_cancel(service, tmp_path):
     mod, summary = backend_summary(service)
     out = render_web(tmp_path, {"/summary": summary, "/log": {"ok": True, "rows": []}}, clicks=["Go live…"])
-    assert "Go live for 8 h?" in out["html"] and ">Cancel<" in out["html"] and "(simulated car)" in out["html"]
+    assert "Go live for 1 h?" in out["html"] and ">Cancel<" in out["html"] and "(simulated car)" in out["html"]
     assert [c for c in out["calls"] if c[1] == "POST"] == []

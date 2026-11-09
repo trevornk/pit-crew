@@ -8,7 +8,7 @@ Everything below is tested (`tests/test_safety_engine.py`, `tests/test_approval_
 1. **Practice mode by default.** Out of the box, commands are checked and logged but the car is **never contacted**. The
    reply says "PRACTICE RUN … the car was NOT contacted".
 2. **You go live on purpose.** **Go live** (the Pit Crew page) or `/car live` (asks you to confirm) lets Hermes send
-   commands for a limited time (default 8 h, between 15 minutes and 72 hours) and then it switches itself back.
+   commands for a limited time (default 1 h, between 15 minutes and 72 hours) and then it switches itself back.
    `/car practice` (or **Stop**) works any time. A standing "Always live" setting (Advanced, `armed: true`) exists for people
    who want it; it is not recommended. (`/car arm` and `/car disarm` are aliases.)
 3. **Risky commands need a human.** Unlock, trunk, frunk, window venting, Sentry-off, honk and flash go through Hermes'
@@ -117,7 +117,7 @@ Home Assistant's *Shift state* and *Speed* entities — they refresh on every po
 
 ## Pass 9 additions
 
-* **Go live from the command dialog is still a confirmation.** The dialog's primary button ("Go live for 8 h & send")
+* **Go live from the command dialog is still a confirmation.** The dialog's primary button ("Go live for 1 h & send")
   turns on live mode and sends one safe-direction command; Cancel keeps focus and Enter never confirms. Approval-class commands
   are **not** sent by it: "Go live & ask Hermes" only switches the mode and drafts the request, and Hermes' approval prompt
   still decides. Where a UX suggestion and safety conflicted, safety won: there is no one-click unlock.

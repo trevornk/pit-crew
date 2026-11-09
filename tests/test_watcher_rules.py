@@ -25,7 +25,7 @@ def svc(stub_service, stub):
 
 
 def test_every_rule_has_defaults_toggle_and_description():
-    assert len(RULES) == 11
+    assert len(RULES) == 12
     for r in RULES:
         assert r.defaults["enabled"] is True and r.description and r.title and r.id in RULES_BY_ID
 

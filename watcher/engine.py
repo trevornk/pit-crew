@@ -82,14 +82,15 @@ class RuleEngine:
                 if missing:
                     item["note"] = f"cannot run: this car doesn't report {', '.join(missing)}"
                 elif rule.requires_any and not any(state.has(f) for f in rule.requires_any):
-                    item["note"] = "cannot run: this car doesn't report tire pressure" + self._tire_enable_hint()
+                    what = "tire warnings" if rule.id == "tire_car_warning" else "tire pressure"
+                    item["note"] = f"cannot run: this car doesn't report {what}" + self._tire_enable_hint(rule.requires_any)
             out.append(item)
         return out
 
-    def _tire_enable_hint(self) -> str:
+    def _tire_enable_hint(self, fields: Any = ("tire_psi_fl",)) -> str:
         try:
             fn = getattr(self._svc.adapter, "disabled_entity_hint", None)
-            text = fn(("tire_psi_fl",)) if callable(fn) else ""
+            text = fn(tuple(fields)) if callable(fn) else ""
         except Exception:  # noqa: BLE001
             text = ""
         return f" ({text})" if text else ""

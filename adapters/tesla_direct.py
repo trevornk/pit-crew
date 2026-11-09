@@ -185,6 +185,12 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
                 seen = _num(vs.get("tpms_last_seen_pressure_time_" + pos))
                 at = seen if seen and 1e9 < seen <= now else stamp(vs)
                 fields["tire_psi_" + pos] = FieldValue(round(bar * PSI_PER_BAR, 1), min(at, now))
+        # The car's own TPMS warnings: soft = low pressure, hard = very low. Either one means "this tire needs attention".
+        for pos in ("fl", "fr", "rl", "rr"):
+            flags = [vs.get(f"tpms_{kind}_warning_{pos}") for kind in ("soft", "hard")]
+            known = [x for x in flags if isinstance(x, bool)]
+            if known:
+                put("tire_warn_" + pos, any(known), vs)
         for axle, key in (("front", "tpms_rcp_front_value"), ("rear", "tpms_rcp_rear_value")):
             bar = _num(vs.get(key))
             if bar is not None and bar > 0:

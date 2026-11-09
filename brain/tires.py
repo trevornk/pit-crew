@@ -27,6 +27,9 @@ TIRES: Dict[str, Tuple[str, str]] = {
     "tire_psi_fl": ("front left", "front"), "tire_psi_fr": ("front right", "front"),
     "tire_psi_rl": ("rear left", "rear"), "tire_psi_rr": ("rear right", "rear"),
 }
+#: the car's own per-tire warning fields -> spoken position (True = the car says this tire needs attention)
+WARNINGS: Dict[str, str] = {"tire_warn_fl": "front left", "tire_warn_fr": "front right",
+                            "tire_warn_rl": "rear left", "tire_warn_rr": "rear right"}
 #: Anything outside this is a sensor/units fault, not a tire: never alert on it.
 PLAUSIBLE_PSI = (5.0, 120.0)
 
@@ -97,9 +100,23 @@ def stale_fields(state: VehicleState, now: float, stale_after_s: float) -> List[
 
 
 def key_tires(key: str) -> List[str]:
-    """The tire fields named in an alert key such as ``tire_low:front_left|rear_right``."""
+    """The tire fields (pressure and warning) named in an alert key such as ``tire_low:front_left|rear_right``."""
     names = set(key.partition(":")[2].split("|"))
-    return [f for f, (pos, _) in TIRES.items() if pos.replace(" ", "_") in names]
+    out = [f for f, (pos, _) in TIRES.items() if pos.replace(" ", "_") in names]
+    return out + [f for f, pos in WARNINGS.items() if pos.replace(" ", "_") in names]
+
+
+def car_warnings(state: VehicleState, now: float, stale_after_s: float) -> List[str]:
+    """Spoken positions of tires the car itself warns about, from fresh, available readings only."""
+    out = []
+    for f, pos in WARNINGS.items():
+        if not state.has(f) or state.value(f) is not True:
+            continue
+        age = state.age_s(f, now)
+        if age is not None and age > stale_after_s:
+            continue
+        out.append(pos)
+    return out
 
 
 def track(memo: Dict[str, Any], state: VehicleState, now: float, window_s: float,
@@ -156,4 +173,8 @@ def summary_line(state: VehicleState, min_psi: Any = 0) -> Optional[str]:
         short = "".join(w[0] for w in pos.split()).upper()
         low = float(v) < low_threshold_psi(state, axle, min_psi)
         bits.append(f"{short} {float(v):.0f}" + (" LOW" if low else ""))
+    warned = [p for f, p in WARNINGS.items() if state.value(f) is True]
+    if warned:                      # the car's own warning is shown even when it is the only tire data there is
+        shorts = ", ".join("".join(w[0] for w in p.split()).upper() for p in warned)
+        bits.append(f"car warns: {shorts}")
     return ("Tires (psi): " + " · ".join(bits)) if bits else None

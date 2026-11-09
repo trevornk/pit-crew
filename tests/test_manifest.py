@@ -82,3 +82,37 @@ def test_no_secrets_or_private_data_in_repo():
 def test_tesla_mode_choices_exclude_the_unsupported_fleet_mode():
     assert MANIFEST["config_schema"]["tesla_mode"]["choices"] == ["teslemetry", "tessie"]
     assert DEFAULTS["charge_schedule_start"] == "" and "charge_schedule_start" in MANIFEST["config_schema"]
+
+
+def test_go_live_defaults_to_one_hour_everywhere(service):
+    """B2: the default duration is 1 h in the setting, the manifest, the help, the confirmation and the first arm."""
+    import re
+    from pathlib import Path
+
+    import yaml
+    from pit_crew import settings as S
+    from pit_crew import slash
+
+    root = Path(__file__).resolve().parent.parent
+    manifest = yaml.safe_load((root / "plugin.yaml").read_text())
+    assert manifest["config_schema"]["arm_default_hours"]["default"] == 1
+    assert S.DEFAULTS["arm_default_hours"] == 1
+    assert "1 h default" in slash.HELP
+    assert service.clamp_hours(None) == 1.0
+    assert service.clamp_hours(1000) == 72.0 and service.clamp_hours(0.01) == 0.25      # the limits did not move
+    text = slash.handle("live")
+    assert "Go live for 1 hour?" in text and "/car live 1 confirm" in text
+    assert not re.search(r"\b8 ?h(ours)?\b", (root / "README.md").read_text().split("/car live")[1][:200])
+
+
+def test_unknown_subcommand_and_help_name_the_running_version(service):
+    import yaml
+    from pathlib import Path
+
+    from pit_crew import slash
+    from pit_crew.constants import VERSION
+
+    manifest = yaml.safe_load((Path(__file__).resolve().parent.parent / "plugin.yaml").read_text())
+    assert VERSION == str(manifest["version"])                           # read from plugin.yaml, not written twice
+    assert f"Unknown subcommand 'x' (Pit Crew {VERSION})." in slash.handle("x")
+    assert slash.handle("help").startswith(f"Pit Crew {VERSION}\n")

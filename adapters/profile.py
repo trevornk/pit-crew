@@ -103,6 +103,9 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             isinstance(sig.get(k, []), list) and all(isinstance(e, str) and "{slug}" in e for e in sig.get(k, [])) for k in sig)
         if not ok:
             problems.append("'discovery_signature' must be {present: [...], absent: [...]} lists of entity ids containing {slug}")
+    lat = profile.get("report_latency_s")
+    if lat is not None and not (isinstance(lat, (int, float)) and not isinstance(lat, bool) and 0 <= lat <= 86400):
+        problems.append("'report_latency_s' must be a number of seconds between 0 and 86400")
     default_psi = profile.get("tire_min_psi_default")
     if default_psi is not None and not (isinstance(default_psi, (int, float)) and 10 <= default_psi <= 80):
         problems.append("'tire_min_psi_default' must be a psi value between 10 and 80")

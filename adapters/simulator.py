@@ -138,6 +138,9 @@ class SimulatorAdapter(CarAdapter):
         if self._store is not None and self._state is not None:
             self._store.kv_set(KV_KEY, self._state)
 
+    def report_latency_s(self) -> float:
+        return 0.0      # the simulated car reports a command's result at once
+
     # -- clock ----------------------------------------------------------------------------
     def clock(self) -> float:
         with self._lock:

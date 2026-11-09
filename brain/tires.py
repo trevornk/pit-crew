@@ -18,6 +18,9 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from .models import VehicleState
 
 DEFAULT_MIN_PSI = 30.0
+#: Tires run hot after a drive and shed 3-5 psi over the next 20-40 minutes: no fast-loss samples for this long after the
+#: car last moved (a real puncture is still caught by the low-pressure rule and by any loss after the cool-down).
+COOLDOWN_AFTER_DRIVE_S = 60 * 60.0
 RECOMMENDED_FRACTION = 0.90
 #: pressure fields in display order -> (spoken position, axle)
 TIRES: Dict[str, Tuple[str, str]] = {
@@ -82,14 +85,37 @@ def low_tires(state: VehicleState, now: float, stale_after_s: float, min_psi: An
     return out
 
 
-def track(memo: Dict[str, Any], state: VehicleState, now: float, window_s: float) -> None:
-    """Record one sample per tire per *new reading* into ``memo['tires']`` and drop samples older than the window."""
+def stale_fields(state: VehicleState, now: float, stale_after_s: float) -> List[str]:
+    """Tire fields that report a value older than ``stale_after_s`` (judged per tire, never for all four at once)."""
+    out = []
+    for f in TIRES:
+        if state.has(f):
+            age = state.age_s(f, now)
+            if age is not None and age > stale_after_s:
+                out.append(f)
+    return out
+
+
+def key_tires(key: str) -> List[str]:
+    """The tire fields named in an alert key such as ``tire_low:front_left|rear_right``."""
+    names = set(key.partition(":")[2].split("|"))
+    return [f for f, (pos, _) in TIRES.items() if pos.replace(" ", "_") in names]
+
+
+def track(memo: Dict[str, Any], state: VehicleState, now: float, window_s: float,
+          last_moving_ts: Optional[float] = None, stale_after_s: Optional[float] = None) -> None:
+    """Record one sample per tire per *new reading* into ``memo['tires']`` and drop samples older than the window.
+
+    Nothing is recorded while the car is moving or within :data:`COOLDOWN_AFTER_DRIVE_S` of it last moving (hot tires
+    cooling is not a leak); the samples taken before are discarded then, since they describe a different thermal state."""
     book: Dict[str, List[List[float]]] = memo.setdefault("tires", {})
-    if state.motion() is True:
-        return              # readings taken while driving are hot; a tire cooling after the drive is not a leak
+    if state.motion() is True or (last_moving_ts is not None and 0 <= now - last_moving_ts < COOLDOWN_AFTER_DRIVE_S):
+        book.clear()
+        return
+    stale = set(stale_fields(state, now, stale_after_s)) if stale_after_s is not None else set()
     for f in TIRES:
         fv = state.fields.get(f)
-        if fv is None or not fv.available or not plausible(fv.value):
+        if fv is None or not fv.available or not plausible(fv.value) or f in stale:
             continue
         ts = fv.updated_at if fv.updated_at is not None else now
         samples = [s for s in book.get(f, []) if now - s[0] <= window_s]
@@ -101,7 +127,8 @@ def track(memo: Dict[str, Any], state: VehicleState, now: float, window_s: float
             del book[f]
 
 
-def fast_losses(memo: Mapping[str, Any], now: float, window_s: float, drop_psi: float) -> List[Tuple[str, float, float, float]]:
+def fast_losses(memo: Mapping[str, Any], now: float, window_s: float, drop_psi: float,
+                stale_after_s: Optional[float] = None) -> List[Tuple[str, float, float, float]]:
     """``[(position, drop_psi, from_psi, to_psi)]`` for tires whose pressure fell by >= ``drop_psi`` inside the window."""
     out = []
     for f, samples in (memo.get("tires") or {}).items():
@@ -110,6 +137,8 @@ def fast_losses(memo: Mapping[str, Any], now: float, window_s: float, drop_psi: 
         recent = [s for s in samples if now - s[0] <= window_s]
         if len(recent) < 2:
             continue
+        if stale_after_s is not None and now - recent[-1][0] > stale_after_s:
+            continue            # the newest reading of this tire is old: it says nothing about now
         latest = recent[-1][1]
         peak = max(s[1] for s in recent[:-1])
         if peak - latest >= drop_psi:

@@ -8,8 +8,9 @@ import math
 import threading
 from typing import Any, Dict, List, Optional
 
+from ..brain import tires
 from ..brain.models import VehicleState
-from .rules import RULE_LABELS, RULES, RULES_BY_ID, Finding, Rule, RuleContext
+from .rules import RULE_LABELS, RULE_MINIMUMS, RULES, RULES_BY_ID, Finding, Rule, RuleContext
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,9 @@ class RuleEngine:
         for k, v in over.items():
             if k in rule.defaults:
                 cfg[k] = v
+        for k, floor in RULE_MINIMUMS.items():     # also guards values typed into the config file, not just set_rule
+            if k in cfg and isinstance(cfg[k], (int, float)) and not isinstance(cfg[k], bool) and cfg[k] < floor:
+                cfg[k] = floor
         return cfg
 
     def set_rule(self, rule_id: str, **changes: Any) -> Dict[str, Any]:
@@ -50,6 +54,13 @@ class RuleEngine:
                     raise ValueError(f"'{k}' must be a number") from None
                 if not math.isfinite(num) or num < 0 or num > 1_000_000:
                     raise ValueError(f"'{k}' must be a sensible positive number")
+                floor = RULE_MINIMUMS.get(k)
+                if floor is not None and num < floor:
+                    raise ValueError(f"'{k}' must be at least {floor:g}")
+                if k == "below_pct" and num > 100:
+                    raise ValueError("'below_pct' must be at most 100")
+                if k == "min_psi" and num != 0 and not 5 <= num <= 120:
+                    raise ValueError("'min_psi' must be 0 (automatic) or between 5 and 120")
                 clean[k] = int(num) if float(num).is_integer() else num
         overrides = self._svc.store.kv_get("rule_overrides", {}) or {}
         overrides.setdefault(rule_id, {}).update(clean)
@@ -96,6 +107,10 @@ class RuleEngine:
         can_do = svc.capabilities().commands
         local = svc.local_dt(now)
         raised: List[Dict[str, Any]] = []
+        last_moving = store.kv_get("last_moving_ts")
+        if state.motion() is True:
+            last_moving = now
+            store.kv_set("last_moving_ts", now)
         for rule in RULES:
             cfg = self.rule_config(rule)
             if not cfg["enabled"]:
@@ -108,10 +123,17 @@ class RuleEngine:
             # R16: a day-old reading must not raise a fresh alert. Skip (keep existing state) until it is refreshed.
             inputs = rule.requires or tuple(f for f in rule.requires_any if state.has(f)) or OPENING_FIELDS
             stale_after = float(settings.get("stale_after_s") or 900)
-            if any((a := state.age_s(f, now)) is not None and a > stale_after for f in inputs):
+            stale = [f for f in inputs if (a := state.age_s(f, now)) is not None and a > stale_after]
+            if rule.requires_any and not rule.requires:
+                # per-input freshness (one sleeping tire sensor must not silence the other three); the rule itself ignores
+                # stale inputs, and alerts that name a stale input are kept as they are (see _apply)
+                if len(stale) == len(inputs):
+                    continue
+            elif stale:
                 continue
             memo = store.kv_get(f"rule_memo:{rule.id}", {}) or {}
             ctx = RuleContext(state=state, now=now, local=local, cfg=cfg, settings=settings, can_do=can_do, memo=memo,
+                              last_moving_ts=last_moving,
                               readiness=(lambda dep, mi, _s=svc: _s.readiness(dep, mi)) if rule.id == "soc_below_tomorrow" else None)
             try:
                 findings = rule.check(ctx)
@@ -119,11 +141,12 @@ class RuleEngine:
                 logger.exception("rule %s crashed; skipping it this round", rule.id)
                 continue
             store.kv_set(f"rule_memo:{rule.id}", memo)
-            raised.extend(self._apply(rule, cfg, findings, now, int(settings["alert_cooldown_min"])))
+            raised.extend(self._apply(rule, cfg, findings, now, int(settings["alert_cooldown_min"]),
+                                      frozen=set(stale) if rule.requires_any else frozenset()))
         return raised
 
     def _apply(self, rule: Rule, cfg: Dict[str, Any], findings: List[Finding], now: float,
-               default_cooldown_min: int) -> List[Dict[str, Any]]:
+               default_cooldown_min: int, frozen: Any = frozenset()) -> List[Dict[str, Any]]:
         store = self._svc.store
         raised: List[Dict[str, Any]] = []
         active = {f.key for f in findings}
@@ -146,6 +169,8 @@ class RuleEngine:
                            "body": f.body, "suggestion": f.suggestion})
         for key in store.rule_state_keys(rule.id):
             if key not in active:
+                if frozen and frozen.intersection(tires.key_tires(key)):
+                    continue        # R16: a tire that went quiet neither confirms nor clears its alert
                 store.rule_state_clear(rule.id, key)
                 store.alerts_resolve_key(rule.id, key)
         return raised

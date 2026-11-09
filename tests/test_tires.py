@@ -423,3 +423,92 @@ def test_fast_loss_ignores_readings_taken_while_driving(svc, stub, clock):
     stub.values.update(moving=False, speed_mph=0.0, shift_state="P", tire_psi_rr=41.0)
     clock.advance(120); poll(svc)
     assert [a for a in svc.alerts(("new", "surfaced")) if a["rule"] == "tire_fast_loss"] == []
+
+
+def fast_alerts(s):
+    return [a for a in s.alerts(("new", "surfaced", "acked")) if a["rule"] == "tire_fast_loss"]
+
+
+def drive_then_park(svc, stub, clock, hot=45.5):
+    poll(svc)
+    stub.values.update(moving=True, speed_mph=70.0, shift_state="D", tire_psi_rr=hot)
+    for _ in range(10):
+        clock.advance(120)
+        poll(svc)
+    stub.values.update(moving=False, speed_mph=0.0, shift_state="P")
+
+
+def test_gradual_cooling_after_parking_is_not_a_leak(svc, stub, clock):
+    """Review P1-2: 45.5 -> 42.0 over 35 min after a highway drive is the tire cooling, not a puncture."""
+    drive_then_park(svc, stub, clock)
+    for psi in (45.5, 44.5, 43.5, 42.5, 42.0, 42.0, 42.0):
+        clock.advance(300)
+        stub.values["tire_psi_rr"] = psi
+        poll(svc)
+    assert fast_alerts(svc) == []
+
+
+def test_a_real_parked_leak_still_alerts_after_the_cooldown(svc, stub, clock):
+    drive_then_park(svc, stub, clock)
+    stub.values["tire_psi_rr"] = 42.0
+    clock.advance(61 * 60)
+    poll(svc)                                                            # cool-down over: the first trusted sample
+    for psi in (41.0, 40.0, 39.0, 38.5):
+        clock.advance(300)
+        stub.values["tire_psi_rr"] = psi
+        poll(svc)
+    assert len(fast_alerts(svc)) == 1
+
+
+def test_a_parked_leak_without_any_drive_alerts_at_once(svc, stub, clock):
+    poll(svc)
+    for psi in (41.0, 39.0, 37.5):
+        clock.advance(300)
+        stub.values["tire_psi_rr"] = psi
+        poll(svc)
+    assert len(fast_alerts(svc)) == 1
+
+
+def test_one_stale_tire_does_not_silence_the_others(svc, stub, clock):
+    """Review P2-1: Tesla parked TPMS sensors report rarely; the fresh ones must still be judged."""
+    stub.ages["tire_psi_fl"] = 3 * 3600.0
+    stub.values["tire_psi_rl"] = 30.0
+    poll(svc)
+    clock.advance(11 * 60)
+    stub.values["tire_psi_rl"] = 30.0
+    raised = poll(svc)["raised"]
+    assert [a["rule"] for a in raised] == ["tire_pressure_low"] and "rear left" in raised[0]["body"]
+    assert "front left" not in raised[0]["body"]
+
+
+def test_one_stale_tire_does_not_resolve_its_own_alert_but_others_still_can(svc, stub, clock):
+    stub.values["tire_psi_rl"] = 30.0
+    poll(svc); clock.advance(11 * 60)
+    stub.values["tire_psi_rl"] = 30.0
+    assert len(poll(svc)["raised"]) == 1
+    stub.ages["tire_psi_rl"] = 3 * 3600.0                                # the low tire goes quiet; the others stay fresh
+    clock.advance(11 * 60)
+    poll(svc)
+    assert len(open_alerts(svc)) == 1
+    stub.ages.pop("tire_psi_rl")
+    stub.values["tire_psi_rl"] = 41.0                                    # fresh and fine again: it resolves
+    clock.advance(11 * 60)
+    poll(svc)
+    assert open_alerts(svc) == []
+
+
+@pytest.mark.parametrize("rule,setting,value", [("tire_fast_loss", "drop_psi", 0), ("tire_fast_loss", "drop_psi", 0.2),
+                                                ("tire_fast_loss", "window_min", 0), ("soc_below_tomorrow", "trip_mi", 0),
+                                                ("tire_pressure_low", "min_psi", 2), ("plugged_not_charging", "below_pct", 140)])
+def test_rule_settings_have_sane_minimums(svc, rule, setting, value):
+    with pytest.raises(ValueError):
+        svc.watcher.engine.set_rule(rule, **{setting: value})
+
+
+def test_a_too_small_configured_value_is_raised_to_the_floor(svc):
+    svc.watcher.engine.set_rule("tire_fast_loss", drop_psi=0.5)
+    rule = [r for r in __import__("pit_crew.watcher.rules", fromlist=["RULES"]).RULES if r.id == "tire_fast_loss"][0]
+    cfg = svc.watcher.engine.rule_config(rule)
+    assert cfg["drop_psi"] == 0.5
+    svc.store.kv_set("rule_overrides", {"tire_fast_loss": {"drop_psi": 0}})   # as if an old override or file said 0
+    assert svc.watcher.engine.rule_config(rule)["drop_psi"] == 0.5

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from pagerender import ROOT, backend_summary, needs_desktop_render, needs_web_render, render, render_web  # noqa: E402
+from pagerender import ROOT, ask_hermes, backend_summary, needs_desktop_render, needs_web_render, render, render_web  # noqa: E402
 
 pytest.importorskip("fastapi")
 
@@ -23,10 +23,16 @@ def test_page_renders_with_simulator(service, tmp_path):
     for needle in ("Simulated car", "Practice mode", "Go live…", "of range", "Climate", "Doors", "Windows", "Trunk",
                    "Frunk", "Sentry", "Will I be ready?", "Alerts", "All clear", "More controls", "History of commands", "Safety &amp; settings",
                    "Alert rules", "Try it: simulator controls", "Fast-forward 30 min", "Practice mode · nothing is sent", "charge limit",
-                   "Hermes asks you first", "Lock", "Warm up", "Charge", "Ask Hermes", "Unlock", "Honk", "Connect my real car",
+                   "Goes through Hermes’ approvals", "Lock", "Warm up", "Charge", "Ask Hermes", "Unlock", "Honk", "Connect my real car",
                    "This is a simulated car"):
         assert needle in page, needle
     assert "%" in chip and "codicon-lock" in chip
+    # the chip is a data-form status-bar item (hideable from the bar's right-click menu), registered once, with its own guard
+    chip_c = next(c for c in out["contributions"] if c["id"] == "chip")
+    assert not chip_c["hasRender"] and chip_c["data"]["toggleLabel"] == "Pit Crew" and chip_c["data"]["id"] == "pit-crew:chip"
+    assert chip_c["data"]["to"] == "/car" and chip_c["data"]["label"] == "[element]"
+    assert sum(1 for c in out["contributions"] if c["area"] == "statusbar.right") == 1
+    assert "plugin.pit-crew.state.changed" in out["events"] and "plugin.pit-crew.settings.changed" in out["events"]
 
 
 @needs_desktop_render
@@ -99,7 +105,7 @@ def test_commands_explain_inapplicable_ones_and_risky_ones_go_through_hermes(ser
     out = render(tmp_path, summary, rules=mod.rules())["page"]
     for reason in ("Already locked", "Sentry is already off", "Not plugged in", "Not charging right now"):
         assert reason in out, reason
-    assert "never sent from a button" in out and "Hermes asks you first" in out
+    assert "never sent from a button" in out and "Goes through Hermes’ approvals" in out
     assert "Practice mode · nothing is sent" in out
 
 
@@ -116,6 +122,35 @@ def test_single_alert_has_one_acknowledge_and_a_fix_button(service, tmp_path):
     summary["alerts"] = [alert, alert2]
     out = render(tmp_path, summary, rules=mod.rules())["page"]
     assert "Acknowledge all" in out and ">Ask Hermes<" in out.replace("</i>", "")
+
+
+def _ask_data(service):
+    mod, summary = backend_summary(service)
+    summary["alerts"] = [{"id": 2, "rule": "left_unlocked_away", "severity": "high", "state": "new", "title": "Unlocked and away",
+                          "body": "b", "suggestion": "Want me to unlock it?", "when": "2026-11-08T22:06:00-06:00",
+                          "action": {"command": "unlock", "label": "x", "via_hermes": True, "ask": "Unlock my car."}}]
+    return {"/summary": summary, "/rules": mod.rules(), "/log": {"ok": True, "rows": []}}
+
+
+@needs_desktop_render
+def test_ask_hermes_starts_a_new_session_with_the_hosts_action_and_retries_a_bounded_number_of_times(service, tmp_path):
+    out = ask_hermes(tmp_path, _ask_data(service), "mounts_after_2")
+    assert out["actions"] == ["session.new"] and out["navigated"] == 0
+    assert out["inserts"] == [None, "new", "new", "new"]                 # succeeded on the third retry, then stopped
+    assert out["timers"] == [250, 250, 250] and out["clipboard"] == []   # host timers, no hand-rolled sleep
+
+
+@needs_desktop_render
+def test_ask_hermes_gives_up_after_five_retries_and_copies_the_text(service, tmp_path):
+    out = ask_hermes(tmp_path, _ask_data(service), "never")
+    assert out["actions"] == ["session.new"] and out["inserts"] == [None] + ["new"] * 5 and len(out["timers"]) == 5
+    assert len(out["clipboard"]) == 1 and out["clipboard"][0]   # the request text, for pasting
+
+
+@needs_desktop_render
+def test_ask_hermes_falls_back_to_navigating_when_the_host_has_no_run_action(service, tmp_path):
+    out = ask_hermes(tmp_path, _ask_data(service), "no_runaction")
+    assert out["actions"] == [] and out["navigated"] == 1 and out["inserts"][0] is None
 
 
 @needs_desktop_render
@@ -143,7 +178,7 @@ def test_web_dashboard_page_renders_real_backend_json(service, tmp_path):
     html = out["html"]
     assert out["name"] == "pit-crew"
     for needle in ("Pit Crew", "Simulated car", "of range", "Doors", "Will I be ready?", "Alerts", "Controls",
-                   "Hermes asks you first", "History of commands", "Try it: simulator controls", "Practice mode · nothing is sent", "Go live…"):
+                   "Goes through Hermes’ approvals", "History of commands", "Try it: simulator controls", "Practice mode · nothing is sent", "Go live…"):
         assert needle in html, needle
     # approval-class commands are preview-only on this page: no way to send them
     assert "never sent from a button" in html

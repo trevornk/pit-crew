@@ -7,7 +7,7 @@ import {
   EmptyState, Input, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS, Skeleton, StatusDot, Switch,
   host, queryClient, useQuery
 } from '@hermes/plugin-sdk'
-import { createElement as h, Fragment, useRef, useState } from 'react'
+import { Component, createElement as h, Fragment, useRef, useState } from 'react'
 
 const PLUGIN_ID = 'pit-crew'
 const ROUTE = '/car'
@@ -356,23 +356,29 @@ function inapplicable(id, v) {
   }
 }
 
-const sleep = ms => new Promise(r => setTimeout(r, ms))
-
 // Hand a request to Hermes through the SDK's supported composer API (host.composer). If no chat composer is mounted
-// (this page replaced the chat view) go to a new chat and retry; as a last resort copy the text for pasting.
+// (this page replaced the chat view) start a new chat with the host's own 'session.new' action and retry a few times
+// (bounded, host timers) while the composer mounts; as a last resort copy the text for pasting.
+const COMPOSER_RETRIES = 5
+const COMPOSER_RETRY_MS = 250
+const wait = ms => new Promise(r => (CTX && CTX.setTimeout ? CTX.setTimeout(r, ms) : setTimeout(r, ms)))
+
 async function askHermes(text) {
   let ok = false
   try { ok = !!(await host.composer.insertText(null, text, { mode: 'block' })) } catch (e) { ok = false }
   if (!ok) {
     try {
-      host.navigate('/')
-      await sleep(700)
-      ok = !!(await host.composer.insertText('new', text, { mode: 'block' }))
+      if (CTX && CTX.runAction) await CTX.runAction('session.new')
+      else host.navigate('/')
+      for (let i = 0; i < COMPOSER_RETRIES && !ok; i++) {
+        await wait(COMPOSER_RETRY_MS)
+        try { ok = !!(await host.composer.insertText('new', text, { mode: 'block' })) } catch (e) { ok = false }
+      }
     } catch (e) { ok = false }
   }
   if (ok) {
     try { host.composer.focus(null) } catch (e) { /* the text is in the draft either way */ }
-    toast('info', 'Drafted in the chat. Press Enter, then answer Hermes’ approval prompt.')
+    toast('info', 'Drafted in the chat. Press Enter, then answer Hermes’ approval prompt if it asks.')
     return true
   }
   let copied = false
@@ -442,7 +448,7 @@ function SafetyDialog({ request, summary, onClose }) {
             h('div', { style: S.row },
               h(Badge, { variant: live ? 'warn' : 'muted' }, live ? 'LIVE: this will be sent' : 'Practice mode: nothing is sent'),
               h(Badge, { variant: 'outline' }, cap(pf.risk || 'unknown'))),
-            viaHermes ? h('div', { style: S.small }, 'For your safety this kind of command is never sent from a button. Hermes asks you in chat and only sends it after you approve there. The checks below are what it will enforce.') : null,
+            viaHermes ? h('div', { style: S.small }, 'For your safety this kind of command is never sent from a button. Hermes decides in chat under your approval setting: it asks you when its approvals are on. The checks below are what it will enforce.') : null,
             !live && !viaHermes ? h('div', { style: S.small }, 'Practice mode is on, so nothing is sent unless you go live.') : null,
             pf.policy ? h('ul', { style: { margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 } },
               ...pf.policy.checks.map((c, i) => h('li', { key: i, style: { ...S.small, display: 'flex', gap: 6, color: c.ok ? T.secondary : T.primary } },
@@ -492,7 +498,7 @@ function Commands({ summary, v, onPick }) {
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
       h('span', { style: S.label }, 'Everyday'), h('div', { style: grid }, ...group('everyday'))),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: `1px solid ${T.stroke}`, paddingTop: 10 } },
-      h('div', { style: S.row }, h(Codicon, { name: 'shield', style: { color: T.tertiary } }), h('span', { style: S.label }, 'Hermes asks you first')),
+      h('div', { style: S.row }, h(Codicon, { name: 'shield', style: { color: T.tertiary } }), h('span', { style: S.label }, 'Goes through Hermes’ approvals')),
       h('div', { style: S.tiny }, 'For your safety, unlock, trunk, frunk, vent, Sentry off, honk and flash are never sent from a button: this drafts the request in chat and your Hermes approval setting decides.'),
       h('div', { style: grid }, ...group('risky'))))
 }
@@ -721,25 +727,36 @@ function Page() {
 }
 
 // ----------------------------------------------------------------------------- status-bar chip
-function Chip() {
+// Registered ONCE as a data-form StatusbarItem with a toggleLabel, so it shows up in the status bar's right-click
+// show/hide menu (a `render` contribution never can). The host renders the <button>; the label is a stable element that
+// refreshes itself from the summary query (never re-register on state change: each registration adds a disposer).
+// Data items get no host error boundary, so the label has its own.
+class ChipGuard extends Component {
+  constructor(props) { super(props); this.state = { failed: false } }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? 'Car' : this.props.children }
+}
+
+function ChipLabel() {
   const q = useSummary()
   const summary = q.data
   const v = view(summary)
-  const go = () => host.navigate(ROUTE)
   if (!summary || !v.ok) {
-    return h('button', { type: 'button', onClick: go, title: 'Pit Crew can’t read your car. Click to fix.', style: { padding: '0 6px', fontSize: 11, color: T.quaternary, opacity: 0.6, background: 'none', border: 0, cursor: 'pointer' } },
+    return h('span', { title: 'Pit Crew can’t read your car. Click to fix.', style: { opacity: 0.6 } },
       h(Codicon, { name: 'zap' }), ' Car ?')
   }
   const { bat, sec, chg, isStale } = v
   const charging = chg.charging_state === 'charging'
   const tip = `${v.st.vehicle.name}: ${num(bat.battery_pct)}%${sec.locked === false ? ', UNLOCKED' : ''}${charging ? ', charging' : ''}${isStale ? ' (stale)' : ''}${summary.armed.armed ? ' — LIVE' : ''}`
-  return h('button', { type: 'button', onClick: go, title: tip, style: { padding: '0 6px', fontSize: 11, color: T.tertiary, opacity: isStale ? 0.5 : 1, background: 'none', border: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 } },
+  return h('span', { title: tip, style: { display: 'inline-flex', alignItems: 'center', gap: 4, opacity: isStale ? 0.5 : 1 } },
     charging ? h(Codicon, { name: 'zap' }) : null,
     `${num(bat.battery_pct)}%`,
     sec.locked === undefined ? null : h(Codicon, { name: sec.locked ? 'lock' : 'unlock' }),
     v.st.vehicle.simulated ? h(StatusDot, { tone: 'muted' }) : null,
     summary.alerts.some(a => a.state !== 'acked' && a.severity !== 'info') ? h(StatusDot, { tone: 'warn' }) : null)
 }
+
+const CHIP_LABEL = h(ChipGuard, null, h(ChipLabel, null))   // created once: stable identity
 
 // ----------------------------------------------------------------------------- plugin
 export default {
@@ -751,9 +768,12 @@ export default {
     ctx.registerMany([
       { id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => h(Page, null) },
       { id: 'nav', area: SIDEBAR_NAV_AREA, data: { path: ROUTE, label: 'Pit Crew', codicon: 'zap' } },
-      { id: 'chip', area: STATUSBAR_AREAS.right, order: 110, render: () => h(Chip, null) }
+      { id: 'chip', area: STATUSBAR_AREAS.right, order: 110,
+        data: { id: `${PLUGIN_ID}:chip`, toggleLabel: 'Pit Crew', title: 'Pit Crew: open the car page', to: ROUTE, variant: 'action', label: CHIP_LABEL } }
     ])
     // Nudge from the backend (state changed / alert raised); polling remains the baseline.
     ctx.onEvent(`plugin.${PLUGIN_ID}.state.changed`, () => refresh())
+    // A change in Settings -> Plugins -> Pit Crew shows at once (the poll is only the baseline).
+    ctx.onEvent(`plugin.${PLUGIN_ID}.settings.changed`, () => refresh())
   }
 }

@@ -554,6 +554,13 @@ class HomeAssistantAdapter(CarAdapter):
             return raw
         return raw
 
+    def report_latency_s(self) -> Optional[float]:
+        val = self._profile.get("report_latency_s")
+        return float(val) if isinstance(val, (int, float)) and not isinstance(val, bool) and val >= 0 else None
+
+    def service_name(self) -> str:
+        return str(self._profile.get("cloud_name") or "the car's service")
+
     def describe(self) -> Dict[str, Any]:
         return {"kind": self.kind, "label": self.label, "simulated": False, "tested_profile": self.tested,
                 "profile": self._profile.get("name"), "host": scrub(self._base)}

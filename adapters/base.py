@@ -91,6 +91,16 @@ class CarAdapter(ABC):
         """Adapters that run on their own clock (the simulator) return it; others return None."""
         return None
 
+    def report_latency_s(self) -> Optional[float]:
+        """Roughly how long after a command the car's OWN report of the result can reach Pit Crew (seconds), or None when
+        unknown. When this is far longer than the read-back wait, the safety engine reads once and answers right away
+        instead of making the user wait for a report that cannot arrive in time."""
+        return None
+
+    def service_name(self) -> str:
+        """Who accepts commands on the car's behalf, for messages ("Tesla accepted it"). Default: generic wording."""
+        return "the car's service"
+
     def describe(self) -> Dict[str, Any]:
         return {"kind": self.kind, "label": self.label, "simulated": self.simulated}
 

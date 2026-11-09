@@ -53,6 +53,7 @@ The car may be **simulated** (the result says `vehicle.simulated: true`) — if 
 The background watcher raises alerts (`car_alerts`). When you see one in context or via a tool:
 - Say it in plain language with its single suggested action as an offer; don't run the action without a yes.
 - `car_alerts(action="ack", alert_id=…)` once the user has dealt with it, so it stops nagging.
+- Alerts may also reach the user as plain messages on their phone (Telegram, Discord, Matrix, ...) when they set a target with `/car notify`; those are not turns you answer. If they reply to one, treat it as a normal request. Help them set it up with `/car notify here` (in that chat) or `/car notify <target>`, then `/car notify test`.
 - Scheduled jobs (morning brief, nightly security check) can `check_now`. In those runs nobody can answer an approval
   prompt, so only comfort and safe-direction commands will go through — that is by design.
 

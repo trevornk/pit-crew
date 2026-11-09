@@ -125,6 +125,11 @@ counts as a parked indicator **only if that sensor is readable** (otherwise the 
 
 * **No raw coordinates anywhere.** The state model has no latitude/longitude field; location is only a *zone*
   (`home` / `away` / a named zone). Tool output, logs, alerts and the audit log therefore cannot contain coordinates.
+* **Pushed alerts leave this machine for the platform you chose.** With a delivery target set, each alert's title, body and suggestion
+  (a zone name like `home`/`away`, a rule, a percentage; scrubbed of VINs/tokens, never coordinates) is sent as a plain message through Hermes
+  to Telegram/Discord/Matrix/etc. and is then subject to that platform's retention and who is in the chat. Pit Crew sends nothing else, no
+  credentials, and no car command; a pushed alert never runs anything (acting still needs your yes in a Hermes chat, and Hermes' approvals).
+  Choose a private chat or room. Leave the target empty to keep alerts local.
 * VINs and Home Assistant tokens are masked in transcripts/logs (patterns registered with Hermes' redactor) and scrubbed
   from any remote error text before it is stored or shown.
 * Secrets (HA, TeslaMate and Teslemetry/Tessie tokens) are declared `config_schema` secrets read **only** through Hermes' secret

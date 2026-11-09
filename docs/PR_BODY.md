@@ -31,8 +31,8 @@ README quickstart.
   time-boxed (72 h cap); unlock/trunk/frunk/window-vent/Sentry-off/honk/flash need the human's recorded *yes* in **Hermes' own
   approval prompt** and fail closed when unattended; every command is policy-checked (not moving, fresh state, trusted zone,
   rate limit, bounded values), read back, and audited.
-* **Optional chat push** — alerts are pushed with `inject_message`, which needs the user to grant
-  `plugins.entries.pit-crew.allow_gateway_injection`. Without it alerts are stored and mentioned on the next turn.
+* **Optional alert push** — alerts are sent to a Hermes delivery target (`alert_target` / `/car notify`, same as a cron job's `deliver`)
+  through Hermes' own cross-platform send: a plain message, no agent turn. With no target, alerts are stored and mentioned on the next turn.
 * **Dependency** — one bounded package, `tesla-fleet-api>=1.5,<2` (Apache-2.0), imported lazily and used only by the direct
   Tesla adapter; HA / TeslaMate / simulator users never import it.
 

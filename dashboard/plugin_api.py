@@ -94,6 +94,7 @@ def summary(refresh: bool = False) -> Dict[str, Any]:
     out["armed"] = {"armed": info["armed"], "source": info["source"],
                     "until_local": s.local_dt(info["until"]).isoformat(timespec="minutes") if info["until"] else None,
                     "setting_armed": info["setting_armed"], "mode": "live" if info["armed"] else "practice",
+                    "live_mode": info["live_mode"], "state": info["state"], "label": s.live_label(info),
                     "default_hours": s.clamp_hours(None)}
     out["alerts"] = _with_actions(s.alerts(("new", "surfaced", "acked"), limit=30))
     out["adapter"] = s.describe_adapter()
@@ -103,7 +104,8 @@ def summary(refresh: bool = False) -> Dict[str, Any]:
     out["settings"] = {k: snap[k] for k in ("adapter", "history", "trusted_zones", "max_state_age_s", "stale_after_s",
                                            "poll_interval_s", "asleep_poll_interval_s", "watcher_enabled", "alert_push",
                                            "require_human_for", "rate_limit_commands", "rate_limit_window_s",
-                                           "default_departure", "default_trip_mi", "live_default_hours")}
+                                           "default_departure", "default_trip_mi", "live_default_hours", "live_mode",
+                                           "zone_rule", "wake_for_commands", "dedupe_window_s")}
     out["notify"] = s.watcher.deliverer.status()
     if "error" in out["adapter"]:
         out["status"].setdefault("error", out["adapter"]["error"])
@@ -218,13 +220,16 @@ def arm(body: dict) -> Dict[str, Any]:
     except ValueError as exc:
         return _err(str(exc))
     info = s.arm(hours, by="desktop")
-    return {"ok": True, "armed": info["armed"], "hours": info.get("hours"), "until_local": info.get("until_local")}
+    return {"ok": True, "armed": info["armed"], "hours": info.get("hours"), "until_local": info.get("until_local"),
+            "live_mode": info["live_mode"], "state": info["state"], "label": s.live_label(info)}
 
 
 @router.post("/disarm")
 def disarm() -> Dict[str, Any]:
-    info = svc().disarm(by="desktop")
-    return {"ok": True, "armed": info["armed"]}
+    s = svc()
+    info = s.disarm(by="desktop")
+    return {"ok": True, "armed": info["armed"], "live_mode": info["live_mode"], "state": info["state"],
+            "label": s.live_label(info)}
 
 
 @router.get("/log")

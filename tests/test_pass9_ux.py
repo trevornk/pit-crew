@@ -103,7 +103,7 @@ def test_manifest_settings_are_grouped_labelled_and_choice_based():
             assert "Stored as" not in v["description"], k       # Hermes appends that sentence itself
     groups = {v["label"].split(" · ")[0] for v in schema.values() if " · " in v["label"]}
     assert {"Connection", "Home Assistant", "Tesla", "Safety", "Alerts", "Advanced"} <= groups
-    assert schema["armed"]["label"].startswith("Advanced")
+    assert schema["live_mode"]["label"].startswith("Safety") and "armed" not in schema
     # nothing the user must edit is a raw key
     assert not any(v["label"].islower() and "_" in v["label"] for v in schema.values())
 

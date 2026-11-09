@@ -35,6 +35,16 @@ def ha():
     fake.stop()
 
 
+@pytest.fixture(autouse=True)
+def reports_in_time(monkeypatch, request):
+    """These tests exercise the read-back loop, so the integration is taken to report inside the wait (as teslemetry's
+    streaming does). The real tesla_fleet latency (600 s) means one read and an immediate answer: see the tests marked
+    ``real_latency`` here and test_car_session_1109.test_tesla_fleet_answers_after_one_read."""
+    if request.node.get_closest_marker("real_latency") is None:
+        from pit_crew.adapters.homeassistant import HomeAssistantAdapter
+        monkeypatch.setattr(HomeAssistantAdapter, "report_latency_s", lambda self: None)
+
+
 def svc_for(make_service, ha, clock):
     clock.t = NOW
     ha.now_fn = lambda: clock.t
@@ -166,3 +176,18 @@ def test_defrost_is_described_as_maximum_heat_and_fan(make_service, ha, clock):
     assert "MAXIMUM" in live["message"] and "Heads-up" in live["message"]
     off = svc.run_command("defrost", {"on": False}, surface="test")
     assert "Heads-up" not in off["message"]
+
+
+@pytest.mark.real_latency
+def test_tesla_fleet_charge_stop_does_not_wait_out_the_lag_window(make_service, ha, clock):
+    """On tesla_fleet the car reports every 600 s: the 90 s charging window cannot help, so it reads once and answers."""
+    ha.set_state(CHARGING, "charging"); stamp(ha, CHARGING, NOW - 5)
+    ha.set_state(SWITCH, "on")
+    svc = svc_for(make_service, ha, clock)
+
+    def only_the_optimistic_switch(service, data):            # what HA does on the command: the switch flips, nothing else
+        ha.set_state(SWITCH, "off"); stamp(ha, SWITCH, clock.t)
+    ha._effect = only_the_optimistic_switch
+    res = svc.run_command("charge_stop", {}, surface="test")
+    assert clock.t == NOW and res["readback"]["status"] == "accepted" and "Tesla accepted it" in res["message"]
+

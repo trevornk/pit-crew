@@ -14,7 +14,7 @@ from ..redact import plain
 from ..brain.commands import CHARGE_AMPS_MAX, CHARGE_AMPS_MIN, CHARGE_LIMIT_MAX, CHARGE_LIMIT_MIN, TEMP_MAX_F, TEMP_MIN_F
 from ..brain.commands import CommandSpec
 from ..brain.models import VehicleState
-from ..settings import zones_list
+from ..settings import LABELS, zones_list
 
 
 @dataclass
@@ -48,7 +48,17 @@ class PolicyResult:
 
 
 DEFAULT_MOTION_HINT = "Give Pit Crew a fresh motion source (speed, gear, or a 'driving' state)."
-OPT_OUT = (" (Only if you accept acting without knowing, you can set allow_unknown_motion to true — not recommended.)")
+OPT_OUT = (" (Only if you accept acting without knowing, you can turn on the setting “Advanced · Allow risky commands "
+           "when I can't tell if the car is parked” (allow_unknown_motion) — not recommended.)")
+
+
+def _setting(key: str) -> str:
+    """A setting as the owner finds it: its label in Pit Crew settings, plus the config key."""
+    return f"“{LABELS.get(key, key)}” ({key})"
+
+
+ZONE_SETTING_HINT = ("To allow unlock/trunk/frunk anywhere, set " + _setting("zone_rule") + " to 'anywhere' in Pit Crew "
+                     "settings")
 
 
 def _age_text(seconds: Optional[float]) -> str:
@@ -93,13 +103,16 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
                 f"{a} A is within the allowed {CHARGE_AMPS_MIN}–{ceiling} A for this charger" if ok
                 else f"{a} A is outside the allowed {CHARGE_AMPS_MIN}–{ceiling} A for this charger")
 
-    # -- sleeping car: don't wake it for convenience ---------------------------------------
-    if spec.wakes_car and state.value("asleep") is True and not wake_ok:
+    # -- sleeping car: don't wake it for convenience (unless the owner chose wake_for_commands: auto) ---------
+    auto_wake = str(settings.get("wake_for_commands", "ask")) == "auto"
+    if spec.wakes_car and state.value("asleep") is True and not wake_ok and not auto_wake:
         res.add("car_awake", False,
-                "the car is asleep and this command would wake it (that costs battery). Ask the user first, "
-                "then retry with wake_ok=true")
+                "the car is asleep and this command would wake it (that costs battery). To let a command you ask for "
+                f"wake the car without a second question, set {_setting('wake_for_commands')} to 'auto' in Pit Crew "
+                "settings. Ask the user first, then retry with wake_ok=true")
     elif state.value("asleep") is True:
-        res.warnings.append("the car is asleep; sending this will wake it")
+        res.warnings.append("the car is asleep; sending this will wake it"
+                            + (" (allowed by your wake setting)" if auto_wake and not wake_ok else ""))
 
     # -- state freshness ----------------------------------------------------------------------
     if spec.needs_fresh_state:
@@ -109,16 +122,17 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
         ok = age is not None and age <= limit
         res.add("state_fresh", ok,
                 f"the car's data is {_age_text(age)} old (limit {_age_text(limit)}); refresh status before "
-                "a security command")
+                f"a security command (the limit is the setting {_setting('max_state_age_s')})")
 
     # -- parked -------------------------------------------------------------------------------
     if spec.needs_parked:
         motion = state.motion(now, float(settings.get("max_state_age_s", 600)))
         if motion is True:
-            res.add("parked", False, "the car is moving; this command is refused while driving")
+            res.add("parked", False, "the car is moving (or its last reading says it is in D/R/N or moving); this command "
+                                     "is refused while driving, and no setting changes that")
         elif motion is None:
-            why = ("cannot confirm the car is parked: it reports no fresh speed, gear or driving state, and it is not "
-                   "plugged in. " + (motion_hint or DEFAULT_MOTION_HINT) + OPT_OUT)
+            why = ("cannot confirm the car is parked: it reports no fresh speed, gear, driving or asleep state, and it is "
+                   "not plugged in. " + (motion_hint or DEFAULT_MOTION_HINT) + OPT_OUT)
             if settings.get("allow_unknown_motion", False):
                 res.add("parked", True, "could not confirm the car is parked (allowed by allow_unknown_motion)")
                 res.warnings.append(why)
@@ -128,7 +142,9 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
             res.add("parked", True, "car is parked")
 
     # -- trusted zone ---------------------------------------------------------------------------
-    if spec.needs_trusted_zone:
+    if spec.needs_trusted_zone and str(settings.get("zone_rule", "trusted_zones")) == "anywhere":
+        res.add("trusted_zone", True, f"allowed anywhere ({_setting('zone_rule')} is 'anywhere')")
+    elif spec.needs_trusted_zone:
         trusted = zones_list(settings.get("trusted_zones"))
         zone = state.at_zone()
         zage = state.age_s("location_zone", now)
@@ -137,7 +153,7 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
             # R2: one fresh sensor must not vouch for a stale location
             res.add("trusted_zone", False,
                     f"the car's location reading is {_age_text(zage)} old (limit {_age_text(zlimit)}), so it cannot be "
-                    "trusted to still be at a trusted zone; refresh status first")
+                    "trusted to still be at a trusted zone; refresh status first. " + ZONE_SETTING_HINT)
         elif zone is not None and zone in trusted:
             res.add("trusted_zone", True, f"car is at trusted zone '{plain(zone)}'")
         elif override_zone:
@@ -148,9 +164,9 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
         else:
             where = f"at '{plain(zone)}'" if zone else "at an unknown location"
             res.add("trusted_zone", False,
-                    f"the car is {where}, not at a trusted zone ({', '.join(trusted) or 'none set'}). "
-                    "If the user really wants this, retry with override_zone=true — they will be asked to confirm",
-                    )
+                    f"the car is {where}, away from your trusted zones ({', '.join(trusted) or 'none set'}). "
+                    + ZONE_SETTING_HINT + ". If the user really wants this once, retry with override_zone=true — they "
+                    "will be asked to confirm")
 
     # -- command-specific preconditions ---------------------------------------------------------
     if spec.name == "charge_start":

@@ -162,9 +162,15 @@ class SafetyEngine:
             need = ""
             if spec.requires_approval:
                 need = " If it were live: " + approval_mode_sentence(spec.name, settings.get("require_human_for"))
-            why = "practice mode is on" if not force_dry_run else "a practice run was requested"
+            paused = armed_info.get("state") == "paused"
+            why = ("a practice run was requested" if force_dry_run else
+                   "live mode is paused (practice)" if paused else "practice mode is on")
+            how = ("To send real commands again, resume live mode (`/car live`, or Go live on the Pit Crew page)."
+                   if paused else
+                   "To send real commands, go live (`/car live`, or the Go live button on the Pit Crew page); or set "
+                   "Safety · Live mode to 'always' in Pit Crew settings to skip this step.")
             msg = (f"PRACTICE RUN — {label.replace("_", " ")} passed all safety checks, but {why}, so the car was NOT contacted.{need} "
-                   "To send real commands, go live (`/car live`, or the Go live button on the Pit Crew page).")
+                   + how)
             if spec.caution and args.get("on", True):
                 msg += " Heads-up: " + spec.caution
             aid = self._audit(surface=surface, session=session, command=spec.name, args=args, risk=spec.risk,
@@ -179,11 +185,16 @@ class SafetyEngine:
             if unattended:
                 return self._refuse_live(spec, args, surface, session, pol, armed, "unattended",
                                          "this needs a human's approval and no human can answer here "
-                                         "(scheduled / unattended run), so it was not sent")
+                                         "(scheduled / unattended run), so it was not sent. No setting changes this: "
+                                         "ask for it in a chat")
             if approval is None or approval.kind != APPROVAL_KIND:
+                listed = spec.name in (settings.get("require_human_for") or ())
                 return self._refuse_live(spec, args, surface, session, pol, armed, "missing",
                                          "no confirmed human approval was found for this exact command, so it was "
-                                         "not sent (fail closed)")
+                                         "not sent (fail closed)" + (
+                                             f". It is on your {policy_mod._setting('require_human_for')} list, so only "
+                                             "a person's answer to Hermes' prompt counts; remove it there to follow your "
+                                             "Hermes approval setting instead" if listed else ""))
             if approval.denied:
                 return self._refuse_live(spec, args, surface, session, pol, armed, "denied",
                                          f"the human declined ({approval.detail})")
@@ -198,14 +209,16 @@ class SafetyEngine:
             dedupe_window_s=float(settings["dedupe_window_s"]), canon=canonical_args)
         if res["verdict"] == "rate":
             msg = (f"rate limit reached ({settings['rate_limit_commands']} live commands per "
-                   f"{int(settings['rate_limit_window_s'] // 60)} min); try again later")
+                   f"{int(settings['rate_limit_window_s'] // 60)} min); try again later, or raise "
+                   f"{policy_mod._setting('rate_limit_commands')} in Pit Crew settings")
             aid = self._audit(surface=surface, session=session, command=spec.name, args=args, risk=spec.risk,
                               mode="live", policy="allowed", approval=approval_status, status="rate_limited",
                               detail=msg)
             return self._result(ok=False, status="rate_limited", command=spec.name, spec=spec, armed=armed,
                                 policy=pol, approval=approval_status, message=f"Not sent: {msg}.", audit_id=aid)
         if res["verdict"] == "dup":
-            msg = f"the same command was already sent {res['age_s']} s ago; skipped as a duplicate"
+            msg = (f"the same command was already sent {res['age_s']} s ago; skipped as a duplicate (repeats are ignored "
+                   f"for {int(settings['dedupe_window_s'])} s: {policy_mod._setting('dedupe_window_s')})")
             aid = self._audit(surface=surface, session=session, command=spec.name, args=args, risk=spec.risk,
                               mode="live", policy="allowed", approval=approval_status, status="duplicate", detail=msg)
             return self._result(ok=True, status="duplicate", command=spec.name, spec=spec, armed=armed, policy=pol,
@@ -222,9 +235,13 @@ class SafetyEngine:
 
         # -- live: send --------------------------------------------------------------------------
         send_args = {k: v for k, v in args.items() if k not in POLICY_FLAGS}
+        quick, latency = self._quick_readback(spec, settings)
         try:
-            if args.get("wake_ok") and hasattr(svc.adapter, "allow_wake_once"):
-                svc.adapter.allow_wake_once()  # the human agreed to wake the car for THIS command only
+            auto_wake = settings.get("wake_for_commands") == "auto"
+            if (args.get("wake_ok") or auto_wake) and hasattr(svc.adapter, "allow_wake_once"):
+                # the human agreed to wake the car for THIS command only (or set wake_for_commands: auto); a status
+                # read never wakes it either way
+                svc.adapter.allow_wake_once()
             sent_at = svc.now()
             t0 = time.monotonic()
             sent = svc.adapter.send_command(spec.name, send_args)
@@ -234,7 +251,7 @@ class SafetyEngine:
                     or getattr(exc, "partial", False):
                 # A timeout / half-finished multi-step command: the car may well have acted. Say so, and look.
                 rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]),
-                                     float(settings["verify_interval_s"]), sent_at=sent_at)
+                                     float(settings["verify_interval_s"]), sent_at=sent_at, single_read=quick)
                 if rb["status"] == "confirmed":
                     msg = (f"The request to the car timed out or only partly completed ({exc}), but the car "
                            f"shows the change at {rb['at_local']}.")
@@ -265,10 +282,20 @@ class SafetyEngine:
         # -- live: read-back ------------------------------------------------------------------------
         t1 = time.monotonic()
         rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]), float(settings["verify_interval_s"]),
-                             sent_at=sent_at, before=pre.get("state"))
+                             sent_at=sent_at, before=pre.get("state"), single_read=quick)
+        if quick and rb["status"] in ("accepted", "not_confirmed"):
+            # The car's own report cannot arrive inside any wait we could reasonably make: say so now, don't stall.
+            rb = {**rb, "status": "accepted", "quick": True, "waited_s": 0,
+                  "detail": (f"read once right after sending; {svc.adapter.service_name()}'s report of the car comes "
+                             f"about every {self._age_words(latency)}, so waiting longer would only delay this answer")}
         timing = {"send": send_ms, "readback": int((time.monotonic() - t1) * 1000)}
         waited = int(rb.get('waited_s') or float(settings['verify_timeout_s']))
-        if rb["status"] == "confirmed" and rb.get("already"):
+        if rb.get("quick"):
+            status, ok = "sent_unconfirmed", True
+            who = svc.adapter.service_name()
+            msg = (f"Sent {label}: {who[:1].upper() + who[1:]} accepted it. The car reports back within "
+                   f"~{self._age_words(latency)}; check car_status later before relying on it.")
+        elif rb["status"] == "confirmed" and rb.get("already"):
             status, ok = "confirmed", True
             msg = (f"Sent {label}. The car itself reported this ({rb['already']}) less than a minute before the command, "
                    "so nothing needed to change.")
@@ -321,9 +348,22 @@ class SafetyEngine:
             stamps.append(fv.changed_at if fv.changed_at is not None else fv.updated_at)
         return min(stamps) if stamps else None
 
+    def _quick_readback(self, spec: CommandSpec, settings: Mapping[str, Any]) -> Tuple[bool, float]:
+        """(read once and answer now?, the adapter's report latency). True when the car's own report takes far longer
+        (more than twice) than the longest read-back wait for this command: e.g. tesla_fleet re-reads every 600 s."""
+        try:
+            fn = getattr(self._svc.adapter, "report_latency_s", None)
+            latency = fn() if callable(fn) else None
+        except AdapterError:
+            latency = None
+        if not isinstance(latency, (int, float)) or spec.verify is None:
+            return False, 0.0
+        window = max(0.0, float(settings["verify_timeout_s"]), spec.verify_window_s)
+        return float(latency) > 2.0 * window, float(latency)
+
     def _read_back(self, spec: CommandSpec, args: Mapping[str, Any], timeout_s: float,
-                   interval_s: float, *, sent_at: Optional[float] = None, before: Optional[VehicleState] = None
-                   ) -> Dict[str, Any]:
+                   interval_s: float, *, sent_at: Optional[float] = None, before: Optional[VehicleState] = None,
+                   single_read: bool = False) -> Dict[str, Any]:
         """Re-read the car until its OWN report shows the change.
 
         * ``confirmed`` needs the relevant fields to have been *written after the command went out*; an old value that
@@ -335,7 +375,9 @@ class SafetyEngine:
         * "Already in that state" (``confirmed`` + ``already``) needs the car's own report from at most
           :data:`ALREADY_MAX_AGE_S` before the command. An older matching reading is only mentioned (``stale_match``):
           the door may have been locked by hand since.
-        * Commands whose result lags (charging: Fleet API takes 30-90 s) keep looking for ``spec.verify_window_s``."""
+        * Commands whose result lags (charging: Fleet API takes 30-90 s) keep looking for ``spec.verify_window_s``.
+        * ``single_read``: one read, no waiting (the adapter's report latency is far longer than any wait; see
+          :meth:`_quick_readback`)."""
         svc = self._svc
         if spec.verify is None:
             return {"status": "unverifiable", "detail": "this command has no observable result"}
@@ -355,7 +397,7 @@ class SafetyEngine:
                     stale_match = (f"(The last reading before sending ({when}) said {self._already_text(spec, args)}, "
                                    "but it may be out of date, so the command was sent anyway and that reading proves "
                                    "nothing.)")
-        window = max(0.0, timeout_s, spec.verify_window_s)
+        window = 0.0 if single_read else max(0.0, timeout_s, spec.verify_window_s)
         step = max(0.05, interval_s, 5.0 if spec.verify_window_s else 0.0)
         started = svc._wall()
         deadline = started + window

@@ -184,7 +184,7 @@ class VehicleState:
     def motion(self, now: Optional[float] = None, max_age_s: Optional[float] = None) -> Optional[bool]:
         """True = moving, False = parked, None = cannot tell.
 
-        Indicators: ``moving``, ``speed_mph``, ``shift_state`` and (as a parked indicator) ``plugged_in``.
+        Indicators: ``moving``, ``speed_mph``, ``shift_state`` and (as parked indicators) ``plugged_in`` and ``asleep``.
         Any indicator saying "moving" wins. "Parked" needs at least one indicator that says so **and is fresh**:
         when ``now`` and ``max_age_s`` are given, an indicator older than ``max_age_s`` is ignored, so a stale
         reading can never prove the car is parked (it yields ``None``).
@@ -214,6 +214,10 @@ class VehicleState:
             vote("shift_state", shift.upper() in ("D", "R", "N"))
         if self.value("plugged_in") is True:
             vote("plugged_in", False)
+        if self.value("asleep") is True:
+            # A sleeping car is parked (a Tesla cannot sleep in drive), so a FRESH "asleep" reading is parked evidence
+            # even when speed/gear are stale. Any reading saying D/R/N or speed > 0 (even a stale one) still wins above.
+            vote("asleep", False)
         if moving_votes:
             return True
         return False if parked_fresh else None

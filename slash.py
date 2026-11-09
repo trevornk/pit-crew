@@ -35,8 +35,9 @@ Everyday
   /car alerts [ack [id]]  open alerts (ack with no id acknowledges all)
   ...or just ask in plain language: "lock my car", "warm it up", "will I make it tomorrow?"
 Safety
-  /car live [hours]       go live (asks first; stops by itself; default 1 h, setting live_default_hours)
-  /car practice           back to practice mode: commands are checked and logged, nothing is sent
+  /car live [hours]       go live (asks first). Live mode on_demand: stops by itself (default 1 h,
+                          setting live_default_hours). Live mode always: resumes after a stop, no limit
+  /car stop               practice mode: checked and logged, nothing sent (= /car practice)
   /car log [n]            recent command attempts
 Setup
   /car discover           find your car in Home Assistant
@@ -128,9 +129,14 @@ def _status_card(svc: Any) -> str:
         extras.append("asleep")
     lines.append(" · ".join(extras))
     info = svc.armed_info()
-    if info["armed"]:
-        until = f" until {fmt_clock(svc.local_dt(info['until']))}" if info["until"] else " (standing setting)"
-        lines.append(f"Mode: LIVE{until} — Hermes can send commands (unlock, trunk and similar follow your Hermes approval setting)")
+    if info["state"] == "always":
+        lines.append("Mode: Live: always on — Hermes can send commands (unlock, trunk and similar follow your Hermes approval "
+                     "setting). `/car stop` pauses it.")
+    elif info["state"] == "paused":
+        lines.append("Mode: Paused (practice) — /car live to resume. Commands are checked and logged, nothing is sent.")
+    elif info["armed"]:
+        lines.append(f"Mode: Live until {fmt_clock(svc.local_dt(info['until']))} — Hermes can send commands (unlock, trunk "
+                     "and similar follow your Hermes approval setting)")
     else:
         lines.append("Mode: Practice — commands are checked and logged, nothing is sent. (`/car live` to go live)")
     for w in svc.warnings(state):
@@ -245,6 +251,8 @@ def _arm(svc: Any, rest: List[str]) -> str:
     confirmed = "confirm" in rest
     nums = [r for r in rest if _num(r)]
     want = float(nums[0]) if nums else None
+    if svc.settings.get("live_mode") == "always":
+        return _resume_always(svc, confirmed, want)
     hours = svc.clamp_hours(want)
     note = ""
     if want is not None and abs(hours - want) > 1e-9:
@@ -268,6 +276,34 @@ def _arm(svc: Any, rest: List[str]) -> str:
             return "Cancelled: staying in practice mode (nothing is sent)."
     info = svc.arm(hours, by="slash")
     return f"Live for {hours:g} h{note}, until {fmt_clock(svc.local_dt(info['until']))}. `/car practice` stops it sooner."
+
+
+def _resume_always(svc: Any, confirmed: bool, want: Optional[float]) -> str:
+    """``live_mode: always``: `/car live` resumes after a `/car stop` pause, with no expiry (a number is not a length here)."""
+    note = (f" (Live mode is set to always on, so there is no time limit; the {want:g} h you gave doesn't apply. For a "
+            "timed window set Safety · Live mode to on_demand.)") if want is not None else ""
+    if svc.armed_info()["armed"]:
+        return "Live: always on already. `/car stop` pauses it." + note
+    if not confirmed:
+        simulated = getattr(svc.adapter, "simulated", False)
+        what = ("This is the SIMULATED car, so nothing real can happen." if simulated else
+                f"Hermes will be able to send real commands to your {svc.adapter.label} until you run `/car stop`. Unlock, "
+                "trunk and similar follow your Hermes approval setting.")
+        question = f"Resume live mode (always on)? {what}"
+        answer = None
+        ctx = svc.ctx
+        if ctx is not None:
+            try:
+                answer = ctx.ask_choice(question, [{"value": "yes", "label": "Resume live mode"},
+                                                  {"value": "no", "label": "Cancel (stay paused)"}])
+            except Exception as exc:
+                logger.info("ask_choice unavailable: %s", exc)
+        if answer is None:
+            return f"{question}\nI can't show a confirmation here. To resume, type: `/car live confirm`"
+        if answer != "yes":
+            return "Cancelled: still paused (practice mode, nothing is sent)."
+    svc.arm(None, by="slash")
+    return "Live: always on again (no time limit). `/car stop` pauses it." + note
 
 
 def _quick(svc: Any, command: str, args: Dict[str, Any], what: str) -> str:
@@ -464,7 +500,9 @@ def handle(raw_args: str = "", *, session_id: str = "", session_key: str = "", p
         if sub in ("live", "arm", "golive", "go-live"):
             return _arm(svc, rest)
         if sub in ("practice", "disarm", "stop"):
-            svc.disarm(by="slash")
+            info = svc.disarm(by="slash")
+            if info["live_mode"] == "always":
+                return "Paused (practice) — /car live to resume. Nothing will be sent to the car until then."
             return "Back to practice mode. Nothing will be sent to the car."
         if sub == "lock":
             return _quick(svc, "lock", {}, "lock")

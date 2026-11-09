@@ -128,7 +128,8 @@ def test_speed_in_kmh_is_converted_and_stale_motion_readings_do_not_count(make_s
         ha.states[e]["last_reported"] = iso(NOW - 5)
     # Pass 8 (R1): while the car is online an unchanged value is confirmed by the integration's poll, so "stale"
     # now means the car is offline/asleep and per-entity stamps apply.
-    ha.set_state("binary_sensor.demo_car_status", "off"); ha.states["binary_sensor.demo_car_status"]["last_reported"] = iso(NOW - 5)
+    # (an "asleep" reading that is itself fresh is parked evidence since worker 11, so here it is old too)
+    ha.set_state("binary_sensor.demo_car_status", "off"); ha.states["binary_sensor.demo_car_status"]["last_reported"] = iso(NOW - 4000)
     clock.advance(130)
     res = svc.run_command("unlock", {}, surface="test", approval=HUMAN)
     assert res["status"] == "blocked" and "cannot confirm the car is parked" in res["message"]

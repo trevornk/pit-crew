@@ -84,14 +84,16 @@ CAR_COMMAND = {
         "Send ONE command to the car through the safety gate. Commands — " + _command_help() + ". "
         "Arguments (all bounded): set_temp/climate_on {temp_f 59-82}; charge_limit {percent 50-100}; "
         "charge_amps {amps}; defrost {on} (Tesla defrost runs the heat and the fan at MAXIMUM: do not turn it on with anyone or any pet in the car, and say so to the user before you do); seat_heat {seat: driver|passenger|rear_left|rear_center|rear_right, "
-        "level 0-3}. The car starts in PRACTICE mode: commands are validated and logged but NOT sent until the "
-        "user goes live (`/car live`, or Go live on the Pit Crew page) — the result says which happened, so say it plainly (\"practice "
-        "run, nothing was sent\"). Commands marked NEEDS HUMAN APPROVAL go through Hermes' approval gate under the user's own approval setting (Hermes asks them, or not if their approvals are off); they are refused when "
+        "level 0-3}. Unless the user set live mode to 'always', the car starts in PRACTICE mode: commands are validated and "
+        "logged but NOT sent until the user goes live (`/car live`, or Go live on the Pit Crew page); `/car stop` pauses either "
+        "mode. The result says which happened, so say it plainly (\"practice run, nothing was sent\"). You cannot go live or "
+        "change Pit Crew's safety settings yourself; tell the user the setting a refusal names. Commands marked NEEDS HUMAN APPROVAL go through Hermes' approval gate under the user's own approval setting (Hermes asks them, or not if their approvals are off); they are refused when "
         "nobody can answer (scheduled/unattended runs) and are refused while the car is moving, when its data is "
-        "stale, or (unlock/trunk/frunk) when it is away from a trusted zone. Never claim a command worked "
+        "stale, or (unlock/trunk/frunk) when it is away from a trusted zone unless the user allows them anywhere. Never claim a command worked "
         "unless the result's status is `confirmed` (the car's own state showed the change); `sent_unconfirmed` "
         "means sent but NOT verified — say so, and re-check with car_status. Never retry a failed or blocked "
-        "command in a loop. Do not use this to wake a sleeping car; ask the user first."
+        "command in a loop. Never wake a sleeping car for something the user did not ask for; if a result says waking needs "
+        "their OK, ask them first."
     ),
     "parameters": {
         "type": "object",

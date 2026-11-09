@@ -147,6 +147,26 @@ class Settings:
         """In-process override (used by tests and by `/car arm` for the runtime armed flag)."""
         self._overrides[key] = value
 
+    def save_rule(self, rule_id: str, changes: Mapping[str, Any], ctx: Any = None) -> None:
+        """Write rule edits into the plugin's own ``rules`` setting (the single source of truth, the same value Settings ->
+        Plugins -> Pit Crew shows). In-process uses ``ctx.set_config``; the dashboard backend (no ctx) uses the writer Hermes'
+        own settings form uses (``hermes_cli.plugins_state.save_plugin_setting``). Outside Hermes (tests) it is held in memory.
+        Raises on a real failure (managed install, unwritable config): a rule edit is never silently dropped."""
+        for key, value in changes.items():
+            path = f"rules.{rule_id}.{key}"
+            setter = getattr(ctx, "set_config", None)
+            if callable(setter):
+                setter(path, value)
+                continue
+            try:
+                from hermes_cli.plugins_state import save_plugin_setting
+            except ImportError:
+                merged = {r: dict(v) for r, v in (self.get("rules") or {}).items() if isinstance(v, dict)}
+                merged.setdefault(rule_id, {})[key] = value
+                self._overrides["rules"] = merged
+                continue
+            save_plugin_setting(PLUGIN_ID, ("rules", rule_id, key), value)
+
     def adapter_fingerprint(self) -> Tuple[Any, ...]:
         snap = self.snapshot()
         return tuple(repr(snap[k]) for k in ADAPTER_KEYS)

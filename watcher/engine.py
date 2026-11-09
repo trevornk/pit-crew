@@ -27,7 +27,10 @@ class RuleEngine:
 
     # -- configuration --------------------------------------------------------------------
     def rule_config(self, rule: Rule) -> Dict[str, Any]:
-        """Defaults < ``rules`` setting < runtime overrides (set from tools/slash/Desktop)."""
+        """Defaults < the plugin's ``rules`` setting (the one source of truth: Settings, the page and the car_rules tool all
+        read and write it). Edits made by older versions sat in the plugin DB (``rule_overrides``); they are moved into the
+        setting once, and until that succeeds they keep applying so nothing is lost."""
+        self._migrate_overrides()
         cfg = self._svc.settings.rule_config(rule.id, rule.defaults)
         over = (self._svc.store.kv_get("rule_overrides", {}) or {}).get(rule.id) or {}
         for k, v in over.items():
@@ -64,10 +67,29 @@ class RuleEngine:
                 if k == "min_psi" and num != 0 and not 5 <= num <= 120:
                     raise ValueError("'min_psi' must be 0 (automatic) or between 5 and 120")
                 clean[k] = int(num) if float(num).is_integer() else num
-        overrides = self._svc.store.kv_get("rule_overrides", {}) or {}
-        overrides.setdefault(rule_id, {}).update(clean)
-        self._svc.store.kv_set("rule_overrides", overrides)
+        self._migrate_overrides()
+        self._svc.settings.save_rule(rule_id, clean, ctx=self._svc.ctx)
         return self.rule_config(rule)
+
+    def _migrate_overrides(self) -> None:
+        """One-time move of the old DB-held ``rule_overrides`` into the ``rules`` setting, then drop them."""
+        store = self._svc.store
+        old = store.kv_get("rule_overrides", None)
+        if not old:
+            if old is not None:
+                store.kv_delete("rule_overrides")
+            return
+        try:
+            for rule_id, values in old.items():
+                rule = RULES_BY_ID.get(rule_id)
+                if rule is None or not isinstance(values, dict):
+                    continue
+                keep = {k: v for k, v in values.items() if k in rule.defaults}
+                if keep:
+                    self._svc.settings.save_rule(rule_id, keep, ctx=self._svc.ctx)
+            store.kv_delete("rule_overrides")
+        except Exception:      # noqa: BLE001 - e.g. a managed install: keep honouring the old overrides, try again later
+            logger.warning("could not move old alert-rule edits into the plugin setting; keeping them for now", exc_info=True)
 
     def describe_rules(self, state: Optional[VehicleState] = None) -> List[Dict[str, Any]]:
         out = []

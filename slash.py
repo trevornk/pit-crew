@@ -400,10 +400,24 @@ def _discover(svc: Any) -> str:
                                         [{"value": "yes", "label": f"Use {rec['ha_slug']}"}, {"value": "no", "label": "Not now"}])
             except Exception as exc:
                 logger.info("ask_choice unavailable: %s", exc)
-        lines.append("In Settings → Plugins → Pit Crew set “Home Assistant · Car name” to "
-                     f"{rec['ha_slug']} and “Home Assistant · Car brand mapping” to {rec['ha_profile']}, "
-                     "and “Connection · Which car” to homeassistant. Changes apply immediately; then run `/car`."
-                     + (" (I can't change settings for you from here.)" if answer == "yes" else ""))
+        manual = ("In Settings → Plugins → Pit Crew set “Home Assistant · Car name” to "
+                  f"{rec['ha_slug']} and “Home Assistant · Car brand mapping” to {rec['ha_profile']}, "
+                  "and “Connection · Which car” to homeassistant. Changes apply immediately; then run `/car`.")
+        applied = False
+        if answer == "yes" and callable(getattr(ctx, "set_config", None)):
+            try:
+                ctx.set_config("ha_slug", rec["ha_slug"])
+                ctx.set_config("ha_profile", rec["ha_profile"])
+                ctx.set_config("adapter", "homeassistant")
+                applied = True
+            except Exception as exc:     # e.g. a managed install: say so and fall back to the manual steps
+                logger.info("could not save the discovered settings: %s", exc)
+                lines.append(f"I couldn't save those settings for you ({type(exc).__name__}).")
+        if applied:
+            lines.append(f"Done: car name {rec['ha_slug']}, brand mapping {rec['ha_profile']}, connection homeassistant. "
+                         "They apply immediately; run `/car` to see the car.")
+        else:
+            lines.append(manual)
     else:
         lines.append("No bundled profile matched well. A generic guess:")
         lines.append(json.dumps(res["generic_proposal"]["entity_overrides"], indent=2))

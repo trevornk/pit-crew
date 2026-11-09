@@ -57,7 +57,8 @@ config_schema:
   rate_limit_window_s: {type: int, default: 600, label: "Safety · Rate-limit window (s)", description: "The window for the limit above."}
   dedupe_window_s: {type: int, default: 60, label: "Safety · Ignore a repeated command for (s)", description: "An identical live command inside this window is skipped."}
   watcher_enabled: {type: bool, default: true, label: "Alerts · Watch the car in the background", description: "Check the car regularly and raise alerts on its own."}
-  alert_push: {type: bool, default: true, label: "Alerts · Send alerts to my chat", description: "Message the chat bound with `/car notify here` when something needs attention (needs allow_gateway_injection)."}
+  alert_push: {type: bool, default: true, label: "Alerts · Send alerts to my chat", description: "Send new alerts to the place set below or with `/car notify here` (a plain message through Hermes' own delivery, no agent turn)."}
+  alert_target: {type: str, default: "", label: "Alerts · Where alerts go", description: "A Hermes delivery target, e.g. telegram, discord:#car, matrix:!room:server. Same as a cron job's deliver. Empty = use what `/car notify here` set. Wins over `/car notify`."}
   alert_context: {type: bool, default: true, label: "Alerts · Mention alerts in my next chat", description: "Tell the agent about unseen alerts the next time you talk to it."}
   poll_interval_s: {type: int, default: 120, label: "Alerts · Check every (s)", description: "How often the watcher reads the car."}
   asleep_poll_interval_s: {type: int, default: 900, label: "Alerts · Check every (s) while the car sleeps", description: "Slower checks while asleep. The watcher never wakes the car."}

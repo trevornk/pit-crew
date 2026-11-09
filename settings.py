@@ -59,7 +59,8 @@ DEFAULTS: Dict[str, Any] = {
     "poll_interval_s": 120,
     "asleep_poll_interval_s": 900,
     "alert_cooldown_min": 240,       # re-notify about a still-true condition no sooner than this
-    "alert_push": True,              # push new alerts to the chat bound with `/car notify here`
+    "alert_push": True,              # push new alerts to the delivery target
+    "alert_target": "",              # Hermes delivery target (telegram, discord:#car, matrix:!room:server); wins over `/car notify`
     "alert_context": True,           # also hand unseen alerts to the model on the next turn
     "night_start": "22:00",
     "night_end": "06:00",

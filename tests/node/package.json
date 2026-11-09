@@ -1,0 +1,12 @@
+{
+  "name": "pit-crew-test-node",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pinned Node dependencies for the Pit Crew jsdom / server-render page tests (tests only; never shipped).",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "jsdom": "29.1.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

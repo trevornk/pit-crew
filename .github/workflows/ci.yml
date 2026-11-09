@@ -1,14 +1,70 @@
 name: ci
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
+env:
+  # Hermes Agent release the real-Hermes tests (plugin load + approval pipeline) run against.
+  # Must satisfy requires_hermes in plugin.yaml. Bump deliberately, after reading the release notes.
+  HERMES_TAG: v0.23.0
+  HERMES_COMMIT: 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Install test tools with a release-age quarantine (catalog rule 10)
+      - uses: actions/checkout@v7
+
+      # setup-uv publishes exact tags only (no floating major), and its cache needs a uv.lock this repo does not have.
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/node/package-lock.json
+
+      - name: Node test dependencies (pinned react, react-dom, jsdom; lockfile only, no install scripts)
+        run: npm ci --ignore-scripts
+        working-directory: tests/node
+
+      - name: Python test tools with a release-age quarantine (catalog rule 10)
         run: |
           uv venv --python 3.12 .ci-venv
           uv pip install --python .ci-venv/bin/python --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
-      - name: Tests (Hermes-venv and Node tests skip themselves when those are absent)
-        run: .ci-venv/bin/python -m pytest tests
+
+      - name: Hermes Agent ${{ env.HERMES_TAG }} (pinned commit, installed from its own uv.lock)
+        run: |
+          git clone --quiet --depth 1 --branch "$HERMES_TAG" https://github.com/NousResearch/hermes-agent.git "$RUNNER_TEMP/hermes-src"
+          test "$(git -C "$RUNNER_TEMP/hermes-src" rev-parse HEAD)" = "$HERMES_COMMIT"
+          cd "$RUNNER_TEMP/hermes-src"
+          UV_PROJECT_ENVIRONMENT="$RUNNER_TEMP/hermes-venv" uv sync --frozen --python 3.14
+          echo "HERMES_PY=$RUNNER_TEMP/hermes-venv/bin/python" >> "$GITHUB_ENV"
+          echo "HERMES_BIN=$RUNNER_TEMP/hermes-venv/bin/hermes" >> "$GITHUB_ENV"
+
+      - name: Tests (nothing may skip here; the next step enforces it)
+        run: |
+          .ci-venv/bin/python -m pytest tests -rs --junitxml=junit.xml
+        env:
+          HERMES_NODE_MODULES: ${{ github.workspace }}/tests/node/node_modules
+
+      - name: No test may be skipped in CI
+        run: |
+          python3 - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse("junit.xml").getroot()
+          skipped = [f"{c.get('classname')}::{c.get('name')}" for c in root.iter("testcase") if c.find("skipped") is not None]
+          print(f"skipped: {len(skipped)}")
+          for s in skipped:
+              print("  ", s)
+          sys.exit(1 if skipped else 0)
+          PY
+
+      - name: Hermes validates the plugin (manifest, capability probe, security scan)
+        run: |
+          mkdir -p "$RUNNER_TEMP/hermes-home"
+          HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps

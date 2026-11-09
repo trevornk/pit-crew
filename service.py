@@ -232,6 +232,12 @@ class CarService:
                            "plugged in; unlock/trunk/frunk/vent are blocked otherwise. " + self.motion_hint())
         except AdapterError:
             pass
+        try:
+            fn = getattr(self.adapter, "setup_warnings", None)
+            if callable(fn):
+                out.extend(fn())
+        except AdapterError:
+            pass
         return out
 
     def _link_warnings(self) -> List[str]:

@@ -61,7 +61,18 @@ _SPECS: List[FieldSpec] = [
     FieldSpec("software_update_available", "Software update available", "software"),
     FieldSpec("software_version", "Software version", "software"),
     FieldSpec("odometer_mi", "Odometer", "software", "mi"),
+    FieldSpec("tire_psi_fl", "Tire pressure front left", "tires", "psi"),
+    FieldSpec("tire_psi_fr", "Tire pressure front right", "tires", "psi"),
+    FieldSpec("tire_psi_rl", "Tire pressure rear left", "tires", "psi"),
+    FieldSpec("tire_psi_rr", "Tire pressure rear right", "tires", "psi"),
+    FieldSpec("tire_rec_front_psi", "Recommended front tire pressure", "tires", "psi"),
+    FieldSpec("tire_rec_rear_psi", "Recommended rear tire pressure", "tires", "psi"),
 ]
+
+#: public (tool / page) names of the tire fields, in display order
+TIRE_PUBLIC = {"tire_psi_fl": "front_left_psi", "tire_psi_fr": "front_right_psi", "tire_psi_rl": "rear_left_psi",
+               "tire_psi_rr": "rear_right_psi", "tire_rec_front_psi": "recommended_front_psi",
+               "tire_rec_rear_psi": "recommended_rear_psi"}
 
 FIELD_SPECS: Dict[str, FieldSpec] = {s.name: s for s in _SPECS}
 FIELD_NAMES = tuple(FIELD_SPECS)
@@ -230,6 +241,7 @@ class VehicleState:
         if mv is not None:
             motion["moving"] = mv
         software = grp("software_update_available", "software_version", "odometer_mi")
+        tires = {label: round(float(v(f)), 1) for f, label in TIRE_PUBLIC.items() if self.has(f)}
         status = grp("asleep")
 
         stale = {n: int(a) for n in FIELD_NAMES
@@ -247,6 +259,7 @@ class VehicleState:
             "location": location,
             "motion": motion,
             "software": software,
+            "tires": tires,
             "status": status,
             "freshness": {
                 "newest_update_age_s": None if newest is None else int(max(0.0, now - newest)),

@@ -98,6 +98,7 @@ function view(summary) {
   const cli = st.climate || {}
   const loc = st.location || {}
   const sw = st.software || {}
+  const tires = st.tires || {}
   const newest = fresh.newest_update_age_s
   const isStale = ok && ((newest != null && newest > (fresh.stale_after_s || 900)) || (st.status && st.status.asleep))
   // Per-reading freshness. A reading older than the stale limit is shown as "last known" (still readable, never greyed
@@ -111,7 +112,7 @@ function view(summary) {
   // Age of a single field when it is stale (so badges can say "as of 5 h ago"), else null.
   const staleAge = f => (stale[f] != null ? ageText(stale[f]) : null)
   const armed = !!(summary && summary.armed && summary.armed.armed)
-  return { st, ok, sec, chg, bat, cli, loc, sw, isStale, tileFresh, staleAge, unavailable, newest, armed }
+  return { st, ok, sec, chg, bat, cli, loc, sw, tires, isStale, tileFresh, staleAge, unavailable, newest, armed }
 }
 
 // ----------------------------------------------------------------------------- building blocks
@@ -280,8 +281,10 @@ function Warnings({ v, summary }) {
 
 // ----------------------------------------------------------------------------- tiles
 function Tiles({ v }) {
-  const { ok, sec, chg, cli, sw, tileFresh, unavailable } = v
+  const { ok, sec, chg, cli, sw, tires, tileFresh, unavailable } = v
   if (!ok) return null
+  const psi = [['FL', 'front_left_psi'], ['FR', 'front_right_psi'], ['RL', 'rear_left_psi'], ['RR', 'rear_right_psi']].filter(([, k]) => tires[k] != null)
+  const lowest = psi.length ? Math.min(...psi.map(([, k]) => tires[k])) : null
   const openList = (val, none) => (Array.isArray(val) ? (val.length ? `${val.length} open` : none) : val === undefined ? '—' : val ? 'Open' : none)
   const names = val => (Array.isArray(val) && val.length ? val.map(x => x.replace(/_/g, ' ')).join(', ') : null)
   const flag = (val, on, off) => (val === undefined ? '—' : val ? on : off)
@@ -296,6 +299,9 @@ function Tiles({ v }) {
     h(Tile, { label: 'Sentry', icon: 'eye', value: flag(sec.sentry_on, 'On', 'Off'), fresh: tileFresh(['sentry_on']) }),
     h(Tile, { label: 'Charging', icon: 'plug', value: chg.charging_state ? (CHARGE_WORDS[chg.charging_state] || cap(chg.charging_state)) : '—',
       sub: chg.charge_current_a ? `${num(chg.charge_current_a)} A · ${num(chg.charger_voltage_v)} V` : null, fresh: tileFresh(['charging_state']) }),
+    h(Tile, { label: 'Tires', icon: 'circle-large', value: lowest != null ? `${num(lowest)} psi lowest` : '—',
+      sub: psi.length ? psi.map(([n, k]) => `${n} ${num(tires[k])}`).join(' · ') : null,
+      fresh: tileFresh(['tire_psi_fl', 'tire_psi_fr', 'tire_psi_rl', 'tire_psi_rr']) }),
     h(Tile, { label: 'Software', icon: 'versions', value: sw.software_update_available ? 'Update waiting' : 'Up to date',
       sub: [sw.software_version, sw.odometer_mi != null ? `${num(sw.odometer_mi)} mi` : null].filter(Boolean).join(' · '),
       fresh: unavailable.has('software_update_available') ? tileFresh(['software_update_available']) : null }))
@@ -667,7 +673,7 @@ function SimControls({ firstRun }) {
     ['Fast-forward 30 min', 'advance', { minutes: 30 }], ['Fast-forward 3 h', 'advance', { minutes: 180 }],
     ['Drive 20 mi away', 'drive', { miles: 20, to: 'away' }], ['Park at home', 'park_home'], ['Plug in', 'plug_in'], ['Unplug', 'unplug'],
     ['Leave it unlocked', 'leave_unlocked'], ['Leave a door open', 'open_door'], ['Close everything', 'close_doors'],
-    ['Cold snap (18°F)', 'cold', { temp_f: 18 }], ['Normal weather', 'normal_weather'], ['Reset', 'reset']]
+    ['Leak a tire (6 psi/h)', 'leak', { tire: 'rr', psi_per_hour: 6 }], ['Pump up tires', 'inflate'], ['Cold snap (18°F)', 'cold', { temp_f: 18 }], ['Normal weather', 'normal_weather'], ['Reset', 'reset']]
   return h(Section, { title: 'Try it: simulator controls', right: h('div', { style: S.row }, h(Badge, { variant: 'outline' }, 'demo only'),
     h(Button, { size: 'xs', variant: 'ghost', onClick: () => setOpen(!open) }, open ? 'Hide' : 'Show')) },
     open ? h(Fragment, null,

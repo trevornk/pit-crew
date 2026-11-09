@@ -67,7 +67,27 @@ def _default_state(seed: int, now: float) -> Dict[str, Any]:
         "fired_events": 0,
         "last_report": now,
         "trips": [],
+        # tire pressure at the 68 °F reference (the displayed value follows the outside temperature); psi lost per hour
+        "tires": {"fl": 42.0, "fr": 42.0, "rl": 41.5, "rr": 41.5},
+        "leaks": {},
     }
+
+
+TIRE_POSITIONS = {"fl": "front left", "fr": "front right", "rl": "rear left", "rr": "rear right"}
+TIRE_PLACARD_PSI = 42.0
+
+
+def _tire_temp_factor(outside_f: float) -> float:
+    return (outside_f + 459.67) / (68.0 + 459.67)
+
+
+def _tire_key(raw: Any) -> str:
+    key = str(raw or "").strip().lower().replace(" ", "_").replace("-", "_")
+    aliases = {"front_left": "fl", "front_right": "fr", "rear_left": "rl", "rear_right": "rr"}
+    key = aliases.get(key, key)
+    if key not in TIRE_POSITIONS:
+        raise AdapterError("tire must be fl, fr, rl or rr (front/rear left/right)")
+    return key
 
 
 def _schedule_events(state: Dict[str, Any], rng: random.Random, start: float, hours: float = 96.0) -> None:
@@ -100,6 +120,8 @@ class SimulatorAdapter(CarAdapter):
         if self._store is not None:
             saved = self._store.kv_get(KV_KEY)
             if isinstance(saved, dict) and saved.get("seed") == self._seed:
+                saved.setdefault("tires", dict(_default_state(self._seed, 0.0)["tires"]))   # states saved by older versions
+                saved.setdefault("leaks", {})
                 self._state = saved
                 return saved
         if self._state is not None and self._store is None:
@@ -163,6 +185,8 @@ class SimulatorAdapter(CarAdapter):
                     p_kw *= 0.6
                 st["energy_kwh"] = min(limit_kwh, st["energy_kwh"] + p_kw * CHARGE_EFFICIENCY * dt / 3600.0)
                 st["asleep"] = False
+        for pos, rate in list(st.get("leaks", {}).items()):
+            st["tires"][pos] = max(0.0, st["tires"][pos] - float(rate) * dt / 3600.0)
         # drains
         drain_kw = 0.03
         if st["climate_on"]:
@@ -255,6 +279,10 @@ class SimulatorAdapter(CarAdapter):
             "software_update_available": st["update_available"],
             "software_version": st["sw_version"],
             "odometer_mi": round(st["odometer_mi"], 1),
+            # cold tires read lower: about 1 psi per 10 °F around the 68 °F reference
+            **{f"tire_psi_{pos}": round(psi * _tire_temp_factor(outside), 1) for pos, psi in st["tires"].items()},
+            "tire_rec_front_psi": TIRE_PLACARD_PSI,
+            "tire_rec_rear_psi": TIRE_PLACARD_PSI,
         }
         fields = {name: FieldValue(vals[name], report if name != "asleep" else sim_now) for name in vals}
         for name in FIELD_NAMES:
@@ -402,6 +430,24 @@ class SimulatorAdapter(CarAdapter):
                 raise AdapterError("a charging car stays awake; stop charging or unplug first")
             st["asleep"] = True
             return "the car fell asleep (state is no longer updating)"
+        if action == "leak":
+            pos = _tire_key(kw.get("tire", "rr"))
+            rate = float(kw.get("psi_per_hour", 6.0))
+            if not 0 < rate <= 300:
+                raise AdapterError("psi_per_hour must be between 0 and 300")
+            st["leaks"][pos] = rate
+            return f"the {TIRE_POSITIONS[pos]} tire started leaking {rate:g} psi/hour"
+        if action == "low_tire":
+            pos = _tire_key(kw.get("tire", "rr"))
+            shown = max(0.0, min(80.0, float(kw.get("psi", 30.0))))
+            st["tires"][pos] = shown / _tire_temp_factor(self._outside_f(st, st["last_tick"]))   # `shown` is what the car reports now
+            st["leaks"].pop(pos, None)
+            return f"the {TIRE_POSITIONS[pos]} tire now reads {shown:g} psi"
+        if action == "inflate":
+            for pos in st["tires"]:
+                st["tires"][pos] = TIRE_PLACARD_PSI
+            st["leaks"] = {}
+            return "all tires pumped up to 42 psi and no leaks"
         if action == "reset":
             fresh = _default_state(self._seed, self._wall())
             if self._events_enabled:

@@ -18,7 +18,7 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from .profile import bundled_profiles, entity_ids_for_field, load_profile
+from .profile import bundled_profiles, disabled_field_names, enable_instructions, entity_ids_for_field, load_profile
 
 
 def _pattern_for(template: str) -> "re.Pattern[str]":
@@ -71,6 +71,11 @@ def score_profile(profile: Mapping[str, Any], slug: str, entity_ids: set) -> Dic
         names = ", ".join(profile["fields"][f]["entity"].replace("{slug}", slug) for f in motion)
         warnings.append("Motion entities are missing, so unlock/trunk/frunk/vent will be refused. "
                         + (profile.get("motion_hint") or "Map a speed/gear/driving entity.") + f" Missing: {names}.")
+    # Entities the integration ships disabled never show in /api/states; say which ones to enable (motion ones were
+    # explained above). Odometer and tire pressure are the usual surprises.
+    off = [n for n in disabled_field_names(profile) if n in optional_missing and n not in ("shift_state", "speed_mph")]
+    if off:
+        warnings.append(enable_instructions(profile, off))
     return {"profile": profile["name"], "slug": slug, "tested": bool(profile.get("tested")), "warnings": warnings,
             "coverage": round(len(matched) / required, 2) if required else 0.0,
             "fields_matched": matched, "fields_missing": missing, "commands_available": cmds_ok}

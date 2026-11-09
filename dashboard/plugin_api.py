@@ -249,7 +249,7 @@ def sim(body: dict) -> Dict[str, Any]:
     if not getattr(adapter, "simulated", False) or not hasattr(adapter, "control"):
         return _err("simulator controls are only available with the simulated car")
     action = str(body.get("action", ""))
-    kwargs = {k: v for k, v in (body.get("params") or {}).items() if k in ("minutes", "miles", "to", "kind", "percent", "temp_f", "door")}
+    kwargs = {k: v for k, v in (body.get("params") or {}).items() if k in ("minutes", "miles", "to", "kind", "percent", "temp_f", "door", "tire", "psi", "psi_per_hour")}
     try:
         res = adapter.control(action, **kwargs)
     except Exception as exc:  # AdapterError or bad numbers: report, don't 500

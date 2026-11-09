@@ -76,6 +76,8 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
         if not isinstance(spec, dict) or spec.get("kind") not in FIELD_KINDS:
             problems.append(f"field '{name}' has an unknown kind")
             continue
+        if spec.get("disabled_by_default") and not isinstance(spec.get("enable_as"), str):
+            problems.append(f"field '{name}' is disabled_by_default and needs 'enable_as' (the entity's name in Home Assistant)")
         if spec["kind"] == "open_list":
             if not isinstance(spec.get("entities"), dict) or not spec["entities"]:
                 problems.append(f"field '{name}' needs 'entities'")
@@ -106,3 +108,19 @@ def entity_ids_for_field(spec: Dict[str, Any], slug: str, override: Optional[str
         return [e.replace("{slug}", slug) for e in spec["entities"].values()]
     entity = override or spec["entity"]
     return [entity.replace("{slug}", slug)]
+
+
+def disabled_field_names(profile: Dict[str, Any], fields: Optional[Any] = None) -> List[str]:
+    """Fields whose entities the integration ships disabled in Home Assistant (so they only exist once enabled)."""
+    wanted = set(fields) if fields is not None else None
+    return [n for n, spec in profile["fields"].items()
+            if spec.get("disabled_by_default") and (wanted is None or n in wanted)]
+
+
+def enable_instructions(profile: Dict[str, Any], missing: List[str]) -> str:
+    """Plain-language steps to enable disabled-by-default entities in Home Assistant."""
+    titles = ", ".join(str(profile["fields"][n].get("enable_as") or n) for n in missing)
+    where = str(profile.get("integration_title") or profile.get("integration") or "your car's integration")
+    return (f"Enable {titles} in Home Assistant (it ships them disabled): Settings → Devices & services → {where} → "
+            "(your car) → entities → show disabled entities → open each one → turn on Enabled. "
+            "They appear within a minute or so.")

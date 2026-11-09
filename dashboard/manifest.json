@@ -1,0 +1,13 @@
+{
+  "name": "pit-crew",
+  "label": "Pit Crew",
+  "description": "Live car state, readiness, safe commands, alerts and audit log.",
+  "icon": "Zap",
+  "version": "0.1.0",
+  "tab": {
+    "path": "/pit-crew",
+    "position": "after:skills"
+  },
+  "entry": "dist/index.js",
+  "api": "plugin_api.py"
+}

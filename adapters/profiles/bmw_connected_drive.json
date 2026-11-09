@@ -1,0 +1,25 @@
+{
+  "name": "bmw_connected_drive",
+  "label": "BMW / MINI via the Home Assistant 'bmw_connected_drive' integration (UNTESTED starter)",
+  "integration": "bmw_connected_drive",
+  "tested": false,
+  "notes": "UNTESTED starter profile written from the integration's documentation, not verified on a real car. Check every value in `/car` against the BMW app before relying on it, and keep the car disarmed until you have. Pull requests with corrections are welcome.",
+  "fields": {
+    "battery_pct":   {"entity": "sensor.{slug}_remaining_battery_percent", "kind": "number"},
+    "range_mi":      {"entity": "sensor.{slug}_remaining_range_electric", "kind": "number", "dimension": "distance"},
+    "plugged_in":    {"entity": "binary_sensor.{slug}_connection_status", "kind": "on_off"},
+    "charging_state": {"entity": "binary_sensor.{slug}_charging_status", "kind": "enum", "map": {"on": "charging", "off": "stopped"}},
+    "charge_limit_pct": {"entity": "number.{slug}_charging_target", "kind": "number", "optional": true},
+    "locked":        {"entity": "lock.{slug}_lock", "kind": "lock_locked"},
+    "location_zone": {"entity": "device_tracker.{slug}", "kind": "zone"},
+    "odometer_mi":   {"entity": "sensor.{slug}_mileage", "kind": "number", "dimension": "distance", "optional": true}
+  },
+  "commands": {
+    "lock":   {"steps": [{"service": "lock.lock", "entity": "lock.{slug}_lock"}]},
+    "unlock": {"steps": [{"service": "lock.unlock", "entity": "lock.{slug}_lock"}]},
+    "climate_on":  {"steps": [{"service": "button.press", "entity": "button.{slug}_activate_air_conditioning"}]},
+    "climate_off": {"steps": [{"service": "button.press", "entity": "button.{slug}_deactivate_air_conditioning"}]},
+    "honk":  {"steps": [{"service": "button.press", "entity": "button.{slug}_sound_horn"}]},
+    "flash": {"steps": [{"service": "button.press", "entity": "button.{slug}_flash_lights"}]}
+  }
+}

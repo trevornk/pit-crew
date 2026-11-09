@@ -1,0 +1,23 @@
+{
+  "_note": "SYNTHETIC: shaped like Tesla Fleet API /vehicle_data (Fleet API units: Celsius, miles). Not recorded from a real car.",
+  "response": {
+    "state": "online",
+    "charge_state": {
+      "timestamp": 1790000000000, "battery_level": 64, "battery_range": 198.4, "charging_state": "Charging",
+      "charge_limit_soc": 80, "charger_power": 11, "charger_voltage": 240, "charger_actual_current": 48,
+      "charge_current_request_max": 48, "minutes_to_full_charge": 95, "charge_port_door_open": true
+    },
+    "climate_state": {
+      "timestamp": 1790000000000, "inside_temp": 20.0, "outside_temp": 10.0, "is_climate_on": false,
+      "driver_temp_setting": 21.0, "defrost_mode": 0
+    },
+    "vehicle_state": {
+      "timestamp": 1790000000000, "locked": true, "df": 0, "dr": 0, "pf": 0, "pr": 1, "ft": 0, "rt": 0,
+      "fd_window": 0, "fp_window": 0, "rd_window": 0, "rp_window": 1, "sentry_mode": false, "is_user_present": false,
+      "car_version": "2026.1.1 abc123", "odometer": 12345.6, "software_update": {"status": "available"}
+    },
+    "drive_state": {
+      "timestamp": 1790000000000, "shift_state": null, "speed": null, "latitude": 10.01, "longitude": 20.02
+    }
+  }
+}

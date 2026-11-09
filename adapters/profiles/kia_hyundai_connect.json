@@ -1,0 +1,22 @@
+{
+  "name": "kia_hyundai_connect",
+  "label": "Kia / Hyundai / Genesis via the 'kia_uvo' / 'hyundai_kia_connect' integration (UNTESTED starter)",
+  "integration": "kia_uvo",
+  "tested": false,
+  "notes": "UNTESTED starter profile written from the integration's documentation, not verified on a real car. Check every value in `/car` against the Kia/Hyundai app before relying on it, and keep the car disarmed until you have. Pull requests with corrections are welcome.",
+  "fields": {
+    "battery_pct":   {"entity": "sensor.{slug}_ev_battery_level", "kind": "number"},
+    "range_mi":      {"entity": "sensor.{slug}_ev_range", "kind": "number", "dimension": "distance"},
+    "plugged_in":    {"entity": "binary_sensor.{slug}_ev_battery_is_plugged_in", "kind": "on_off"},
+    "charging_state": {"entity": "binary_sensor.{slug}_ev_battery_is_charging", "kind": "enum", "map": {"on": "charging", "off": "stopped"}},
+    "charge_limit_pct": {"entity": "number.{slug}_ac_charging_limit", "kind": "number", "optional": true},
+    "locked":        {"entity": "lock.{slug}_door_lock", "kind": "lock_locked"},
+    "location_zone": {"entity": "device_tracker.{slug}_location", "kind": "zone"},
+    "climate_on":    {"entity": "binary_sensor.{slug}_air_conditioner_is_on", "kind": "on_off", "optional": true},
+    "odometer_mi":   {"entity": "sensor.{slug}_odometer", "kind": "number", "dimension": "distance", "optional": true}
+  },
+  "commands": {
+    "lock":   {"steps": [{"service": "lock.lock", "entity": "lock.{slug}_door_lock"}]},
+    "unlock": {"steps": [{"service": "lock.unlock", "entity": "lock.{slug}_door_lock"}]}
+  }
+}

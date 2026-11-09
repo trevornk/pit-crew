@@ -1,0 +1,751 @@
+[
+ {
+  "entity_id": "sensor.demo_car_home_charging_energy",
+  "state": "373",
+  "attributes": {
+   "state_class": "total",
+   "source": "sensor.demo_car_home_charging_power",
+   "unit_of_measurement": "kWh",
+   "device_class": "energy",
+   "friendly_name": "Demo Car Home Charging Energy"
+  },
+  "last_changed": "2025-10-04T21:28:24.726865+00:00",
+  "last_reported": "2025-10-04T21:28:24.726865+00:00",
+  "last_updated": "2025-10-04T21:28:24.726865+00:00"
+ },
+ {
+  "entity_id": "sensor.teslamate_demo_car_state",
+  "state": "suspended",
+  "attributes": {
+   "friendly_name": "TeslaMate Demo Car State"
+  },
+  "last_changed": "2025-10-04T23:57:25.078172+00:00",
+  "last_reported": "2025-10-04T23:57:25.078172+00:00",
+  "last_updated": "2025-10-04T23:57:25.078172+00:00"
+ },
+ {
+  "entity_id": "sensor.teslamate_demo_car_geofence",
+  "state": "Home",
+  "attributes": {
+   "friendly_name": "TeslaMate Demo Car Geofence"
+  },
+  "last_changed": "2025-10-04T05:40:37.529533+00:00",
+  "last_reported": "2025-10-04T05:40:37.529533+00:00",
+  "last_updated": "2025-10-04T05:40:37.529533+00:00"
+ },
+ {
+  "entity_id": "sensor.teslamate_demo_car_charger_voltage",
+  "state": "2",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "V",
+   "device_class": "voltage",
+   "friendly_name": "TeslaMate Demo Car Charger Voltage"
+  },
+  "last_changed": "2025-10-04T23:54:51.419959+00:00",
+  "last_reported": "2025-10-04T23:54:51.419959+00:00",
+  "last_updated": "2025-10-04T23:54:51.419959+00:00"
+ },
+ {
+  "entity_id": "sensor.teslamate_demo_car_charger_current",
+  "state": "0",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "A",
+   "device_class": "current",
+   "friendly_name": "TeslaMate Demo Car Charger Current"
+  },
+  "last_changed": "2025-10-04T23:54:51.379591+00:00",
+  "last_reported": "2025-10-04T23:54:51.379591+00:00",
+  "last_updated": "2025-10-04T23:54:51.379591+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_home_charging_power",
+  "state": "0",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "W",
+   "device_class": "power",
+   "friendly_name": "Demo Car Home Charging Power"
+  },
+  "last_changed": "2025-10-04T21:28:24.726661+00:00",
+  "last_reported": "2025-10-04T21:28:24.726661+00:00",
+  "last_updated": "2025-10-04T21:28:24.726661+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_status",
+  "state": "on",
+  "attributes": {
+   "device_class": "connectivity",
+   "friendly_name": "Demo Car Status"
+  },
+  "last_changed": "2025-10-04T23:09:18.639096+00:00",
+  "last_reported": "2025-10-04T23:09:18.639096+00:00",
+  "last_updated": "2025-10-04T23:09:18.639096+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_charge_cable",
+  "state": "on",
+  "attributes": {
+   "device_class": "connectivity",
+   "friendly_name": "Demo Car Charge cable"
+  },
+  "last_changed": "2025-10-04T05:48:16.078331+00:00",
+  "last_reported": "2025-10-04T05:48:16.078331+00:00",
+  "last_updated": "2025-10-04T05:48:16.078331+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_user_present",
+  "state": "on",
+  "attributes": {
+   "device_class": "presence",
+   "friendly_name": "Demo Car User present"
+  },
+  "last_changed": "2025-10-04T23:09:18.639324+00:00",
+  "last_reported": "2025-10-04T23:09:18.639324+00:00",
+  "last_updated": "2025-10-04T23:09:18.639324+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_front_driver_window",
+  "state": "off",
+  "attributes": {
+   "device_class": "window",
+   "friendly_name": "Demo Car Front driver window"
+  },
+  "last_changed": "2025-10-04T23:49:23.078658+00:00",
+  "last_reported": "2025-10-04T23:49:23.078658+00:00",
+  "last_updated": "2025-10-04T23:49:23.078658+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_front_passenger_window",
+  "state": "off",
+  "attributes": {
+   "device_class": "window",
+   "friendly_name": "Demo Car Front passenger window"
+  },
+  "last_changed": "2025-10-01T22:33:40.402461+00:00",
+  "last_reported": "2025-10-01T22:33:40.402461+00:00",
+  "last_updated": "2025-10-01T22:33:40.402461+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_rear_driver_window",
+  "state": "off",
+  "attributes": {
+   "device_class": "window",
+   "friendly_name": "Demo Car Rear driver window"
+  },
+  "last_changed": "2025-10-01T22:33:40.402561+00:00",
+  "last_reported": "2025-10-01T22:33:40.402561+00:00",
+  "last_updated": "2025-10-01T22:33:40.402561+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_rear_passenger_window",
+  "state": "off",
+  "attributes": {
+   "device_class": "window",
+   "friendly_name": "Demo Car Rear passenger window"
+  },
+  "last_changed": "2025-10-01T22:33:40.402718+00:00",
+  "last_reported": "2025-10-01T22:33:40.402718+00:00",
+  "last_updated": "2025-10-01T22:33:40.402718+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_front_driver_door",
+  "state": "on",
+  "attributes": {
+   "device_class": "door",
+   "friendly_name": "Demo Car Front driver door"
+  },
+  "last_changed": "2025-10-04T23:49:23.078873+00:00",
+  "last_reported": "2025-10-04T23:49:23.078873+00:00",
+  "last_updated": "2025-10-04T23:49:23.078873+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_rear_driver_door",
+  "state": "off",
+  "attributes": {
+   "device_class": "door",
+   "friendly_name": "Demo Car Rear driver door"
+  },
+  "last_changed": "2025-10-03T22:47:36.109391+00:00",
+  "last_reported": "2025-10-03T22:47:36.109391+00:00",
+  "last_updated": "2025-10-03T22:47:36.109391+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_front_passenger_door",
+  "state": "off",
+  "attributes": {
+   "device_class": "door",
+   "friendly_name": "Demo Car Front passenger door"
+  },
+  "last_changed": "2025-10-01T22:33:40.403063+00:00",
+  "last_reported": "2025-10-01T22:33:40.403063+00:00",
+  "last_updated": "2025-10-01T22:33:40.403063+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_car_rear_passenger_door",
+  "state": "off",
+  "attributes": {
+   "device_class": "door",
+   "friendly_name": "Demo Car Rear passenger door"
+  },
+  "last_changed": "2025-10-03T22:47:36.109554+00:00",
+  "last_reported": "2025-10-03T22:47:36.109554+00:00",
+  "last_updated": "2025-10-03T22:47:36.109554+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_wake",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Wake"
+  },
+  "last_changed": "2025-10-01T22:33:40.403560+00:00",
+  "last_reported": "2025-10-01T22:33:40.403560+00:00",
+  "last_updated": "2025-10-01T22:33:40.403560+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_flash_lights",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Flash lights"
+  },
+  "last_changed": "2025-10-01T22:33:40.403689+00:00",
+  "last_reported": "2025-10-01T22:33:40.403689+00:00",
+  "last_updated": "2025-10-01T22:33:40.403689+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_honk_horn",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Honk horn"
+  },
+  "last_changed": "2025-10-01T22:33:40.403793+00:00",
+  "last_reported": "2025-10-01T22:33:40.403793+00:00",
+  "last_updated": "2025-10-01T22:33:40.403793+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_keyless_driving",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Keyless driving"
+  },
+  "last_changed": "2025-10-01T22:33:40.403920+00:00",
+  "last_reported": "2025-10-01T22:33:40.403920+00:00",
+  "last_updated": "2025-10-01T22:33:40.403920+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_play_fart",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Play fart"
+  },
+  "last_changed": "2025-10-01T22:33:40.404019+00:00",
+  "last_reported": "2025-10-01T22:33:40.404019+00:00",
+  "last_updated": "2025-10-01T22:33:40.404019+00:00"
+ },
+ {
+  "entity_id": "button.demo_car_homelink",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Car Homelink"
+  },
+  "last_changed": "2025-10-01T22:33:40.404115+00:00",
+  "last_reported": "2025-10-01T22:33:40.404115+00:00",
+  "last_updated": "2025-10-01T22:33:40.404115+00:00"
+ },
+ {
+  "entity_id": "climate.demo_car_climate",
+  "state": "heat_cool",
+  "attributes": {
+   "hvac_modes": [
+    "heat_cool",
+    "off"
+   ],
+   "min_temp": 59.0,
+   "max_temp": 82.5,
+   "preset_modes": [
+    "off",
+    "keep",
+    "dog",
+    "camp"
+   ],
+   "current_temperature": 70.0,
+   "temperature_unit": "°F",
+   "temperature": 70.0,
+   "preset_mode": "off",
+   "friendly_name": "Demo Car Climate",
+   "supported_features": 401
+  },
+  "last_changed": "2025-10-04T23:09:18.639777+00:00",
+  "last_reported": "2025-10-04T23:09:18.639777+00:00",
+  "last_updated": "2025-10-04T23:09:18.639777+00:00"
+ },
+ {
+  "entity_id": "cover.demo_car_windows",
+  "state": "closed",
+  "attributes": {
+   "is_closed": true,
+   "device_class": "window",
+   "friendly_name": "Demo Car Windows",
+   "supported_features": 3
+  },
+  "last_changed": "2025-10-04T23:49:23.079165+00:00",
+  "last_reported": "2025-10-04T23:49:23.079165+00:00",
+  "last_updated": "2025-10-04T23:49:23.079165+00:00"
+ },
+ {
+  "entity_id": "cover.demo_car_charge_port_door",
+  "state": "open",
+  "attributes": {
+   "is_closed": false,
+   "device_class": "door",
+   "friendly_name": "Demo Car Charge port door",
+   "supported_features": 3
+  },
+  "last_changed": "2025-10-04T05:48:16.078974+00:00",
+  "last_reported": "2025-10-04T05:48:16.078974+00:00",
+  "last_updated": "2025-10-04T05:48:16.078974+00:00"
+ },
+ {
+  "entity_id": "cover.demo_car_frunk",
+  "state": "closed",
+  "attributes": {
+   "is_closed": true,
+   "device_class": "door",
+   "friendly_name": "Demo Car Frunk",
+   "supported_features": 1
+  },
+  "last_changed": "2025-10-01T22:33:40.405369+00:00",
+  "last_reported": "2025-10-01T22:33:40.405369+00:00",
+  "last_updated": "2025-10-01T22:33:40.405369+00:00"
+ },
+ {
+  "entity_id": "cover.demo_car_trunk",
+  "state": "closed",
+  "attributes": {
+   "is_closed": true,
+   "device_class": "door",
+   "friendly_name": "Demo Car Trunk",
+   "supported_features": 3
+  },
+  "last_changed": "2025-10-03T22:37:35.177755+00:00",
+  "last_reported": "2025-10-03T22:37:35.177755+00:00",
+  "last_updated": "2025-10-03T22:37:35.177755+00:00"
+ },
+ {
+  "entity_id": "device_tracker.demo_car_location",
+  "state": "home",
+  "attributes": {
+   "tracking_type": "position",
+   "in_zones": [
+    "zone.home"
+   ],
+   "source_type": "gps",
+   "latitude": "REDACTED",
+   "longitude": "REDACTED",
+   "gps_accuracy": "REDACTED",
+   "friendly_name": "Demo Car Location"
+  },
+  "last_changed": "2025-10-04T23:49:23.079337+00:00",
+  "last_reported": "2025-10-04T23:49:23.079337+00:00",
+  "last_updated": "2025-10-04T23:49:23.079337+00:00"
+ },
+ {
+  "entity_id": "device_tracker.demo_car_route",
+  "state": "home",
+  "attributes": {
+   "tracking_type": "position",
+   "in_zones": [
+    "zone.home"
+   ],
+   "source_type": "gps",
+   "latitude": "REDACTED",
+   "longitude": "REDACTED",
+   "gps_accuracy": "REDACTED",
+   "friendly_name": "Demo Car Route"
+  },
+  "last_changed": "2025-10-04T23:49:23.079416+00:00",
+  "last_reported": "2025-10-04T23:49:23.079416+00:00",
+  "last_updated": "2025-10-04T23:49:23.079416+00:00"
+ },
+ {
+  "entity_id": "lock.demo_car_lock",
+  "state": "unlocked",
+  "attributes": {
+   "friendly_name": "Demo Car Lock",
+   "supported_features": 0
+  },
+  "last_changed": "2025-10-04T23:09:18.640771+00:00",
+  "last_reported": "2025-10-04T23:09:18.640771+00:00",
+  "last_updated": "2025-10-04T23:09:18.640771+00:00"
+ },
+ {
+  "entity_id": "lock.demo_car_charge_cable_lock",
+  "state": "locked",
+  "attributes": {
+   "friendly_name": "Demo Car Charge cable lock",
+   "supported_features": 0
+  },
+  "last_changed": "2025-10-03T12:27:03.211554+00:00",
+  "last_reported": "2025-10-03T12:27:03.211554+00:00",
+  "last_updated": "2025-10-03T12:27:03.211554+00:00"
+ },
+ {
+  "entity_id": "media_player.demo_car_media_player",
+  "state": "playing",
+  "attributes": {
+   "media_duration": 248.0,
+   "media_position": 139.0,
+   "media_title": "Example Song",
+   "media_artist": "Example Artist",
+   "media_album_name": "Example Album",
+   "media_playlist": "Example Device",
+   "source": "8",
+   "device_class": "speaker",
+   "friendly_name": "Demo Car Media player",
+   "supported_features": 16437
+  },
+  "last_changed": "2025-10-04T23:39:22.243132+00:00",
+  "last_reported": "2025-10-04T23:49:23.079595+00:00",
+  "last_updated": "2025-10-04T23:49:23.079595+00:00"
+ },
+ {
+  "entity_id": "number.demo_car_charge_current",
+  "state": "12",
+  "attributes": {
+   "min": 0,
+   "max": 12,
+   "step": 1,
+   "mode": "auto",
+   "unit_of_measurement": "A",
+   "device_class": "current",
+   "friendly_name": "Demo Car Charge current"
+  },
+  "last_changed": "2025-10-04T05:48:16.080073+00:00",
+  "last_reported": "2025-10-04T05:48:16.079765+00:00",
+  "last_updated": "2025-10-04T05:48:16.080073+00:00"
+ },
+ {
+  "entity_id": "number.demo_car_charge_limit",
+  "state": "80",
+  "attributes": {
+   "min": 50,
+   "max": 100,
+   "step": 1,
+   "mode": "auto",
+   "unit_of_measurement": "%",
+   "device_class": "battery",
+   "friendly_name": "Demo Car Charge limit"
+  },
+  "last_changed": "2025-10-01T22:33:40.408105+00:00",
+  "last_reported": "2025-10-01T22:33:40.408105+00:00",
+  "last_updated": "2025-10-01T22:33:40.408105+00:00"
+ },
+ {
+  "entity_id": "select.demo_car_seat_heater_front_left",
+  "state": "off",
+  "attributes": {
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ],
+   "friendly_name": "Demo Car Seat heater front left"
+  },
+  "last_changed": "2025-10-04T05:48:16.080664+00:00",
+  "last_reported": "2025-10-04T05:48:16.080664+00:00",
+  "last_updated": "2025-10-04T05:48:16.080664+00:00"
+ },
+ {
+  "entity_id": "select.demo_car_seat_heater_front_right",
+  "state": "off",
+  "attributes": {
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ],
+   "friendly_name": "Demo Car Seat heater front right"
+  },
+  "last_changed": "2025-10-01T22:33:40.408533+00:00",
+  "last_reported": "2025-10-01T22:33:40.408533+00:00",
+  "last_updated": "2025-10-01T22:33:40.408533+00:00"
+ },
+ {
+  "entity_id": "select.demo_car_steering_wheel_heater",
+  "state": "off",
+  "attributes": {
+   "options": [
+    "off",
+    "low",
+    "high"
+   ],
+   "friendly_name": "Demo Car Steering wheel heater"
+  },
+  "last_changed": "2025-10-01T22:33:40.409121+00:00",
+  "last_reported": "2025-10-01T22:33:40.409121+00:00",
+  "last_updated": "2025-10-01T22:33:40.409121+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charging",
+  "state": "complete",
+  "attributes": {
+   "options": [
+    "starting",
+    "charging",
+    "stopped",
+    "complete",
+    "disconnected",
+    "no_power"
+   ],
+   "device_class": "enum",
+   "friendly_name": "Demo Car Charging"
+  },
+  "last_changed": "2025-10-04T21:29:14.176872+00:00",
+  "last_reported": "2025-10-04T21:29:14.176872+00:00",
+  "last_updated": "2025-10-04T21:29:14.176872+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_battery_level",
+  "state": "80",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "%",
+   "device_class": "battery",
+   "friendly_name": "Demo Car Battery level"
+  },
+  "last_changed": "2025-10-04T20:29:07.351274+00:00",
+  "last_reported": "2025-10-04T20:29:07.351274+00:00",
+  "last_updated": "2025-10-04T20:29:07.351274+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charge_energy_added",
+  "state": "7.12",
+  "attributes": {
+   "state_class": "total",
+   "last_reset": "2025-10-04T05:48:16.080880+00:00",
+   "unit_of_measurement": "kWh",
+   "device_class": "energy",
+   "friendly_name": "Demo Car Charge energy added"
+  },
+  "last_changed": "2025-10-04T23:49:23.079900+00:00",
+  "last_reported": "2025-10-04T23:49:23.079900+00:00",
+  "last_updated": "2025-10-04T23:49:23.079900+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charger_power",
+  "state": "1",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "kW",
+   "device_class": "power",
+   "friendly_name": "Demo Car Charger power"
+  },
+  "last_changed": "2025-10-04T23:09:18.641719+00:00",
+  "last_reported": "2025-10-04T23:09:18.641719+00:00",
+  "last_updated": "2025-10-04T23:09:18.641719+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charger_voltage",
+  "state": "117",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "V",
+   "device_class": "voltage",
+   "friendly_name": "Demo Car Charger voltage"
+  },
+  "last_changed": "2025-10-04T23:39:22.243763+00:00",
+  "last_reported": "2025-10-04T23:39:22.243763+00:00",
+  "last_updated": "2025-10-04T23:39:22.243763+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charger_current",
+  "state": "6",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "A",
+   "device_class": "current",
+   "friendly_name": "Demo Car Charger current"
+  },
+  "last_changed": "2025-10-04T23:09:18.641881+00:00",
+  "last_reported": "2025-10-04T23:09:18.641881+00:00",
+  "last_updated": "2025-10-04T23:09:18.641881+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_charge_rate",
+  "state": "0.0",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "mph",
+   "device_class": "speed",
+   "friendly_name": "Demo Car Charge rate"
+  },
+  "last_changed": "2025-10-04T21:29:14.177190+00:00",
+  "last_reported": "2025-10-04T21:29:14.177190+00:00",
+  "last_updated": "2025-10-04T21:29:14.177190+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_battery_range",
+  "state": "222.94",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "mi",
+   "device_class": "distance",
+   "friendly_name": "Demo Car Battery range"
+  },
+  "last_changed": "2025-10-04T23:49:23.080024+00:00",
+  "last_reported": "2025-10-04T23:49:23.080024+00:00",
+  "last_updated": "2025-10-04T23:49:23.080024+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_inside_temperature",
+  "state": "69.8",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature",
+   "friendly_name": "Demo Car Inside temperature"
+  },
+  "last_changed": "2025-10-04T23:49:23.080065+00:00",
+  "last_reported": "2025-10-04T23:49:23.080065+00:00",
+  "last_updated": "2025-10-04T23:49:23.080065+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_outside_temperature",
+  "state": "68.9",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature",
+   "friendly_name": "Demo Car Outside temperature"
+  },
+  "last_changed": "2025-10-04T23:19:19.208262+00:00",
+  "last_reported": "2025-10-04T23:19:19.208262+00:00",
+  "last_updated": "2025-10-04T23:19:19.208262+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_distance_to_arrival",
+  "state": "unknown",
+  "attributes": {
+   "state_class": "measurement",
+   "unit_of_measurement": "mi",
+   "device_class": "distance",
+   "friendly_name": "Demo Car Distance to arrival"
+  },
+  "last_changed": "2025-10-04T05:48:16.081219+00:00",
+  "last_reported": "2025-10-04T05:48:16.081219+00:00",
+  "last_updated": "2025-10-04T05:48:16.081219+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_time_to_full_charge",
+  "state": "unavailable",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "Demo Car Time to full charge"
+  },
+  "last_changed": "2025-10-04T21:29:14.177365+00:00",
+  "last_reported": "2025-10-04T21:29:14.177365+00:00",
+  "last_updated": "2025-10-04T21:29:14.177365+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_car_time_to_arrival",
+  "state": "unavailable",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "Demo Car Time to arrival"
+  },
+  "last_changed": "2025-10-04T05:48:16.081333+00:00",
+  "last_reported": "2025-10-04T05:48:16.081333+00:00",
+  "last_updated": "2025-10-04T05:48:16.081333+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_sentry_mode",
+  "state": "off",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Sentry mode"
+  },
+  "last_changed": "2025-10-04T05:38:15.059160+00:00",
+  "last_reported": "2025-10-04T05:38:15.059160+00:00",
+  "last_updated": "2025-10-04T05:38:15.059160+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_auto_seat_climate_left",
+  "state": "on",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Auto seat climate left"
+  },
+  "last_changed": "2025-10-01T22:33:40.417308+00:00",
+  "last_reported": "2025-10-01T22:33:40.417308+00:00",
+  "last_updated": "2025-10-01T22:33:40.417308+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_auto_seat_climate_right",
+  "state": "off",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Auto seat climate right"
+  },
+  "last_changed": "2025-10-01T22:33:40.417424+00:00",
+  "last_reported": "2025-10-01T22:33:40.417424+00:00",
+  "last_updated": "2025-10-01T22:33:40.417424+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_auto_steering_wheel_heater",
+  "state": "off",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Auto steering wheel heater"
+  },
+  "last_changed": "2025-10-01T22:33:40.417524+00:00",
+  "last_reported": "2025-10-01T22:33:40.417524+00:00",
+  "last_updated": "2025-10-01T22:33:40.417524+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_defrost",
+  "state": "off",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Defrost"
+  },
+  "last_changed": "2025-10-01T22:33:40.417621+00:00",
+  "last_reported": "2025-10-01T22:33:40.417621+00:00",
+  "last_updated": "2025-10-01T22:33:40.417621+00:00"
+ },
+ {
+  "entity_id": "switch.demo_car_charge",
+  "state": "off",
+  "attributes": {
+   "device_class": "switch",
+   "friendly_name": "Demo Car Charge"
+  },
+  "last_changed": "2025-10-04T21:29:14.177487+00:00",
+  "last_reported": "2025-10-04T21:29:14.177487+00:00",
+  "last_updated": "2025-10-04T21:29:14.177487+00:00"
+ },
+ {
+  "entity_id": "update.demo_car_update",
+  "state": "off",
+  "attributes": {
+   "auto_update": false,
+   "display_precision": 0,
+   "installed_version": "2026.1.1",
+   "in_progress": false,
+   "latest_version": "2026.1.1",
+   "release_summary": null,
+   "release_url": null,
+   "skipped_version": null,
+   "title": null,
+   "update_percentage": null,
+   "entity_picture": "REDACTED",
+   "friendly_name": "Demo Car Update",
+   "supported_features": 4
+  },
+  "last_changed": "2025-10-03T12:27:03.213922+00:00",
+  "last_reported": "2025-10-03T12:27:03.213922+00:00",
+  "last_updated": "2025-10-03T12:27:03.213922+00:00"
+ }
+]

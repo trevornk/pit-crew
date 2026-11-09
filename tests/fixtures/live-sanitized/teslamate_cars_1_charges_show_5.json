@@ -1,0 +1,149 @@
+{
+ "data": {
+  "car": {
+   "car_id": 1,
+   "car_name": "REDACTED"
+  },
+  "charges": [
+   {
+    "charge_id": 1366,
+    "start_date": "2025-10-04T20:16:56+00:00",
+    "end_date": "2025-10-04T21:28:23+00:00",
+    "address": "REDACTED",
+    "charge_energy_added": 0.82,
+    "charge_energy_used": 1.61,
+    "cost": 0.16,
+    "duration_min": 71,
+    "duration_str": "01:11",
+    "battery_details": {
+     "start_battery_level": 79,
+     "end_battery_level": 80
+    },
+    "range_ideal": {
+     "start_range": 219.84112781356734,
+     "end_range": 223.0101208939777
+    },
+    "range_rated": {
+     "start_range": 219.84112781356734,
+     "end_range": 223.0101208939777
+    },
+    "outside_temp_avg": 62.6,
+    "odometer": 0,
+    "latitude": 0,
+    "longitude": 0
+   },
+   {
+    "charge_id": 1365,
+    "start_date": "2025-10-04T05:46:50+00:00",
+    "end_date": "2025-10-04T12:37:04+00:00",
+    "address": "REDACTED",
+    "charge_energy_added": 7.14,
+    "charge_energy_used": 9.27,
+    "cost": 0.93,
+    "duration_min": 410,
+    "duration_str": "06:50",
+    "battery_details": {
+     "start_battery_level": 70,
+     "end_battery_level": 80
+    },
+    "range_ideal": {
+     "start_range": 195.35288912749417,
+     "end_range": 223.0101208939777
+    },
+    "range_rated": {
+     "start_range": 195.35288912749417,
+     "end_range": 223.0101208939777
+    },
+    "outside_temp_avg": 61.88,
+    "odometer": 0,
+    "latitude": 0,
+    "longitude": 0
+   },
+   {
+    "charge_id": 1364,
+    "start_date": "2025-10-04T01:28:10+00:00",
+    "end_date": "2025-10-04T03:43:35+00:00",
+    "address": "REDACTED",
+    "charge_energy_added": 2.06,
+    "charge_energy_used": 3.07,
+    "cost": 0.31,
+    "duration_min": 135,
+    "duration_str": "02:15",
+    "battery_details": {
+     "start_battery_level": 71,
+     "end_battery_level": 74
+    },
+    "range_ideal": {
+     "start_range": 197.52147458840244,
+     "end_range": 205.49988069672978
+    },
+    "range_rated": {
+     "start_range": 197.52147458840244,
+     "end_range": 205.49988069672978
+    },
+    "outside_temp_avg": 62.959999999999994,
+    "odometer": 0,
+    "latitude": 0,
+    "longitude": 0
+   },
+   {
+    "charge_id": 1363,
+    "start_date": "2025-10-03T16:58:21+00:00",
+    "end_date": "2025-10-03T18:15:09+00:00",
+    "address": "REDACTED",
+    "charge_energy_added": 0.9,
+    "charge_energy_used": 1.73,
+    "cost": 0.17,
+    "duration_min": 77,
+    "duration_str": "01:17",
+    "battery_details": {
+     "start_battery_level": 79,
+     "end_battery_level": 80
+    },
+    "range_ideal": {
+     "start_range": 219.44966396245783,
+     "end_range": 222.94177006283164
+    },
+    "range_rated": {
+     "start_range": 219.44966396245783,
+     "end_range": 222.94177006283164
+    },
+    "outside_temp_avg": 53.6,
+    "odometer": 0,
+    "latitude": 0,
+    "longitude": 0
+   },
+   {
+    "charge_id": 1362,
+    "start_date": "2025-10-03T05:38:57+00:00",
+    "end_date": "2025-10-03T10:27:47+00:00",
+    "address": "REDACTED",
+    "charge_energy_added": 4.32,
+    "charge_energy_used": 6.54,
+    "cost": 0.65,
+    "duration_min": 289,
+    "duration_str": "04:49",
+    "battery_details": {
+     "start_battery_level": 74,
+     "end_battery_level": 80
+    },
+    "range_ideal": {
+     "start_range": 205.97212280283014,
+     "end_range": 222.69943529785905
+    },
+    "range_rated": {
+     "start_range": 205.97212280283014,
+     "end_range": 222.69943529785905
+    },
+    "outside_temp_avg": 47.84,
+    "odometer": 0,
+    "latitude": 0,
+    "longitude": 0
+   }
+  ],
+  "units": {
+   "unit_of_length": "mi",
+   "unit_of_temperature": "F"
+  }
+ }
+}

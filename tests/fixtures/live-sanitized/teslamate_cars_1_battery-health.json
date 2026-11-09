@@ -1,0 +1,20 @@
+{
+ "data": {
+  "car": {
+   "car_id": 1,
+   "car_name": "REDACTED"
+  },
+  "battery_health": {
+   "max_range": 310.0778219396927,
+   "current_range": 278.57623975980096,
+   "max_capacity": 80.03622641509435,
+   "current_capacity": 72.12249721518984,
+   "rated_efficiency": 16,
+   "battery_health_percentage": 90.11231594195696
+  },
+  "units": {
+   "unit_of_length": "mi",
+   "unit_of_temperature": "F"
+  }
+ }
+}

@@ -1,0 +1,14 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install test tools with a release-age quarantine (catalog rule 10)
+        run: |
+          uv venv --python 3.12 .ci-venv
+          uv pip install --python .ci-venv/bin/python --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
+      - name: Tests (Hermes-venv and Node tests skip themselves when those are absent)
+        run: .ci-venv/bin/python -m pytest tests

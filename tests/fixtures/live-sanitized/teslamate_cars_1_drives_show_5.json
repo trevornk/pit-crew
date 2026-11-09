@@ -1,0 +1,214 @@
+{
+ "data": {
+  "car": {
+   "car_id": 1,
+   "car_name": "REDACTED"
+  },
+  "drives": [
+   {
+    "drive_id": 5533,
+    "start_date": "2025-10-04T05:30:12+00:00",
+    "end_date": "2025-10-04T05:41:32+00:00",
+    "start_address": "REDACTED",
+    "end_address": "REDACTED",
+    "odometer_details": {
+     "odometer_start": 0,
+     "odometer_end": 0,
+     "odometer_distance": 0
+    },
+    "duration_min": 11,
+    "duration_str": "00:11",
+    "speed_max": 39,
+    "speed_avg": 23.4128564185353,
+    "power_max": 52,
+    "power_min": -43,
+    "battery_details": {
+     "start_usable_battery_level": 72,
+     "start_battery_level": 72,
+     "end_usable_battery_level": 70,
+     "end_battery_level": 70,
+     "reduced_range": false,
+     "is_sufficiently_precise": true
+    },
+    "range_ideal": {
+     "start_range": 200.2306529865572,
+     "end_range": 195.81891752167215,
+     "range_diff": 4.411735464885043
+    },
+    "range_rated": {
+     "start_range": 200.2306529865572,
+     "end_range": 195.81891752167215,
+     "range_diff": 4.411735464885043
+    },
+    "outside_temp_avg": 51.620000000000005,
+    "inside_temp_avg": 68.72,
+    "energy_consumed_net": 1.138627,
+    "consumption_net": 102.42073095128366
+   },
+   {
+    "drive_id": 5532,
+    "start_date": "2025-10-04T04:01:50+00:00",
+    "end_date": "2025-10-04T04:01:59+00:00",
+    "start_address": "REDACTED",
+    "end_address": "REDACTED",
+    "odometer_details": {
+     "odometer_start": 0,
+     "odometer_end": 0,
+     "odometer_distance": 0
+    },
+    "duration_min": 0,
+    "duration_str": "00:00",
+    "speed_max": 0,
+    "speed_avg": 0,
+    "power_max": 2,
+    "power_min": 1,
+    "battery_details": {
+     "start_usable_battery_level": 73,
+     "start_battery_level": 73,
+     "end_usable_battery_level": 72,
+     "end_battery_level": 73,
+     "reduced_range": true,
+     "is_sufficiently_precise": false
+    },
+    "range_ideal": {
+     "start_range": 201.77786725522816,
+     "end_range": 201.77786725522816,
+     "range_diff": 0
+    },
+    "range_rated": {
+     "start_range": 201.77786725522816,
+     "end_range": 201.77786725522816,
+     "range_diff": 0
+    },
+    "outside_temp_avg": 55.4,
+    "inside_temp_avg": 69.8,
+    "energy_consumed_net": null,
+    "consumption_net": null
+   },
+   {
+    "drive_id": 5531,
+    "start_date": "2025-10-04T03:45:27+00:00",
+    "end_date": "2025-10-04T04:01:49+00:00",
+    "start_address": "REDACTED",
+    "end_address": "REDACTED",
+    "odometer_details": {
+     "odometer_start": 0,
+     "odometer_end": 0,
+     "odometer_distance": 0
+    },
+    "duration_min": 16,
+    "duration_str": "00:16",
+    "speed_max": 39,
+    "speed_avg": 17.20577297333298,
+    "power_max": 90,
+    "power_min": -46,
+    "battery_details": {
+     "start_usable_battery_level": 74,
+     "start_battery_level": 74,
+     "end_usable_battery_level": 72,
+     "end_battery_level": 73,
+     "reduced_range": true,
+     "is_sufficiently_precise": false
+    },
+    "range_ideal": {
+     "start_range": 205.49988069672978,
+     "end_range": 201.77786725522816,
+     "range_diff": 3.7220134415016064
+    },
+    "range_rated": {
+     "start_range": 205.49988069672978,
+     "end_range": 201.77786725522816,
+     "range_diff": 3.7220134415016064
+    },
+    "outside_temp_avg": 58.459999999999994,
+    "inside_temp_avg": 69.62,
+    "energy_consumed_net": 0.9606163000000001,
+    "consumption_net": null
+   },
+   {
+    "drive_id": 5530,
+    "start_date": "2025-10-04T01:16:13+00:00",
+    "end_date": "2025-10-04T01:16:29+00:00",
+    "start_address": "REDACTED",
+    "end_address": "REDACTED",
+    "odometer_details": {
+     "odometer_start": 0,
+     "odometer_end": 0,
+     "odometer_distance": 0
+    },
+    "duration_min": 0,
+    "duration_str": "00:00",
+    "speed_max": 1,
+    "speed_avg": 0,
+    "power_max": 13,
+    "power_min": 1,
+    "battery_details": {
+     "start_usable_battery_level": 71,
+     "start_battery_level": 71,
+     "end_usable_battery_level": 71,
+     "end_battery_level": 71,
+     "reduced_range": false,
+     "is_sufficiently_precise": false
+    },
+    "range_ideal": {
+     "start_range": 198.2981885786991,
+     "end_range": 198.21741032370826,
+     "range_diff": 0.0807782549908529
+    },
+    "range_rated": {
+     "start_range": 198.2981885786991,
+     "end_range": 198.21741032370826,
+     "range_diff": 0.0807782549908529
+    },
+    "outside_temp_avg": 58.1,
+    "inside_temp_avg": 69.8,
+    "energy_consumed_net": 0.0208481,
+    "consumption_net": null
+   },
+   {
+    "drive_id": 5529,
+    "start_date": "2025-10-04T00:54:40+00:00",
+    "end_date": "2025-10-04T01:12:12+00:00",
+    "start_address": "REDACTED",
+    "end_address": "REDACTED",
+    "odometer_details": {
+     "odometer_start": 0,
+     "odometer_end": 0,
+     "odometer_distance": 0
+    },
+    "duration_min": 18,
+    "duration_str": "00:18",
+    "speed_max": 75,
+    "speed_avg": 18.424179872880615,
+    "power_max": 313,
+    "power_min": -66,
+    "battery_details": {
+     "start_usable_battery_level": 73,
+     "start_battery_level": 73,
+     "end_usable_battery_level": 71,
+     "end_battery_level": 71,
+     "reduced_range": false,
+     "is_sufficiently_precise": true
+    },
+    "range_ideal": {
+     "start_range": 204.33791656724597,
+     "end_range": 198.5280959198269,
+     "range_diff": 5.809820647419035
+    },
+    "range_rated": {
+     "start_range": 204.33791656724597,
+     "end_range": 198.5280959198269,
+     "range_diff": 5.809820647419035
+    },
+    "outside_temp_avg": 57.02,
+    "inside_temp_avg": 69.44,
+    "energy_consumed_net": 1.4994595000000002,
+    "consumption_net": 104.74361293898421
+   }
+  ],
+  "units": {
+   "unit_of_length": "mi",
+   "unit_of_temperature": "F"
+  }
+ }
+}

@@ -1,0 +1,77 @@
+name: pit-crew
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+description: >-
+  Proactive car agent for Hermes: live state, history, "will I be ready?" checks, safe gated commands
+  and a background watcher. Works with Home Assistant, Teslemetry, Tessie, TeslaMate history, or a built-in
+  simulated car.
+author: Trevor Nash-Keller
+license: MIT
+homepage: https://github.com/trevornk/pit-crew
+requires_hermes: ">=0.23.0"
+tags: [car, ev, tesla, home-assistant, automation, safety]
+provides_tools:
+  - car_status
+  - car_history
+  - car_readiness
+  - car_command
+  - car_alerts
+  - car_rules
+provides_hooks:
+  - pre_tool_call
+  - post_approval_response
+  - pre_llm_call
+python_dependencies:
+  - "tesla-fleet-api>=1.5,<2"
+config_schema:
+  adapter: {type: str, default: "simulator", label: "Connection · Which car", description: "Where Pit Crew gets your car: simulator (a pretend car; try everything with no car), homeassistant (any brand, via Home Assistant), teslemetry or tessie (a Tesla, directly), or teslamate (read-only). Changes apply immediately; run /car to check.", choices: ["simulator", "homeassistant", "teslemetry", "tessie", "teslamate"]}
+  car_name: {type: str, default: "", label: "Your car · Name", description: "Shown in status and alerts. Empty = the name the car reports."}
+  history: {type: str, default: "own", label: "Your car · Trip & charging history", description: "own (Pit Crew records it itself; no TeslaMate needed), teslamate (read from TeslaMateApi), simulator, or none. TeslaMate data can also be imported with `/car import teslamate`.", choices: ["own", "teslamate", "simulator", "none"]}
+  default_departure: {type: str, default: "07:30", label: "Your car · Usual departure", description: "Used when you ask “will I be ready?” without a time, e.g. 07:30."}
+  default_trip_mi: {type: int, default: 30, label: "Your car · Usual trip (miles, one way)", description: "For the “ready for tomorrow” checks."}
+  reserve_pct: {type: int, default: 10, label: "Your car · Battery to keep in reserve (%)", description: "Charge you want left on arrival, on top of what the trip needs."}
+  battery_kwh: {type: float, default: 75.0, label: "Your car · Usable battery (kWh)", description: "Used by the readiness math when no measured capacity is available."}
+  electricity_rate_usd_kwh: {type: float, default: 0.0, label: "Your car · Electricity price ($/kWh)", description: "Optional. Used to estimate the cost of charging sessions (0 = unknown)."}
+  timezone: {type: str, default: "", label: "Your car · Time zone", description: "e.g. America/Chicago. Empty = this computer's time zone."}
+  charge_schedule_start: {type: str, default: "", label: "Your car · Scheduled charging starts", description: "Optional local time (HH:MM) when scheduled / off-peak charging begins, e.g. 00:00. Readiness then expects a plugged-in car to start then."}
+  ha_url: {type: str, default: "", label: "Home Assistant · URL", description: "e.g. http://homeassistant.local:8123 (just the address, no path)."}
+  ha_token: {type: secret, label: "Home Assistant · Access token", description: "Create a long-lived access token on your Home Assistant profile page (Security tab).", env: "PIT_CREW_HA_TOKEN"}
+  ha_slug: {type: str, default: "", label: "Home Assistant · Car name", description: "The part of your car's entity names before the sensor name: for sensor.my_car_battery_level it is my_car. `/car discover` finds it."}
+  ha_profile: {type: str, default: "tesla_fleet", label: "Home Assistant · Car brand mapping", description: "Which entity layout your car uses: tesla_fleet (tested against recordings), bmw_connected_drive or kia_hyundai_connect (starters), or the path to your own JSON/YAML file. `/car discover` suggests one."}
+  ha_verify_tls: {type: bool, default: true, label: "Home Assistant · Verify HTTPS certificate", description: "Turn off only for a self-signed certificate on your own network."}
+  tesla_vin: {type: str, default: "", label: "Tesla · VIN", description: "The 17-character VIN of your car. Never shown in output or logs."}
+  tesla_token: {type: secret, label: "Tesla · Access token", description: "Your Teslemetry or Tessie access token.", env: "PIT_CREW_TESLA_TOKEN"}
+  tesla_home_latitude: {type: float, default: 0.0, label: "Tesla · Home latitude", description: "Recommended: lets Pit Crew know when the car is home (needed for unlock and the “left unlocked away” alert). Stays inside the adapter, never output or logged. 0 = not set."}
+  tesla_home_longitude: {type: float, default: 0.0, label: "Tesla · Home longitude", description: "Pairs with Home latitude. 0 = not set."}
+  tesla_home_radius_m: {type: int, default: 150, label: "Tesla · Home radius (m)", description: "How close counts as home."}
+  tesla_zones: {type: dict, default: {}, label: "Tesla · Extra places", description: "Named places, e.g. {\"work\": [lat, lon, radius_m]}."}
+  tesla_mode: {type: str, default: "teslemetry", label: "Tesla · Service", description: "Only used with Connection = tesla. Normally you pick teslemetry or tessie in “Which car” instead.", choices: ["teslemetry", "tessie"]}
+  teslamate_url: {type: str, default: "", label: "TeslaMate · URL", description: "Address of TeslaMateApi, e.g. http://teslamate-api:8080. Only read-only requests are ever made."}
+  teslamate_token: {type: secret, label: "TeslaMate · Access token", description: "Only if you set API_TOKEN on TeslaMateApi.", env: "PIT_CREW_TESLAMATE_TOKEN"}
+  teslamate_car_id: {type: int, default: 1, label: "TeslaMate · Car id", description: "The car's id in TeslaMate (usually 1)."}
+  trusted_zones: {type: list, default: ["home"], label: "Safety · Places where unlock is allowed", description: "Unlock, trunk and frunk are only allowed in these places. Default: home."}
+  arm_default_hours: {type: int, default: 8, label: "Safety · Go live for (hours)", description: "How long “Go live” / `/car live` lasts before switching back to practice mode."}
+  max_state_age_s: {type: int, default: 600, label: "Safety · Refuse risky commands when data is older than (s)", description: "Unlock, trunk, frunk, vent and Sentry-off are refused if the car's data is older than this. 600 = 10 minutes."}
+  rate_limit_commands: {type: int, default: 10, label: "Safety · Max commands per window", description: "Most live commands allowed per window."}
+  rate_limit_window_s: {type: int, default: 600, label: "Safety · Rate-limit window (s)", description: "The window for the limit above."}
+  dedupe_window_s: {type: int, default: 60, label: "Safety · Ignore a repeated command for (s)", description: "An identical live command inside this window is skipped."}
+  watcher_enabled: {type: bool, default: true, label: "Alerts · Watch the car in the background", description: "Check the car regularly and raise alerts on its own."}
+  alert_push: {type: bool, default: true, label: "Alerts · Send alerts to my chat", description: "Message the chat bound with `/car notify here` when something needs attention (needs allow_gateway_injection)."}
+  alert_context: {type: bool, default: true, label: "Alerts · Mention alerts in my next chat", description: "Tell the agent about unseen alerts the next time you talk to it."}
+  poll_interval_s: {type: int, default: 120, label: "Alerts · Check every (s)", description: "How often the watcher reads the car."}
+  asleep_poll_interval_s: {type: int, default: 900, label: "Alerts · Check every (s) while the car sleeps", description: "Slower checks while asleep. The watcher never wakes the car."}
+  alert_cooldown_min: {type: int, default: 240, label: "Alerts · Don't repeat an alert for (min)", description: "Default time before alerting again about something still true."}
+  night_start: {type: str, default: "22:00", label: "Alerts · Night starts", description: "Local time (HH:MM), used by the “unlocked at home at night” alert."}
+  night_end: {type: str, default: "06:00", label: "Alerts · Night ends", description: "Local time (HH:MM)."}
+  sim_seed: {type: int, default: 42, label: "Simulator · Random seed", description: "Seed for the simulated car's random events and history."}
+  sim_events: {type: bool, default: true, label: "Simulator · Random events", description: "Let the pretend car have occasional events (a door left ajar, a window left open…)."}
+  armed: {type: bool, default: false, label: "Advanced · Always live (not recommended)", description: "ON = Hermes can always send commands, with no automatic stop. Leave OFF and use “Go live” (or `/car live`), which turns itself off after a few hours. Unlock, trunk, frunk and similar still need your approval in Hermes either way."}
+  approval_confirmation: {type: str, default: "strict", label: "Advanced · Approval check", description: "strict (recommended): needs a recorded “yes” from Hermes' approval prompt. hermes_gate: trust Hermes' own gate alone.", choices: ["strict", "hermes_gate"]}
+  allow_unknown_motion: {type: bool, default: false, label: "Advanced · Allow risky commands when I can't tell if the car is parked", description: "OFF (recommended, fail closed): unlock/trunk/frunk/vent/honk/flash are refused unless a FRESH speed, gear or driving reading (or being plugged in) proves the car is parked. ON: allow them anyway, with a warning, when it cannot be told."}
+  stale_after_s: {type: int, default: 900, label: "Advanced · Call data “last known” after (s)", description: "Fields older than this are labelled stale."}
+  verify_timeout_s: {type: int, default: 20, label: "Advanced · Wait for the car to confirm (s)", description: "How long to wait for the car to show that a command worked."}
+  verify_interval_s: {type: float, default: 2.0, label: "Advanced · Re-check every (s)", description: "How often to re-read the car while waiting."}
+  tesla_min_poll_s: {type: int, default: 120, label: "Advanced · Min seconds between Tesla data calls", description: "Rate-limit guard: at most one vehicle-data call per this many seconds (a sleeping car is never polled for data)."}
+  ha_entity_overrides: {type: dict, default: {}, label: "Advanced · Home Assistant entity overrides", description: "Map a state field to a specific entity, e.g. {\"battery_pct\": \"sensor.other_soc\"}."}
+  rules: {type: dict, default: {}, label: "Advanced · Alert rule overrides", description: "Per-rule settings, e.g. {\"left_unlocked_away\": {\"enabled\": true, \"minutes\": 20}}. The Pit Crew page and the car_rules tool edit these live."}

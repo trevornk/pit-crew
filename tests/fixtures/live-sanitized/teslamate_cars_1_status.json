@@ -1,0 +1,117 @@
+{
+ "data": {
+  "car": {
+   "car_id": 1,
+   "car_name": "REDACTED"
+  },
+  "status": {
+   "display_name": "REDACTED",
+   "state": "suspended",
+   "state_since": "2025-10-04T23:57:24+00:00",
+   "odometer": 0,
+   "car_status": {
+    "healthy": true,
+    "locked": true,
+    "sentry_mode": false,
+    "windows_open": false,
+    "doors_open": false,
+    "driver_front_door_open": false,
+    "driver_rear_door_open": false,
+    "passenger_front_door_open": false,
+    "passenger_rear_door_open": false,
+    "trunk_open": false,
+    "frunk_open": false,
+    "is_user_present": false,
+    "center_display_state": 0
+   },
+   "car_details": {
+    "model": "Y",
+    "trim_badging": "LongRange"
+   },
+   "car_exterior": {
+    "exterior_color": "Grey",
+    "spoiler_type": "None",
+    "wheel_type": "Standard19"
+   },
+   "car_geodata": {
+    "geofence": "REDACTED",
+    "location": {
+     "latitude": 0,
+     "longitude": 0
+    },
+    "latitude": 0,
+    "longitude": 0
+   },
+   "car_versions": {
+    "version": "2026.1.1",
+    "update_available": false,
+    "update_version": ""
+   },
+   "driving_details": {
+    "active_route": {
+     "destination": "",
+     "energy_at_arrival": 0,
+     "distance_to_arrival": 0,
+     "minutes_to_arrival": 0,
+     "traffic_minutes_delay": 0,
+     "location": {
+      "latitude": 0,
+      "longitude": 0
+     }
+    },
+    "active_route_destination": "",
+    "active_route_latitude": 0,
+    "active_route_longitude": 0,
+    "shift_state": "",
+    "power": 0,
+    "speed": 0,
+    "heading": 0,
+    "elevation": 0
+   },
+   "climate_details": {
+    "is_climate_on": false,
+    "inside_temp": 73.22,
+    "outside_temp": 68.9,
+    "is_preconditioning": false,
+    "climate_keeper_mode": "off"
+   },
+   "battery_details": {
+    "est_battery_range": 0,
+    "rated_battery_range": 222.86099180784078,
+    "ideal_battery_range": 222.86099180784078,
+    "battery_level": 80,
+    "usable_battery_level": 80
+   },
+   "charging_details": {
+    "plugged_in": true,
+    "charging_state": "complete",
+    "charge_energy_added": 7.1,
+    "charge_limit_soc": 80,
+    "charge_port_door_open": true,
+    "charger_actual_current": 0,
+    "charger_phases": 1,
+    "charger_power": 0,
+    "charger_voltage": 2,
+    "charge_current_request": 12,
+    "charge_current_request_max": 12,
+    "scheduled_charging_start_time": "0000-12-31T18:09:24-05:50",
+    "time_to_full_charge": 0
+   },
+   "tpms_details": {
+    "tpms_pressure_fl": 38.4350005719133,
+    "tpms_pressure_fr": 38.797594916931345,
+    "tpms_pressure_rl": 39.8853779519855,
+    "tpms_pressure_rr": 39.52278360696745,
+    "tpms_soft_warning_fl": false,
+    "tpms_soft_warning_fr": false,
+    "tpms_soft_warning_rl": false,
+    "tpms_soft_warning_rr": false
+   }
+  },
+  "units": {
+   "unit_of_length": "mi",
+   "unit_of_pressure": "psi",
+   "unit_of_temperature": "F"
+  }
+ }
+}

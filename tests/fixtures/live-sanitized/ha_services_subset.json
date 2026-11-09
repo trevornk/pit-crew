@@ -1,0 +1,1713 @@
+{
+ "media_player": {
+  "domain": "media_player",
+  "services": {
+   "turn_on": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        128
+       ]
+      }
+     ]
+    }
+   },
+   "turn_off": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        256
+       ]
+      }
+     ]
+    }
+   },
+   "toggle": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        384
+       ]
+      }
+     ]
+    }
+   },
+   "volume_up": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4,
+        1024
+       ]
+      }
+     ]
+    }
+   },
+   "volume_down": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4,
+        1024
+       ]
+      }
+     ]
+    }
+   },
+   "media_play_pause": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        16385
+       ]
+      }
+     ]
+    }
+   },
+   "media_play": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        16384
+       ]
+      }
+     ]
+    }
+   },
+   "media_pause": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        1
+       ]
+      }
+     ]
+    }
+   },
+   "media_stop": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4096
+       ]
+      }
+     ]
+    }
+   },
+   "media_next_track": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        32
+       ]
+      }
+     ]
+    }
+   },
+   "media_previous_track": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        16
+       ]
+      }
+     ]
+    }
+   },
+   "clear_playlist": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        8192
+       ]
+      }
+     ]
+    }
+   },
+   "volume_set": {
+    "fields": {
+     "volume_level": {
+      "required": true,
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01,
+        "mode": "slider"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   },
+   "volume_mute": {
+    "fields": {
+     "is_volume_muted": {
+      "required": true,
+      "selector": {
+       "boolean": {}
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        8
+       ]
+      }
+     ]
+    }
+   },
+   "media_seek": {
+    "fields": {
+     "seek_position": {
+      "required": true,
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 9.223372036854776e+18,
+        "step": 0.01,
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        2
+       ]
+      }
+     ]
+    }
+   },
+   "join": {
+    "fields": {
+     "group_members": {
+      "required": true,
+      "example": "- media_player.multiroom_player2\n- media_player.multiroom_player3\n",
+      "selector": {
+       "entity": {
+        "multiple": true,
+        "domain": [
+         "media_player"
+        ],
+        "reorder": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        524288
+       ]
+      }
+     ]
+    }
+   },
+   "select_source": {
+    "fields": {
+     "source": {
+      "required": true,
+      "example": "video1",
+      "selector": {
+       "state": {
+        "attribute": "source",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        2048
+       ]
+      }
+     ]
+    }
+   },
+   "select_sound_mode": {
+    "fields": {
+     "sound_mode": {
+      "example": "Music",
+      "selector": {
+       "state": {
+        "attribute": "sound_mode",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        65536
+       ]
+      }
+     ]
+    }
+   },
+   "play_media": {
+    "fields": {
+     "media": {
+      "required": true,
+      "selector": {
+       "media": {
+        "multiple": false,
+        "image_upload": false
+       }
+      },
+      "example": "{\"media_content_id\": \"https://home-assistant.io/images/cast/splash.png\", \"media_content_type\": \"music\"}"
+     },
+     "enqueue": {
+      "filter": {
+       "supported_features": [
+        2097152
+       ]
+      },
+      "required": false,
+      "selector": {
+       "select": {
+        "options": [
+         "play",
+         "next",
+         "add",
+         "replace"
+        ],
+        "translation_key": "enqueue",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      }
+     },
+     "announce": {
+      "filter": {
+       "supported_features": [
+        1048576
+       ]
+      },
+      "required": false,
+      "example": "true",
+      "selector": {
+       "boolean": {}
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        512
+       ]
+      }
+     ]
+    }
+   },
+   "browse_media": {
+    "fields": {
+     "media_content_type": {
+      "required": false,
+      "example": "music",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     },
+     "media_content_id": {
+      "required": false,
+      "example": "A:ALBUMARTIST/Beatles",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        131072
+       ]
+      }
+     ]
+    },
+    "response": {
+     "optional": false
+    }
+   },
+   "search_media": {
+    "fields": {
+     "search_query": {
+      "required": true,
+      "example": "Beatles",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     },
+     "media_content_type": {
+      "required": false,
+      "example": "music",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     },
+     "media_content_id": {
+      "required": false,
+      "example": "A:ALBUMARTIST/Beatles",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     },
+     "media_filter_classes": {
+      "required": false,
+      "example": [
+       "album",
+       "artist"
+      ],
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4194304
+       ]
+      }
+     ]
+    },
+    "response": {
+     "optional": false
+    }
+   },
+   "shuffle_set": {
+    "fields": {
+     "shuffle": {
+      "required": true,
+      "selector": {
+       "boolean": {}
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        32768
+       ]
+      }
+     ]
+    }
+   },
+   "unjoin": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        524288
+       ]
+      }
+     ]
+    }
+   },
+   "repeat_set": {
+    "fields": {
+     "repeat": {
+      "required": true,
+      "selector": {
+       "select": {
+        "options": [
+         "off",
+         "all",
+         "one"
+        ],
+        "translation_key": "repeat",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        262144
+       ]
+      }
+     ]
+    }
+   },
+   "decrease_volume": {
+    "name": "Decrease volume \ud83d\udc7b",
+    "description": "Turns a media player's volume down by the step you give.",
+    "fields": {
+     "step": {
+      "required": true,
+      "example": 5,
+      "selector": {
+       "number": {
+        "min": 0.5,
+        "max": 100.0,
+        "step": 0.5,
+        "unit_of_measurement": "%",
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   },
+   "increase_volume": {
+    "name": "Increase volume \ud83d\udc7b",
+    "description": "Turns a media player's volume up by the step you give.",
+    "fields": {
+     "step": {
+      "required": true,
+      "example": 5,
+      "selector": {
+       "number": {
+        "min": 0.5,
+        "max": 100.0,
+        "step": 0.5,
+        "unit_of_measurement": "%",
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "media_player"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "switch": {
+  "domain": "switch",
+  "services": {
+   "turn_off": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "switch"
+       ]
+      }
+     ]
+    }
+   },
+   "turn_on": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "switch"
+       ]
+      }
+     ]
+    }
+   },
+   "toggle": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "switch"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "lock": {
+  "domain": "lock",
+  "services": {
+   "unlock": {
+    "fields": {
+     "code": {
+      "example": 1234,
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "lock"
+       ]
+      }
+     ]
+    }
+   },
+   "lock": {
+    "fields": {
+     "code": {
+      "example": 1234,
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "lock"
+       ]
+      }
+     ]
+    }
+   },
+   "open": {
+    "fields": {
+     "code": {
+      "example": 1234,
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "lock"
+       ],
+       "supported_features": [
+        1
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "number": {
+  "domain": "number",
+  "services": {
+   "set_value": {
+    "fields": {
+     "value": {
+      "example": 42,
+      "required": true,
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "number"
+       ]
+      }
+     ]
+    }
+   },
+   "min": {
+    "name": "Set minimum value \ud83d\udc7b",
+    "description": "Set a number entity to its minimum value.",
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "number"
+       ]
+      }
+     ]
+    }
+   },
+   "max": {
+    "name": "Set maximum value \ud83d\udc7b",
+    "description": "Set a number entity to its maximum value.",
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "number"
+       ]
+      }
+     ]
+    }
+   },
+   "decrement": {
+    "name": "Decrease value \ud83d\udc7b",
+    "description": "Decrease a number entity value by a certain amount.",
+    "fields": {
+     "amount": {
+      "name": "Amount",
+      "description": "The amount to decrease the number with. If not provided, the step of the number entity will be used.",
+      "required": false,
+      "selector": {
+       "number": {
+        "step": 1.0,
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "number"
+       ]
+      }
+     ]
+    }
+   },
+   "increment": {
+    "name": "Increase value \ud83d\udc7b",
+    "description": "Increase a number entity value by a certain amount.",
+    "fields": {
+     "amount": {
+      "name": "Amount",
+      "description": "The amount to increase the number with. If not provided, the step of the number entity will be used.",
+      "required": false,
+      "selector": {
+       "number": {
+        "step": 1.0,
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "number"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "cover": {
+  "domain": "cover",
+  "services": {
+   "open_cover": {
+    "fields": {
+     "speed": {
+      "example": "fast",
+      "filter": {
+       "supported_features": [
+        256
+       ]
+      },
+      "selector": {
+       "state": {
+        "attribute": "speed",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        1
+       ]
+      }
+     ]
+    }
+   },
+   "close_cover": {
+    "fields": {
+     "speed": {
+      "example": "fast",
+      "filter": {
+       "supported_features": [
+        256
+       ]
+      },
+      "selector": {
+       "state": {
+        "attribute": "speed",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        2
+       ]
+      }
+     ]
+    }
+   },
+   "set_cover_position": {
+    "fields": {
+     "position": {
+      "required": true,
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 100.0,
+        "unit_of_measurement": "%",
+        "step": 1.0,
+        "mode": "slider"
+       }
+      }
+     },
+     "speed": {
+      "filter": {
+       "supported_features": [
+        256
+       ]
+      },
+      "example": "fast",
+      "selector": {
+       "state": {
+        "attribute": "speed",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   },
+   "stop_cover": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        8
+       ]
+      }
+     ]
+    }
+   },
+   "toggle": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        3
+       ]
+      }
+     ]
+    }
+   },
+   "open_cover_tilt": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        16
+       ]
+      }
+     ]
+    }
+   },
+   "close_cover_tilt": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        32
+       ]
+      }
+     ]
+    }
+   },
+   "stop_cover_tilt": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        64
+       ]
+      }
+     ]
+    }
+   },
+   "set_cover_tilt_position": {
+    "fields": {
+     "tilt_position": {
+      "required": true,
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 100.0,
+        "unit_of_measurement": "%",
+        "step": 1.0,
+        "mode": "slider"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        128
+       ]
+      }
+     ]
+    }
+   },
+   "toggle_cover_tilt": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        48
+       ]
+      }
+     ]
+    }
+   },
+   "decrease_position": {
+    "name": "Decrease position \ud83d\udc7b",
+    "description": "Moves a cover a step further closed.",
+    "fields": {
+     "step": {
+      "required": false,
+      "default": 10,
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   },
+   "increase_position": {
+    "name": "Increase position \ud83d\udc7b",
+    "description": "Moves a cover a step further open.",
+    "fields": {
+     "step": {
+      "required": false,
+      "default": 10,
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "cover"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "button": {
+  "domain": "button",
+  "services": {
+   "press": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "button"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "climate": {
+  "domain": "climate",
+  "services": {
+   "turn_on": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        256
+       ]
+      }
+     ]
+    }
+   },
+   "turn_off": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        128
+       ]
+      }
+     ]
+    }
+   },
+   "toggle": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        128,
+        256
+       ]
+      }
+     ]
+    }
+   },
+   "set_hvac_mode": {
+    "fields": {
+     "hvac_mode": {
+      "selector": {
+       "state": {
+        "hide_states": [
+         "unavailable",
+         "unknown"
+        ],
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ]
+      }
+     ]
+    }
+   },
+   "set_preset_mode": {
+    "fields": {
+     "preset_mode": {
+      "required": true,
+      "example": "away",
+      "selector": {
+       "state": {
+        "attribute": "preset_mode",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        16
+       ]
+      }
+     ]
+    }
+   },
+   "set_temperature": {
+    "fields": {
+     "temperature": {
+      "filter": {
+       "supported_features": [
+        1
+       ]
+      },
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 250.0,
+        "step": 0.1,
+        "mode": "box"
+       }
+      }
+     },
+     "temperature_range": {
+      "fields": {
+       "target_temp_high": {
+        "filter": {
+         "supported_features": [
+          2
+         ]
+        },
+        "selector": {
+         "number": {
+          "min": 0.0,
+          "max": 250.0,
+          "step": 0.1,
+          "mode": "box"
+         }
+        }
+       },
+       "target_temp_low": {
+        "filter": {
+         "supported_features": [
+          2
+         ]
+        },
+        "selector": {
+         "number": {
+          "min": 0.0,
+          "max": 250.0,
+          "step": 0.1,
+          "mode": "box"
+         }
+        }
+       }
+      }
+     },
+     "hvac_mode": {
+      "selector": {
+       "state": {
+        "hide_states": [
+         "unavailable",
+         "unknown"
+        ],
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        1,
+        2
+       ]
+      }
+     ]
+    }
+   },
+   "set_humidity": {
+    "fields": {
+     "humidity": {
+      "required": true,
+      "selector": {
+       "number": {
+        "min": 30.0,
+        "max": 99.0,
+        "unit_of_measurement": "%",
+        "step": 1.0,
+        "mode": "slider"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        4
+       ]
+      }
+     ]
+    }
+   },
+   "set_fan_mode": {
+    "fields": {
+     "fan_mode": {
+      "required": true,
+      "example": "low",
+      "selector": {
+       "state": {
+        "attribute": "fan_mode",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        8
+       ]
+      }
+     ]
+    }
+   },
+   "set_swing_mode": {
+    "fields": {
+     "swing_mode": {
+      "required": true,
+      "example": "on",
+      "selector": {
+       "state": {
+        "attribute": "swing_mode",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        32
+       ]
+      }
+     ]
+    }
+   },
+   "set_swing_horizontal_mode": {
+    "fields": {
+     "swing_horizontal_mode": {
+      "required": true,
+      "example": "on",
+      "selector": {
+       "state": {
+        "attribute": "swing_horizontal_mode",
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        512
+       ]
+      }
+     ]
+    }
+   },
+   "increase_temperature": {
+    "name": "Increase temperature \ud83d\udc7b",
+    "description": "Turns a thermostat's setpoint up a step, both setpoints for one that heats and cools.",
+    "fields": {
+     "step": {
+      "required": false,
+      "example": 0.5,
+      "selector": {
+       "number": {
+        "min": 0.1,
+        "max": 10.0,
+        "step": 0.1,
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        1,
+        2
+       ]
+      }
+     ]
+    }
+   },
+   "decrease_temperature": {
+    "name": "Decrease temperature \ud83d\udc7b",
+    "description": "Turns a thermostat's setpoint down a step, both setpoints for one that heats and cools.",
+    "fields": {
+     "step": {
+      "required": false,
+      "example": 0.5,
+      "selector": {
+       "number": {
+        "min": 0.1,
+        "max": 10.0,
+        "step": 0.1,
+        "mode": "box"
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "climate"
+       ],
+       "supported_features": [
+        1,
+        2
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "select": {
+  "domain": "select",
+  "services": {
+   "select_first": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   },
+   "select_last": {
+    "fields": {},
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   },
+   "select_next": {
+    "fields": {
+     "cycle": {
+      "default": true,
+      "selector": {
+       "boolean": {}
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   },
+   "select_option": {
+    "fields": {
+     "option": {
+      "required": true,
+      "example": "\"Item A\"",
+      "selector": {
+       "state": {
+        "hide_states": [
+         "unavailable",
+         "unknown"
+        ],
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   },
+   "select_previous": {
+    "fields": {
+     "cycle": {
+      "default": true,
+      "selector": {
+       "boolean": {}
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   },
+   "random": {
+    "name": "Select random option \ud83d\udc7b",
+    "description": "Select a random option for a select entity.",
+    "fields": {
+     "options": {
+      "name": "Options",
+      "description": "Limits the options to select from. If not provided, all options will be considered.",
+      "required": false,
+      "selector": {
+       "object": {
+        "multiple": false
+       }
+      }
+     }
+    },
+    "target": {
+     "entity": [
+      {
+       "domain": [
+        "select"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ "tesla_fleet": {
+  "domain": "tesla_fleet",
+  "services": {
+   "navigate_to_destination": {
+    "fields": {
+     "device_id": {
+      "required": true,
+      "selector": {
+       "device": {
+        "filter": [
+         {
+          "integration": "tesla_fleet"
+         }
+        ],
+        "multiple": false
+       }
+      }
+     },
+     "destination": {
+      "required": true,
+      "example": "1600 Amphitheatre Parkway, Mountain View, CA",
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      }
+     }
+    }
+   },
+   "navigate_to_coordinates": {
+    "fields": {
+     "device_id": {
+      "required": true,
+      "selector": {
+       "device": {
+        "filter": [
+         {
+          "integration": "tesla_fleet"
+         }
+        ],
+        "multiple": false
+       }
+      }
+     },
+     "gps": {
+      "required": true,
+      "example": "{\"latitude\": -27.9699373, \"longitude\": 153.4081865}",
+      "selector": {
+       "location": {
+        "radius": false
+       }
+      }
+     }
+    }
+   },
+   "navigate_to_waypoints": {
+    "fields": {
+     "device_id": {
+      "required": true,
+      "selector": {
+       "device": {
+        "filter": [
+         {
+          "integration": "tesla_fleet"
+         }
+        ],
+        "multiple": false
+       }
+      }
+     },
+     "place_ids": {
+      "required": true,
+      "example": "[\"ChIJVTPokywQkFQRmtVEaUZlJRA\", \"ChIJQWCmo89rkFQRZQfQ6oJUz7o\"]",
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

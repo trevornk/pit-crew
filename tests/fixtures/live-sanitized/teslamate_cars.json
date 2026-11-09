@@ -1,0 +1,39 @@
+{
+ "data": {
+  "cars": [
+   {
+    "car_id": 1,
+    "name": "REDACTED",
+    "car_details": {
+     "eid": 1234567890123456,
+     "vid": 1234567890123457,
+     "vin": "REDACTED",
+     "model": "Y",
+     "trim_badging": "LongRange",
+     "efficiency": 0.16037
+    },
+    "car_exterior": {
+     "exterior_color": "Grey",
+     "spoiler_type": "None",
+     "wheel_type": "Standard19"
+    },
+    "car_settings": {
+     "suspend_min": 12,
+     "suspend_after_idle_min": 15,
+     "req_not_unlocked": false,
+     "free_supercharging": false,
+     "use_streaming_api": true
+    },
+    "teslamate_details": {
+     "inserted_at": "2024-01-01T00:00:00Z",
+     "updated_at": "2024-01-01T00:00:00Z"
+    },
+    "teslamate_stats": {
+     "total_charges": 1400,
+     "total_drives": 5000,
+     "total_updates": 50
+    }
+   }
+  ]
+ }
+}

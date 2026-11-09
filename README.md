@@ -1,0 +1,272 @@
+# Pit Crew
+
+**Your car, looked after: inside Hermes.**
+
+Pit Crew gives your Hermes agent a car it can actually take care of. It knows how charged, locked and warm the car is
+right now, remembers how you drive, tells you tonight whether you'll make tomorrow's trip, and keeps watch while you
+sleep. When it wants to touch the car, it asks you first.
+
+*A skill can't watch your car at 2 AM. This does.*
+
+<!-- TODO(owner): add docs/screenshots/pit-crew-page.png (see docs/screenshots/README.md), then remove these comment markers.
+![The Pit Crew page in Hermes Desktop](docs/screenshots/pit-crew-page.png)
+-->
+
+![Hermes 0.23+](https://img.shields.io/badge/Hermes-%E2%89%A50.23-blue) ![MIT](https://img.shields.io/badge/license-MIT-green) ![Works with no car](https://img.shields.io/badge/works%20with-no%20car-lightgrey)
+
+## A day with Pit Crew
+
+* **Morning.** *"Warm the car."* It's warming ten minutes before you leave, on wall power. If you asked at 11 PM for
+  7:20 AM, it waits and does it then.
+* **Evening.** *"Will I make my 8:30 dentist appointment tomorrow?"* It checks your calendar, the distance, tomorrow's cold
+  and **your own** winter efficiency, then answers *Ready*, *Tight* or *Not ready*, and tells you what to do about it
+  (for example, raise the charge limit).
+* **While you're out.** Your phone buzzes: *"Your car is unlocked and away from home. Want me to lock it?"* Say "yes". It
+  locks the car and reads the car's state back to confirm it worked.
+* **Any time.** *"Unlock the car"* pops Hermes' own approval prompt. If the car is moving, away from home, asleep, or its
+  data is stale, Pit Crew says no and tells you why.
+
+*(Wording is illustrative; the behaviour is what the simulator and the tests exercise.)*
+
+**No car? No problem.** Pit Crew ships with a simulated car, so you can try all of this in a minute.
+It works with **Home Assistant** (Tesla, BMW, Kia/Hyundai and more), **Teslemetry**, **Tessie**, and **TeslaMate** history.
+
+## Try it in 60 seconds (no car needed)
+
+```bash
+hermes plugins install trevornk/pit-crew
+hermes plugins enable pit-crew
+```
+
+Restart Hermes (and Hermes Desktop, if you use it). Then open **Pit Crew** in the sidebar, or type `/car` in any chat.
+
+Take the simulated car for a spin, by buttons on the page (**Try it: simulator controls**) or by typing:
+
+```
+/car                          the status card
+will I be ready for a 40-mile trip tomorrow at 7:30?
+/car sim leave_unlocked       leave the car unlocked ...
+/car sim drive 10 away        ... and drive away from home
+/car sim advance 15           fast-forward 15 minutes: the watcher raises an alert
+/car lock                     fix it (practice mode: checked and logged, nothing is sent)
+/car live                     go live (you confirm; it stops by itself after 8 h)
+unlock my car                 Hermes asks YOU to approve, then reads the car back
+/car log                      the audit trail
+/car practice                 back to practice mode
+```
+
+Right after `drive … away`, unlock is correctly **refused** (it only works at home): read the reason, then try
+`/car sim park_home` and `/car sim plug_in`. `/car sim` lists everything the simulated car can do.
+
+## Connect your real car
+
+Pick one source for the car (**Settings → Plugins → Pit Crew → Connection · Which car**). Changes apply immediately: run
+`/car` to check. History needs nothing extra: Pit Crew records trips, charging and efficiency itself.
+
+| Connection | Best if… | Setup | Costs | Commands? |
+|---|---|---|---|---|
+| **simulator** (default) | you want to try it, or have no supported car | none | free | simulated |
+| **homeassistant** | you already run Home Assistant with a car integration (Tesla Fleet, BMW, Kia/Hyundai…) | ~10 min | free | yes, through HA |
+| **teslemetry** | you have a Tesla and want the shortest path | ~5 min | Teslemetry subscription | yes |
+| **tessie** | you already use Tessie | ~5 min | Tessie subscription | yes |
+| **teslamate** | you run TeslaMate and want its past data | ~5 min | free | never (read-only) |
+
+Your own Tesla Fleet API app works through Home Assistant's official Tesla Fleet integration (HA holds the Tesla tokens;
+Pit Crew holds none).
+
+**No Desktop?** Everything below can be done in `config.yaml` (`hermes config edit`) and your profile's `.env`
+(`hermes config env-path` prints where it is). Tokens always go in `.env`, never in `config.yaml`.
+
+<details open>
+<summary><b>Home Assistant</b></summary>
+
+1. In Home Assistant: your profile → **Security → Long-lived access tokens** → create one (a dedicated HA user is ideal).
+2. Settings (Desktop form: **Settings → Plugins → Pit Crew**):
+   * Desktop: *Connection · Which car* = `homeassistant`, *Home Assistant · URL*, *Home Assistant · Access token*.
+   * Headless:
+     ```yaml
+     # config.yaml
+     plugins:
+       entries:
+         pit-crew:
+           settings:
+             adapter: homeassistant
+             ha_url: http://homeassistant.local:8123
+     ```
+     ```bash
+     # profile .env
+     PIT_CREW_HA_TOKEN=<your long-lived token>
+     ```
+3. Run `/car discover`. It reads Home Assistant read-only, finds your car and tells you the *Car name* (like `my_car` for
+   `sensor.my_car_battery_level`) and the *brand mapping* (for a Tesla: `tesla_fleet`). Enter both (`ha_slug`, `ha_profile`).
+4. **Tesla Fleet integration:** enable two entities Home Assistant ships disabled, *Shift state* and *Speed* (Settings →
+   Devices & services → Tesla Fleet → your car → disabled entities). Without a motion source Pit Crew refuses
+   unlock/trunk/frunk/vent, because it can't prove the car is parked. `/car` warns you if they're missing.
+5. `/car`: compare with the car's app. Stay in practice mode until the numbers match.
+
+Bundled mappings: `tesla_fleet` (built and tested against sanitized recordings of a real Model Y), `bmw_connected_drive`
+and `kia_hyundai_connect` (**starters, untested**). Another brand? `/car discover` proposes a generic mapping, and a mapping
+is a small JSON file ([docs/ADAPTERS.md](docs/ADAPTERS.md)).
+</details>
+
+<details>
+<summary><b>Teslemetry or Tessie</b></summary>
+
+1. Subscribe, create an access token, note your car's 17-character VIN.
+2. Desktop: *Connection · Which car* = `teslemetry` (or `tessie`), *Tesla · VIN*, *Tesla · Access token*.
+   Headless: `adapter: teslemetry` and `tesla_vin: <VIN>` under `plugins.entries.pit-crew.settings`, and
+   `PIT_CREW_TESLA_TOKEN=<token>` in `.env`.
+3. **Recommended:** set *Tesla · Home latitude/longitude* so Pit Crew knows when the car is home. Without it the car's place is
+   "unknown", so unlock and the *left unlocked away from home* alert can't work. (Coordinates never leave the adapter: they're
+   turned into a place name immediately and never stored, output or logged. Copy them from any map app.)
+4. `/car`, then compare with the Tesla app.
+
+Pit Crew never wakes a sleeping car just to read it: an asleep car's last data is shown as "last known".
+The `tesla-fleet-api` library is installed for you by `hermes plugins install` (manually: `pip install "tesla-fleet-api>=1.5,<2"`).
+</details>
+
+<details>
+<summary><b>TeslaMate (history only)</b></summary>
+
+Set *TeslaMate · URL* (your TeslaMateApi, e.g. `http://teslamate-api:8080`) and run `/car import teslamate 365` to backfill a
+year of trips and charges (safe to repeat; only read-only requests are ever made). Or set *Trip & charging history* =
+`teslamate` to read it live. Not needed for anything else.
+</details>
+
+### Hermes Desktop on a different machine
+
+Desktop loads the Pit Crew page from **its own machine's** plugin folder. Installing on the Hermes server doesn't put the
+page into a Desktop app that connects to it remotely.
+
+1. On the Hermes server: `hermes plugins install trevornk/pit-crew`, `hermes plugins enable pit-crew`, restart.
+2. In the Desktop app: **Capabilities → Plugins → Install from Git**, repo `trevornk/pit-crew`, *Desktop* target checked
+   (or open `hermes://plugin/install?repo=trevornk/pit-crew`). Toggle *Pit Crew* on.
+3. Open **Pit Crew** in the sidebar. If it says it isn't running, step 1 isn't complete or the server wasn't restarted.
+4. After updating the plugin on the server, press **Rescan** on the Desktop machine.
+
+`/car desktop-install` prints these steps. No Desktop? `hermes dashboard` has a Pit Crew tab, and `/car` works in any chat.
+
+### Get alerts on your phone
+
+Alerts are always stored (Pit Crew page, `/car alerts`) and mentioned the next time you talk to Hermes. To have them
+**pushed** into a chat, run `/car notify here` in that chat and allow plugin messages once:
+
+```yaml
+# config.yaml
+plugins:
+  entries:
+    pit-crew:
+      allow_gateway_injection: true
+```
+
+Pushes are delivered by the gateway process, so keep the gateway running.
+
+## Safe by design
+
+Safety isn't a setting you remember to turn on; it's how Pit Crew works.
+
+* **Practice mode first.** Until you tap **Go live**, commands are checked and logged but never sent. Going live stops by
+  itself after a few hours.
+* **You approve the risky stuff.** Unlock, trunk, frunk, window vent, Sentry-off, honk and flash use Hermes' own approval
+  prompt. They are never a button in Pit Crew's own pages (those draft the request for Hermes). Scheduled jobs can't answer
+  prompts, so for them the answer is always *no*.
+* **It refuses when it can't be sure.** Not while the car is moving; not on stale data; not if the car is asleep (it won't
+  wake it to be nice); unlock only at places you trust; bounded temperatures, limits and amps; rate-limited; repeats skipped.
+* **It checks the car actually did it,** and tells you if it couldn't tell (or if a timeout means it may have gone through).
+* **Everything is on the record:** who asked, what happened, whether you approved.
+
+Full details and the threat model: [docs/SAFETY.md](docs/SAFETY.md).
+
+## What it can do
+
+| | |
+|---|---|
+| **Status** | Battery, range, charging, lock, doors, windows, trunk/frunk, Sentry, cabin and outside temperature, which *place* the car is at, software update, each with how fresh it is. What a car can't report is shown as unavailable, never guessed. |
+| **History** | Trips, charging sessions, cost, efficiency by temperature, week-over-week trend, battery health, all recorded by Pit Crew itself. |
+| **Readiness** | "Will I be ready?": the charge you need (your efficiency + margin + reserve) versus what you'll have, and what to do about it. |
+| **Commands** | One gated command tool; shortcuts `/car lock`, `/car warm [°F]`; everything else in plain language. |
+| **Watcher** | Nine toggleable alerts: left unlocked away from home, unlocked at home at night, window/door/trunk open, plugged in but not charging, charging stopped early, not enough charge for tomorrow, Sentry off away from home, cabin dangerously hot/cold with someone inside, software update. |
+| **Surfaces** | `/car`, the Pit Crew page in Hermes Desktop (with a status-bar chip), the web dashboard tab, three one-command automations (morning brief, warm up before you leave, nightly lock check), and a bundled skill that teaches the agent to use it well. |
+
+## What has and hasn't been verified
+
+Honesty matters more than a long feature list.
+
+* **Tested without a car:** the safety engine, approval flow (against Hermes' real approval pipeline with a scripted human),
+  the watcher, readiness math, history, both pages (rendered in Node and jsdom), and the plugin loading in real Hermes.
+  See `tests/` (about 420 tests, no network).
+* **Built from recordings, not run live:** the Home Assistant `tesla_fleet` mapping is built and tested against sanitized
+  recordings of a real Model Y. **Commands have not been sent to a real car yet.**
+* **Mocks only:** Teslemetry and Tessie are tested against mocks of the `tesla-fleet-api` library. The BMW and Kia/Hyundai
+  mappings are untested starters.
+* **Not yet exercised live:** Telegram/Discord approval buttons and chat pushes, and the pages inside the real apps. If a
+  surface doesn't deliver Hermes' approval response, set `approval_confirmation: hermes_gate` (Advanced) and let us know.
+
+Start with the simulator; stay in practice mode until `/car` matches the car's own app.
+
+## FAQ
+
+**Do I need a car?** No. The default connection is a simulated car.
+**Does it need TeslaMate?** No. It records its own history. TeslaMate import is optional.
+**Can it unlock my car by itself?** No. Unlock always goes through Hermes' approval prompt, and never from a scheduled job.
+**Does it wake my car and drain the battery?** No. It reads cheap state only; commands that wake the car need your OK.
+**What does it send out?** Only requests to services you configured (your Home Assistant, Teslemetry/Tessie, TeslaMateApi). No telemetry.
+**Does it store my location?** No coordinates. It keeps place names ("home", "away") and trip distances.
+**Which Hermes?** 0.23 or newer.
+
+## Troubleshooting
+
+| You see | Do this |
+|---|---|
+| Page says *Connect your car* | Open Settings → Plugins → Pit Crew and fill in the section for your connection (or the config.yaml/.env lines above). The page shows exactly what's missing. |
+| *Pit Crew isn't running on this Hermes* | `hermes plugins enable pit-crew`, restart Hermes. Desktop on another machine: see above. |
+| Unlock is refused: "cannot confirm the car is parked" | Enable HA's *Shift state* and *Speed* entities, or plug the car in. |
+| Unlock is refused: "not at a trusted zone" | Check the car's place on `/car`. For Teslemetry/Tessie, set Home latitude/longitude. |
+| Alerts show on the page but never reach your phone | `/car notify here` in that chat, `allow_gateway_injection: true`, and keep the gateway running. `/car notify status` shows the last attempt. |
+| "Practice run" when you wanted to send | You're in practice mode: **Go live** (page) or `/car live`. |
+| Settings changed but nothing happened | They apply immediately: run `/car`. Check *Connection · Which car*. |
+
+## Reference
+
+**Tools** (the agent uses them): `car_status`, `car_history`, `car_readiness`, `car_command`, `car_alerts`, `car_rules`.
+
+**`/car`**: `ready [when] [mi]` · `lock` · `warm [°F]` · `alerts [ack [id]]` · `live [hours]` · `practice` · `log [n]` ·
+`rules` · `notify here|off|status` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
+(`arm` and `disarm` still work as aliases.)
+
+**Automations** (ordinary cron jobs, one command each): `/blueprint pit-crew:morning-brief`, `:precondition`, `:nightly-security`.
+
+**Skill** `pit-crew:car-agent`: calendar-aware readiness; "never claim a command worked without read-back".
+
+**Storage:** a SQLite file in the plugin's data directory (audit log, alerts, trips and charging sessions with place names
+and distances, simulator state), readable only by you. No VINs; VIN and token patterns are also registered with Hermes' redactor.
+
+## Privacy and risk
+
+* **Network:** only to the services you configure. No telemetry.
+* **Credentials:** declared secrets, read only through Hermes' secret scope; never in config, logs or output. Pit Crew stores no OAuth tokens or key files.
+* **Reads outside its data:** only a custom Home Assistant mapping file, if you point *brand mapping* at one.
+* **Background process:** one watcher polls every 2 minutes (15 while the car sleeps) and never wakes the car.
+* **Risk:** once live *and* approved, software can unlock and open a real car. Read [docs/SAFETY.md](docs/SAFETY.md), start in
+  practice mode, use a dedicated Home Assistant user, and don't expose the Hermes dashboard to the internet.
+
+## Write an adapter for another car
+
+The brain (state model, commands, readiness, rules, safety) is platform-independent. A car platform is one small module that
+says what it can read and do, fetches a `VehicleState`, and sends commands. Ship it as a pip package with an entry point and it
+plugs in without touching this repo: [docs/ADAPTERS.md](docs/ADAPTERS.md) has a 30-line example.
+
+## Development
+
+```bash
+python3 -m venv ~/.venvs/pit-crew      # keep the venv OUTSIDE the plugin directory
+~/.venvs/pit-crew/bin/pip install pytest pytest-asyncio pyyaml fastapi httpx
+~/.venvs/pit-crew/bin/python -m pytest tests   # no network; the Hermes and Node tests skip if absent
+hermes plugins validate .                      # catalog admission checks
+```
+
+The plugin id (`pit-crew`) is defined in `constants.py`, `plugin.yaml`, `dashboard/manifest.json` and `desktop/plugin.js`,
+mostly; `grep -rn pit-crew` finds the rest. Design notes: [docs/DECISIONS.md](docs/DECISIONS.md) · [docs/STATUS.md](docs/STATUS.md) ·
+catalog entry: [catalog/pit-crew.yaml](catalog/pit-crew.yaml).
+
+MIT licensed.

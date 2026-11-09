@@ -245,3 +245,43 @@ def test_r16_stale_readings_do_not_raise_alerts(svc, stub, clock):
     stub.ages.clear()
     poll(svc); clock.advance(11 * 60)
     assert [a["rule"] for a in poll(svc)["raised"]] == ["left_unlocked_away"]
+
+
+# -- 2026-11-09 real-car test: our own charge_stop is not an incident ---------------------------------------------------
+def _audit_cmd(svc, clock, command, args=None, status="confirmed", ago=60):
+    svc.store.audit_add(ts=svc._wall() - ago, surface="test", session="", command=command, args=args or {}, risk="comfort",
+                        mode="live", policy="allowed", approval="not_required", status=status, detail="",
+                        readback="n/a", readback_ts=None, adapter="stub")
+
+
+def test_charging_stopped_unexpectedly_not_raised_after_our_own_charge_stop(svc, stub, clock):
+    stub.values.update(charging_state="charging", battery_pct=50.0, plugged_in=True); poll(svc)
+    _audit_cmd(svc, clock, "charge_stop")
+    stub.values.update(charging_state="stopped")
+    assert "charging_stopped_unexpectedly" not in [a["rule"] for a in poll(svc)["raised"]]
+    # the session is forgotten: a later, unrelated stop (after the 30-minute window) is not blamed on that command
+    clock.advance(3600)
+    stub.values.update(charging_state="charging"); poll(svc)
+    stub.values.update(charging_state="stopped")
+    assert "charging_stopped_unexpectedly" in [a["rule"] for a in poll(svc)["raised"]]
+
+
+def test_charging_stopped_unexpectedly_not_raised_after_lowering_the_limit_to_the_current_charge(svc, stub, clock):
+    stub.values.update(charging_state="charging", battery_pct=50.0, plugged_in=True, charge_limit_pct=80); poll(svc)
+    _audit_cmd(svc, clock, "charge_limit", {"percent": 50})
+    stub.values.update(charging_state="stopped", charge_limit_pct=50)
+    assert "charging_stopped_unexpectedly" not in [a["rule"] for a in poll(svc)["raised"]]
+
+
+def test_a_failed_charge_stop_does_not_excuse_a_stop(svc, stub, clock):
+    stub.values.update(charging_state="charging", battery_pct=50.0, plugged_in=True); poll(svc)
+    _audit_cmd(svc, clock, "charge_stop", status="failed")
+    stub.values.update(charging_state="stopped")
+    assert "charging_stopped_unexpectedly" in [a["rule"] for a in poll(svc)["raised"]]
+
+
+def test_a_higher_limit_does_not_excuse_a_stop(svc, stub, clock):
+    stub.values.update(charging_state="charging", battery_pct=50.0, plugged_in=True, charge_limit_pct=80); poll(svc)
+    _audit_cmd(svc, clock, "charge_limit", {"percent": 90})
+    stub.values.update(charging_state="stopped")
+    assert "charging_stopped_unexpectedly" in [a["rule"] for a in poll(svc)["raised"]]

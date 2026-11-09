@@ -15,6 +15,8 @@ from .rules import RULE_LABELS, RULE_MINIMUMS, RULES, RULES_BY_ID, Finding, Rule
 logger = logging.getLogger(__name__)
 
 OPEN_STATES = ("new", "surfaced", "acked")
+#: a charge_stop / charge_limit Pit Crew sent within this long explains a "charging stopped" reading
+RECENT_COMMAND_S = 1800.0
 OPENING_FIELDS = ("doors_open", "windows_open", "trunk_open", "frunk_open")
 
 
@@ -135,6 +137,8 @@ class RuleEngine:
             memo = store.kv_get(f"rule_memo:{rule.id}", {}) or {}
             ctx = RuleContext(state=state, now=now, local=local, cfg=cfg, settings=settings, can_do=can_do, memo=memo,
                               last_moving_ts=last_moving,
+                              recent_commands=(store.live_commands_since(svc._wall() - RECENT_COMMAND_S)
+                                               if rule.id == "charging_stopped_unexpectedly" else None),
                               readiness=(lambda dep, mi, _s=svc: _s.readiness(dep, mi)) if rule.id == "soc_below_tomorrow" else None)
             try:
                 findings = rule.check(ctx)

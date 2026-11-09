@@ -342,7 +342,12 @@ def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
         d.bind(session_key, platform)
         if svc.ctx is None:
             return "Bound this chat, but the plugin context is unavailable so pushes may not work."
+        local = (platform or "").lower() in ("", "cli", "tui", "desktop", "local", "acp")
         return ("Proactive car alerts will be sent to this chat.\n"
+                + ("Note: this looks like a Desktop/CLI session, not a messaging chat. Hermes delivers pushes through the "
+                   "messaging gateway process, so they may not reach a session that gateway is not serving; run "
+                   "`/car notify test` to check, or bind a messaging chat instead.\n" if local else "")
+                +
                 "If nothing arrives, Hermes may be blocking plugin messages: set "
                 "`plugins.entries.pit-crew.allow_gateway_injection: true` in config.yaml "
                 "(see README → Proactive alerts).")
@@ -361,7 +366,13 @@ def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
         return "No chat is bound for pushed alerts. Run `/car notify here` in the chat you want."
     last = st["last_push"]
     tail = f" Last push: {'ok' if last.get('ok') else 'refused'}." if last else ""
-    return f"Pushing alerts to a {t.get('platform') or 'local'} chat." + tail + (f"\n{last['hint']}" if last and last.get("hint") else "")
+    wait = ""
+    if st.get("waiting_for_push"):
+        wait += f"\n{st['waiting_for_push']} alert(s) are waiting to be pushed; Pit Crew keeps retrying (backing off) for 6 hours."
+    if st.get("gave_up"):
+        wait += f"\n{st['gave_up']} older alert(s) were never pushed and were given up on (still in `/car alerts`)."
+    return (f"Pushing alerts to a {t.get('platform') or 'local'} chat." + tail
+            + (f"\n{last['hint']}" if last and last.get("hint") else "") + wait)
 
 
 def _discover(svc: Any) -> str:

@@ -69,18 +69,20 @@ def _alert(svc, state="new"):
 
 def test_a_push_cannot_resurrect_an_alert_that_was_resolved_or_acked_while_it_was_in_flight(svc):
     a = _alert(svc)
-    assert svc.store.alert_claim_push(a, 1000.0)                       # new -> pushing
+    assert svc.store.alert_claim_push(a, 1000.0)                       # claimed for a push (state untouched)
     svc.store.alerts_resolve_key("r", "k")                             # the condition cleared mid-push
-    assert svc.store.alert_transition(a, "surfaced", ("pushing",)) is False
-    assert svc.store.alerts_list(("resolved",))[0]["id"] == a
+    svc.store.alert_push_done(a, 1001.0)
+    assert [r["id"] for r in svc.store.alerts_list(("resolved",))] == [a]      # still resolved, not 'surfaced'
     b = _alert(svc)
     assert svc.store.alert_claim_push(b, 1000.0)
     svc.store.alert_set_state(b, "acked")                              # the human acknowledged it mid-push
-    assert svc.store.alert_transition(b, "surfaced", ("pushing",)) is False
+    svc.store.alert_push_done(b, 1001.0)
     assert [r["id"] for r in svc.store.alerts_list(("acked",))] == [b]
     c = _alert(svc)
     assert svc.store.alert_claim_push(c, 1000.0)
-    assert svc.store.alert_transition(c, "surfaced", ("pushing",)) is True
+    svc.store.alert_push_done(c, 1001.0)
+    assert [r["id"] for r in svc.store.alerts_list(("surfaced",))] == [c]
+    assert svc.store.alert_claim_push(c, 2000.0) is False              # pushed once: never again
 
 
 def test_next_turn_context_does_not_overwrite_a_changed_alert(svc):

@@ -50,7 +50,7 @@ def test_lease_moves_to_the_process_that_can_deliver(svc, stub, store, clock):
     A.poll_once(); clock.advance(11 * 60)
     res = A.poll_once()                                     # raises the alert; the push is refused here
     assert res["raised"] and res["pushed"] is False
-    assert [a["state"] for a in svc.alerts()] == ["new"]    # nothing lost: still 'new', not stuck 'pushing'
+    assert [a["state"] for a in svc.alerts()] == ["new"]    # nothing lost: still 'new'
     assert A._holds is False                                # A stepped aside
     clock.advance(30)
     res = B.poll_once()                                     # B takes over and delivers
@@ -76,7 +76,7 @@ def test_push_claim_is_atomic(svc, stub, clock):
     aid = svc.store.alert_add(ts=clock.t, rule="r", dedupe_key="k", severity="high", title="t", body="b", suggestion="s")
     assert svc.store.alert_claim_push(aid, clock.t) is True
     assert svc.store.alert_claim_push(aid, clock.t) is False   # a second process cannot take it
-    svc.store.alert_unclaim_push(aid)
+    svc.store.alert_push_failed(aid, clock.t, 'x')           # releases the claim
     assert svc.store.alert_claim_push(aid, clock.t) is True
 
 
@@ -260,3 +260,117 @@ def test_passing_range_checks_do_not_say_outside(stub_service):
     assert "outside" not in detail and "within" in detail
     bad = svc.engine.preflight("climate_on", {"temp_f": 95})
     assert bad["ok"] is False or "outside" in bad["message"]
+
+
+# -- 2026-11-09 real-car test: a failed push must not be cancelled by "surfaced", and must say why ----------------------
+import logging
+
+
+class NoGatewayCtx(CronCtx):
+    """What the Desktop/TUI process does: Hermes logs its refusal on `hermes_cli.plugins` and returns False."""
+    def inject_message(self, content, role="user", *, session_key=None, origin=None):
+        self.injected.append((content, session_key))
+        logging.getLogger("hermes_cli.plugins").warning("inject_message: no live gateway is available")
+        return False
+
+
+class RaisingCtx(CronCtx):
+    def inject_message(self, content, role="user", *, session_key=None, origin=None):
+        raise TimeoutError("secret detail that must not be stored")
+
+
+def _raise_alert(svc, stub, clock):
+    stub.values.update(locked=False, location_zone="away")
+    svc.watcher.poll_once(); clock.advance(11 * 60)
+    return svc.watcher.poll_once()
+
+
+def test_failed_push_reports_the_hermes_reason(svc, stub, clock):
+    svc.ctx = NoGatewayCtx()
+    svc.watcher.deliverer.bind("s", "matrix")
+    _raise_alert(svc, stub, clock)
+    last = svc.store.kv_get("notify_last")
+    assert last["ok"] is False and "not the messaging gateway" in last["reason"] and last["reason"] in last["hint"]
+
+
+def test_failed_push_reports_exception_type_not_its_message(svc, stub, clock):
+    svc.ctx = RaisingCtx()
+    svc.watcher.deliverer.bind("s", "matrix")
+    _raise_alert(svc, stub, clock)
+    last = svc.store.kv_get("notify_last")
+    assert "TimeoutError" in last["reason"] and "secret detail" not in str(last)
+
+
+def test_test_push_failure_names_the_reason(svc):
+    svc.ctx = NoGatewayCtx()
+    svc.watcher.deliverer.bind("s", "matrix")
+    res = svc.watcher.deliverer.send_test()
+    assert res["ok"] is False and "messaging gateway" in res["why"] and "Reason:" in res["hint"]
+
+
+def test_surfacing_in_another_chat_does_not_cancel_the_push_and_it_is_retried_with_backoff(svc, stub, clock):
+    svc.ctx = NoGatewayCtx()
+    d = svc.watcher.deliverer
+    d.bind("matrix-chat", "matrix")
+    _raise_alert(svc, stub, clock)
+    assert [a["state"] for a in svc.alerts()] == ["new"]
+    assert d.context_for_next_turn()                       # an unrelated Desktop turn picks it up
+    assert [a["state"] for a in svc.alerts()] == ["surfaced"]
+    row = svc.store.alerts_list(("surfaced",))[0]
+    assert row["pushed_ts"] is None and row["push_attempts"] == 1 and row["next_push_ts"] > clock.t
+    assert d.push_pending() is False                       # backing off: not retried yet
+    assert len(svc.ctx.injected) == 1
+    # the gateway process comes up with a working injector
+    svc.ctx = CronCtx()
+    clock.advance(31)
+    assert d.push_pending() is True and len(svc.ctx.injected) == 1
+    assert svc.ctx.injected[0][1] == "matrix-chat"
+    row = svc.store.alerts_list(("surfaced",))[0]
+    assert row["pushed_ts"] is not None
+    clock.advance(10)
+    assert d.push_pending() is False                       # delivered once, never again
+
+
+def test_backoff_grows_and_the_push_is_given_up_after_six_hours_and_status_says_so(svc, stub, clock):
+    from pit_crew.watcher import delivery
+    svc.ctx = NoGatewayCtx()
+    d = svc.watcher.deliverer
+    d.bind("s", "matrix")
+    _raise_alert(svc, stub, clock)
+    waits = []
+    for _ in range(4):
+        row = svc.store.alerts_list(("new", "surfaced"))[0]
+        waits.append(row["next_push_ts"] - clock.t)
+        clock.t = row["next_push_ts"]
+        d.push_pending()
+    assert waits == sorted(waits) and waits[-1] > waits[0]
+    assert d.status()["waiting_for_push"] == 1
+    clock.advance(delivery.PUSH_GIVEUP_S + 1)
+    svc.ctx = CronCtx()
+    assert d.push_pending() is False and svc.ctx.injected == []
+    st = d.status()
+    assert st["waiting_for_push"] == 0 and st["gave_up"] == 1
+
+
+def test_an_acked_alert_is_not_pushed_later(svc, stub, clock):
+    svc.ctx = NoGatewayCtx()
+    d = svc.watcher.deliverer
+    d.bind("s", "matrix")
+    _raise_alert(svc, stub, clock)
+    aid = svc.store.alerts_list(("new",))[0]["id"]
+    svc.store.alert_set_state(aid, "acked")
+    svc.ctx = CronCtx()
+    clock.advance(3600)
+    assert d.push_pending() is False and svc.ctx.injected == []
+
+
+def test_old_pushing_rows_are_migrated_back_to_new(tmp_path):
+    import sqlite3
+    from pit_crew.store import Store, SCHEMA
+    conn = sqlite3.connect(tmp_path / "old.db")
+    conn.executescript(SCHEMA)      # the schema as an old plugin version created it has no push columns: the migration adds them
+    conn.execute("INSERT INTO alerts(ts, rule, dedupe_key, severity, title, body, suggestion, state) VALUES(1,'r','k','high','t','b','s','pushing')")
+    conn.commit()
+    s = Store(conn)
+    row = s.alerts_list()[0]
+    assert row["state"] == "new" and row["pushed_ts"] is None and row["push_attempts"] == 0

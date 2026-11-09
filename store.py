@@ -119,7 +119,21 @@ class Store:
         self._conn.row_factory = sqlite3.Row
         with self._lock:
             self._conn.executescript(SCHEMA)
+            self._migrate_alerts()
             self._conn.commit()
+
+    #: push bookkeeping, kept apart from ``state`` (new/surfaced/acked/resolved): showing an alert in some chat's next-turn
+    #: context ("surfaced") must not cancel the push to the bound chat
+    _ALERT_PUSH_COLUMNS = (("pushed_ts", "REAL"), ("push_attempts", "INTEGER NOT NULL DEFAULT 0"),
+                           ("next_push_ts", "REAL"), ("push_claim_ts", "REAL"), ("push_error", "TEXT"))
+
+    def _migrate_alerts(self) -> None:
+        have = {r[1] for r in self._conn.execute("PRAGMA table_info(alerts)").fetchall()}
+        for col, decl in self._ALERT_PUSH_COLUMNS:
+            if col not in have:
+                self._conn.execute(f"ALTER TABLE alerts ADD COLUMN {col} {decl}")
+        # the old claim state: an alert claimed by a pusher that never finished is simply unpushed again
+        self._conn.execute("UPDATE alerts SET state='new', delivered_ts=NULL WHERE state='pushing'")
 
     # -- plumbing -------------------------------------------------------------------------
     def execute(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
@@ -280,16 +294,47 @@ class Store:
         cur = self.execute(f"UPDATE alerts SET {sets} WHERE id = ? AND state IN ({marks})", tuple(params))
         return cur.rowcount > 0
 
+    def alerts_for_push(self, now: float, giveup_s: float, limit: int = 20) -> List[Dict[str, Any]]:
+        """Alerts still owed a push: not pushed yet, not acknowledged or resolved (``new`` or ``surfaced``), not ``info``,
+        newer than ``giveup_s``, past their retry time and not claimed by another pusher right now."""
+        rows = self.query(
+            "SELECT * FROM alerts WHERE pushed_ts IS NULL AND state IN ('new','surfaced') AND severity != 'info' "
+            "AND ts >= ? AND COALESCE(next_push_ts,0) <= ? AND COALESCE(push_claim_ts,0) < ? ORDER BY id DESC LIMIT ?",
+            (now - giveup_s, now, now - 300.0, int(limit)))
+        for r in rows:
+            try:
+                r["data"] = json.loads(r["data"] or "{}")
+            except ValueError:
+                r["data"] = {}
+        return rows
+
+    def alerts_push_summary(self, now: float, giveup_s: float) -> Dict[str, int]:
+        """Counts for status: waiting for a push (with retries pending) and given up (older than the window, never pushed)."""
+        rows = self.query(
+            "SELECT SUM(CASE WHEN ts >= ? THEN 1 ELSE 0 END) AS waiting, SUM(CASE WHEN ts < ? THEN 1 ELSE 0 END) AS gave_up "
+            "FROM alerts WHERE pushed_ts IS NULL AND state IN ('new','surfaced') AND severity != 'info'",
+            (now - giveup_s, now - giveup_s))
+        r = rows[0] if rows else {}
+        return {"waiting": int(r.get("waiting") or 0), "gave_up": int(r.get("gave_up") or 0)}
+
     def alert_claim_push(self, alert_id: int, now: float, stale_s: float = 300.0) -> bool:
-        """Atomically take an alert for pushing (new -> pushing). Exactly one caller wins; a claim older than
-        ``stale_s`` (a crashed pusher) can be taken over."""
+        """Atomically take an alert for pushing. Exactly one caller wins; a claim older than ``stale_s`` (a crashed pusher)
+        can be taken over. The alert's ``state`` is not touched."""
         cur = self.execute(
-            "UPDATE alerts SET state='pushing', delivered_ts=? WHERE id=? AND "
-            "(state='new' OR (state='pushing' AND COALESCE(delivered_ts,0) < ?))", (now, alert_id, now - stale_s))
+            "UPDATE alerts SET push_claim_ts=? WHERE id=? AND pushed_ts IS NULL AND state IN ('new','surfaced') "
+            "AND COALESCE(push_claim_ts,0) < ?", (now, alert_id, now - stale_s))
         return cur.rowcount == 1
 
-    def alert_unclaim_push(self, alert_id: int) -> None:
-        self.execute("UPDATE alerts SET state='new', delivered_ts=NULL WHERE id=? AND state='pushing'", (alert_id,))
+    def alert_push_done(self, alert_id: int, now: float) -> None:
+        """Delivered to the bound chat. A still-``new`` alert becomes ``surfaced``; acked/resolved ones stay as they are."""
+        self.execute("UPDATE alerts SET pushed_ts=?, push_claim_ts=NULL, push_error=NULL, push_attempts=push_attempts+1 "
+                     "WHERE id=?", (now, alert_id))
+        self.alert_transition(alert_id, "surfaced", ("new",))
+
+    def alert_push_failed(self, alert_id: int, next_ts: float, error: str = "") -> None:
+        """The push did not go through: release the claim and try again at ``next_ts``. State stays as it was."""
+        self.execute("UPDATE alerts SET push_claim_ts=NULL, next_push_ts=?, push_error=?, push_attempts=push_attempts+1 "
+                     "WHERE id=?", (next_ts, (error or "")[:300], alert_id))
 
     def alerts_resolve_key(self, rule: str, dedupe_key: str) -> int:
         cur = self.execute(

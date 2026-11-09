@@ -83,7 +83,7 @@ CAR_COMMAND = {
     "description": (
         "Send ONE command to the car through the safety gate. Commands — " + _command_help() + ". "
         "Arguments (all bounded): set_temp/climate_on {temp_f 59-82}; charge_limit {percent 50-100}; "
-        "charge_amps {amps}; defrost {on}; seat_heat {seat: driver|passenger|rear_left|rear_center|rear_right, "
+        "charge_amps {amps}; defrost {on} (Tesla defrost runs the heat and the fan at MAXIMUM: do not turn it on with anyone or any pet in the car, and say so to the user before you do); seat_heat {seat: driver|passenger|rear_left|rear_center|rear_right, "
         "level 0-3}. The car starts in PRACTICE mode: commands are validated and logged but NOT sent until the "
         "user goes live (`/car live`, or Go live on the Pit Crew page) — the result says which happened, so say it plainly (\"practice "
         "run, nothing was sent\"). Commands marked NEEDS HUMAN APPROVAL trigger Hermes' approval prompt; they are refused when "

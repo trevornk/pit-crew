@@ -73,6 +73,8 @@ class CommandSpec:
     verify: Optional[Verifier] = None
     # Read-back keeps looking at least this long (seconds) when the car's own report lags the command (Fleet API: 30-60 s).
     verify_window_s: float = 0.0
+    # A plain-language caution added to the result message when the command is switched ON (shown to the user via the agent).
+    caution: str = ""
 
 
 def _v_locked(want: bool) -> Verifier:
@@ -154,9 +156,10 @@ _SPECS: List[CommandSpec] = [
        args=(ArgSpec("temp_f", "float", required=True, minimum=TEMP_MIN_F, maximum=TEMP_MAX_F,
                      help="Target cabin temperature in °F"),),
        verify_fields=("target_temp_f",), verify=_v_target_temp),
-    _c("defrost", COMFORT, "Turn max defrost on or off.",
+    _c("defrost", COMFORT, "Turn max defrost on or off (Tesla runs heat AND fan at MAXIMUM: tell anyone in the car first).",
        args=(ArgSpec("on", "bool", default=True),),
-       verify_fields=("defrost_on",), verify=_v_defrost),
+       verify_fields=("defrost_on",), verify=_v_defrost,
+       caution="Tesla defrost runs the heat and the fan at MAXIMUM, so make sure nobody (and no pet) is in the car, or tell them first."),
     _c("seat_heat", COMFORT, "Set a seat heater level (0 = off, 3 = hottest).",
        args=(ArgSpec("seat", "enum", required=True, choices=SEAT_NAMES),
              ArgSpec("level", "int", required=True, minimum=0, maximum=SEAT_LEVEL_MAX))),

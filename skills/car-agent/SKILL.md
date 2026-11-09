@@ -19,8 +19,11 @@ The car may be **simulated** (the result says `vehicle.simulated: true`) — if 
    Fields listed as unavailable are *unknown* — never guess them (not every car reports speed, gear, or windows).
 2. **Never claim a command worked without read-back.** `car_command` returns a `status`:
    - `confirmed` — the car's own state showed the change ("the car confirmed it locked at 8:02 PM").
+   - `confirmed` with `readback.already` — the car already showed that state before the command ("it was already closed"); say that, not "I closed it".
    - `sent_unconfirmed` — sent, but the car did not (yet) show it, or can't report it. Say exactly that, then call
-     `car_status` again before saying it worked.
+     `car_status` again before saying it worked. Charging commands can take a minute or two to show up (the car's report lags).
+   - A reading listed in `freshness.stale_fields` is old (its age is given), even if the car is awake: say so rather than quoting it as current.
+   - `defrost` on runs the heat and the fan at **maximum**: tell the user before you turn it on, and never with anyone or a pet in the car.
    - `dry_run` — **nothing was sent**; the car is in practice mode. Say so plainly and tell the user `/car live` (or Go live on the Pit Crew page) goes live.
    - `blocked` / `failed` / `rate_limited` / `invalid` — it did not happen. Explain why in plain language. Do not retry
      in a loop and do not look for a way around the safety checks.

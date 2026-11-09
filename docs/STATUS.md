@@ -158,3 +158,11 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
 * Per-field freshness for TeslaMate is approximated from `state_since` when the car sleeps.
 * Possible additions: tire pressure rule (TeslaMate has TPMS), departure schedule from calendar via the skill only,
   more brand profiles, YAML profile tests.
+
+## Host-contract pass (branch host-contract)
+* Approval-class commands follow the user's Hermes approval setting; `require_human_for` is the opt-in. Verified against Hermes v0.23.0's real
+  `_run_approval_gate` (approvals off, yolo, manual with a scripted person, session/always) and the real executor unwrap; **not** run through
+  Desktop/Telegram/Discord approval UIs, and **smart** mode was verified by reading the source (`_human_decision` is called without `smart=`
+  for plugin approvals), not by running a guardian.
+* Rules live in the `rules` setting; the dashboard-process write path (`save_plugin_setting`) is exercised only as an import-guarded call.
+* The status-bar chip as a hideable data item is source-verified against Desktop's code, not yet seen in a running Desktop.

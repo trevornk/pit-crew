@@ -49,6 +49,18 @@ def format_context(alerts: List[Dict[str, Any]]) -> str:
             "offer the suggested action, don't run it without a yes):\n" + "\n".join(format_alert_line(a) for a in alerts))
 
 
+UNDELIVERABLE_HINT = ("This Hermes process could not deliver the alert (no live gateway here, "
+                      "or Hermes refused it). The gateway process delivers it when it can; "
+                      "if alerts never reach your chat, check that the gateway is running and "
+                      "plugins.entries.pit-crew.allow_gateway_injection is true in config.yaml, "
+                      "then run `/car notify here` again.")
+TEST_LINE = "Pit Crew test alert: delivery works"
+TEST_MESSAGE = (
+    "[Automated test of car-alert delivery from the pit-crew plugin \u2014 not typed by the user. Tell the user in one "
+    "short sentence that the test arrived. There is no real alert and nothing to do; do NOT send any car command.]\n"
+    + TEST_LINE)
+
+
 class Deliverer:
     def __init__(self, service: Any) -> None:
         self._svc = service
@@ -109,13 +121,27 @@ class Deliverer:
             for a in claimed:
                 svc.store.alert_unclaim_push(int(a["id"]))   # still 'new': the next turn's context will carry it
         svc.store.kv_set("notify_last", {"at": svc._wall(), "ok": ok, "count": len(claimed),
-                                         "hint": None if ok else (
-                                             "This Hermes process could not deliver the alert (no live gateway here, "
-                                             "or Hermes refused it). The gateway process delivers it when it can; "
-                                             "if alerts never reach your chat, check that the gateway is running and "
-                                             "plugins.entries.pit-crew.allow_gateway_injection is true in config.yaml, "
-                                             "then run `/car notify here` again.")})
+                                         "hint": None if ok else UNDELIVERABLE_HINT})
         return ok
+
+    def send_test(self) -> Dict[str, Any]:
+        """Push a clearly labelled test line through the SAME inject call real alerts use, to the bound target.
+        Creates no alert row and touches no rule, dedupe or ``notify_last`` state."""
+        svc = self._svc
+        target = self.target()
+        if target is None:
+            return {"ok": False, "reason": "not_bound", "hint": "No chat is bound for pushed alerts. Run `/car notify here` in the chat you want."}
+        ctx = svc.ctx
+        if ctx is None:
+            return {"ok": False, "reason": "no_context", "hint": UNDELIVERABLE_HINT}
+        try:
+            key = target.get("session_key") or None
+            ok = bool(ctx.inject_message(TEST_MESSAGE, session_key=key) if key else ctx.inject_message(TEST_MESSAGE))
+        except Exception as exc:
+            logger.warning("test alert push failed: %s", type(exc).__name__)
+            ok = False
+        return {"ok": ok, "reason": None if ok else "refused", "hint": None if ok else UNDELIVERABLE_HINT,
+                "push_enabled": bool(svc.settings.get("alert_push"))}
 
     # -- next-turn context -------------------------------------------------------------------
     def context_for_next_turn(self, limit: int = 5) -> Optional[str]:

@@ -81,7 +81,13 @@ def score_profile(profile: Mapping[str, Any], slug: str, entity_ids: set) -> Dic
         warnings.append(enable_instructions(profile, off, [f"{c['enable_as']} (for {c['for']})" for c in off_cmds]))
     if profile.get("deprecated"):
         warnings.append(str(profile.get("deprecated_note") or "This profile is for an integration that no longer works."))
-    return {"profile": profile["name"], "slug": slug, "tested": bool(profile.get("tested")),
+    # Integrations that share most entity names (tesla_fleet / teslemetry / tessie) are told apart by a few entities only one of
+    # them creates. Hit = a "present" entity exists or an "absent" one does not; the result is a small tie-break bonus.
+    sig = profile.get("discovery_signature") or {}
+    checks = ([e.replace("{slug}", slug) in entity_ids for e in sig.get("present", [])]
+              + [e.replace("{slug}", slug) not in entity_ids for e in sig.get("absent", [])])
+    sig_score = (sum(1 if c else -1 for c in checks) / len(checks)) if checks else 0.0
+    return {"profile": profile["name"], "slug": slug, "signature": round(sig_score, 2), "tested": bool(profile.get("tested")),
             "deprecated": bool(profile.get("deprecated")), "warnings": warnings,
             "coverage": round(len(matched) / required, 2) if required else 0.0,
             "fields_matched": matched, "fields_missing": missing, "commands_available": cmds_ok}
@@ -98,7 +104,7 @@ def discover(states: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
             proposals.append(score_profile(profile, slug, entity_ids))
     # A profile for an integration that no longer works loses ties (and near-ties) but is still offered when it is the
     # only good match, with its warning.
-    proposals.sort(key=lambda p: (-(p["coverage"] - (0.05 if p["deprecated"] else 0.0)), not p["tested"]))
+    proposals.sort(key=lambda p: (-(p["coverage"] + 0.1 * p["signature"] - (0.05 if p["deprecated"] else 0.0)), not p["tested"]))
     best = proposals[0] if proposals else None
     out: Dict[str, Any] = {"entities_seen": len(entity_ids), "proposals": proposals[:5]}
     if best and best["coverage"] >= 0.6:

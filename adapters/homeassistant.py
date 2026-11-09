@@ -193,6 +193,20 @@ class HomeAssistantAdapter(CarAdapter):
             return FieldValue(None, None, False)
         return FieldValue(value, stamp)
 
+    @staticmethod
+    def _apply_untrusted(spec: Mapping[str, Any], fv: FieldValue) -> FieldValue:
+        """Integrations that fill in a parked-looking default when the car sent nothing (Tessie / Teslemetry turn a missing gear
+        into "P" and a missing speed into 0, and serve cached or restored values with fresh timestamps) cannot prove the car
+        is parked. A field with ``untrusted_values`` is unavailable when it reads one of them; other readings (D/R/N, a real
+        speed) pass through, so "moving" is still detected."""
+        bad = spec.get("untrusted_values")
+        if not bad or not fv.available or isinstance(fv.value, bool):
+            return fv
+        for b in bad:
+            if fv.value == b or (isinstance(b, str) and isinstance(fv.value, str) and fv.value.upper() == b.upper()):
+                return FieldValue(None, None, False)
+        return fv
+
     def _apply_data_time(self, spec: Mapping[str, Any], fv: FieldValue, states: Mapping[str, Dict[str, Any]]) -> FieldValue:
         """Cloud-polled integrations (kia_uvo) write the same cached copy into Home Assistant every few minutes, so HA's own
         stamp says "fresh" for data that may be hours old. A field with ``data_time_entity`` takes the car's data time from
@@ -326,7 +340,7 @@ class HomeAssistantAdapter(CarAdapter):
         states = self._refresh_states()
         fields: Dict[str, FieldValue] = {}
         for name, spec in self._profile["fields"].items():
-            fields[name] = self._apply_data_time(spec, self._map_field(name, spec, states, now), states)
+            fields[name] = self._apply_untrusted(spec, self._apply_data_time(spec, self._map_field(name, spec, states, now), states))
         # Derived 'moving' from every motion source the car offers: speed, gear and (optionally) a TeslaMate-style
         # state entity whose value 'driving' means moving. Any source saying moving wins; "not moving" is only claimed
         # from sources that reported, and carries the freshest of their timestamps (policy then checks it is fresh).

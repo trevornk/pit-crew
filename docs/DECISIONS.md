@@ -193,3 +193,31 @@ Notable choices made while building, newest last. Format: decision — why.
 - **Timeouts are `unknown_outcome`,** not `failed`; the engine reads the car back anyway and reports `confirmed` if the change shows.
 - **Privacy.** Fixtures were rescrubbed at HEAD only (history is the owner's separate step). The owner's name stays in LICENSE and
   plugin.yaml.
+
+
+## Pre-submission pass (0.2.0)
+
+* **Tire pressure is part of the normalized state, in psi.** Six fields (four tires + the car's recommended front/rear pressure).
+  Units are converted on the way in (`bar`, `kPa`, `psi`); an **unknown pressure unit makes the reading unavailable** instead of
+  guessing, because a bar value read as psi looks like a flat tire.
+* **Low-tire threshold, in order:** the rule's `min_psi` if set > 0; else 90% of the pressure the car recommends for that axle
+  (BMW and the Tesla API report it); else the adapter's model default (`state.hints["tire_min_psi"]`: 38 psi for a Tesla = 90% of
+  a Model 3/Y's 42 psi placard, which Home Assistant does not expose); else 30 psi, which no passenger-car placard is below. So a
+  35 psi Kia is not permanently "low", and a Tesla is flagged at ~38.
+* **Fast air loss** compares the newest reading to the highest in the last `window_min` (default 30 min) and fires on a drop of
+  `drop_psi` (default 3). Readings taken while the car is moving are not tracked (hot tires); stale readings are skipped by the
+  engine (R16) so a quiet sensor neither alerts nor resolves an alert. The rule needs *any* tire, not all four (`requires_any`).
+* **Disabled-by-default HA entities are data, not folklore:** profile fields carry `disabled_by_default` + `enable_as`, and every
+  surface prints the same enable-it instructions. A disabled entity has no state in `/api/states`, so "absent" means "enable it".
+* **BMW profile kept, marked deprecated.** HA core removed `bmw_connected_drive` (March 2026). The profile is still correct for the
+  last source and is ranked below current profiles by discovery, with the removal explained. The BMW CarData community
+  integration is mentioned but not mapped (no source verification was done for it).
+* **Kia/Hyundai profile follows kia_uvo v4 entity names** (from `strings.json`); the older ids stay as `alt_entities`. Honk/flash use
+  the two hazard buttons, which the integration ships disabled, and say so.
+* **Approval tickets:** only the newest matching ticket counts, and a "yes" is valid for 2 minutes. Falling through to an older
+  confirmed ticket let a call whose own prompt never happened ride on an earlier approval.
+* **The simulator is on the service clock** (and a simulated drive takes time at 35 mph) so tests are deterministic and history
+  sees believable speeds.
+* **CI runs the real thing.** Hermes v0.23.0 from its lockfile on Python 3.14 (its own requirement; its `uv.lock` is the reviewed
+  dependency set, installed with `uv sync --frozen`), Node 22 with exact pins, and a no-skips gate. The quarantine (`--exclude-newer
+  "3 days"`) still applies to the test tooling we resolve ourselves.

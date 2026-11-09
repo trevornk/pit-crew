@@ -1,6 +1,33 @@
 # Status
 
-_Last updated: end of pass 9 (pre-publication polish). Hackathon submission deadline: Wed Nov 11 2026 4 PM US/Central._
+_Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submission deadline: Wed Nov 11 2026 4 PM US/Central._
+
+## What is verified now
+* **Live, read-only:** the Home Assistant `tesla_fleet` connection has read the status of the owner's **real Model Y** (state,
+  charging, lock, climate, place). The sanitized recordings of it are the test fixtures. Its Odometer showed "unavailable" because
+  Home Assistant ships that entity disabled; the mapping itself matches HA core's source.
+* **Not live-tested yet (the owner will do this separately): commands.** Lock/climate/charge from `/car live`, the unlock approval
+  round-trip on a real surface (Telegram/Discord/Desktop), chat pushes, and both pages inside the real apps.
+* **In CI on every push** (`.github/workflows/ci.yml`): all 593 tests with none skipped: Python 3.12 test tools resolved with a
+  3-day release-age quarantine, Node 22 with pinned `react`/`react-dom`/`jsdom` (`tests/node`, `npm ci`), and **Hermes Agent v0.23.0
+  installed from its own `uv.lock` (Python 3.14)** so the real `PluginManager` load and the real approval pipeline run; then
+  `hermes plugins validate .`. A job step fails the build if any test was skipped. Locally the Node and Hermes tests skip with a
+  clear reason when those are absent (point `HERMES_NODE_MODULES` / `HERMES_PY` at them).
+* **Source-verified, not run on a car:** `kia_hyundai_connect` (kia_uvo v4 HACS integration) and `bmw_connected_drive` (HA's last
+  version of an integration that was removed in March 2026), against entity names, units and test data; see
+  `tests/fixtures/integrations/README.md`.
+* **New in 0.2.0:** tire pressure end to end (fields, adapters, simulator, `/car`, both pages, two alerts) and Home Assistant
+  "enable this disabled entity" guidance; a full bug audit (list in `CHANGELOG.md`, each fix has a regression test).
+
+## Known limits (not fixed, by design or cost)
+* Cross-process races: two processes sharing the simulator or the recorder's last-snapshot row can overwrite each other (the
+  simulator is demo-only; the recorder tolerates a lost snapshot).
+* `alerts` and `audit` rows are never pruned (small).
+* A rule's cooldown restarts when its condition clears (a flapping door can alert once per episode, by design).
+* A model can pass `wake_ok` / `override_zone` itself on comfort/charging commands (the schema says "only after the user agreed");
+  approval-class commands still need the human prompt. The pages cannot set either flag.
+* The Desktop/web tiles label a reading "confirmed" when it carries no timestamp (no adapter does this today).
+* Fast-air-loss can, rarely, read a hot tire cooling right after a long highway drive as a leak; readings taken while moving are ignored.
 
 ## Pass 9 (security + privacy + UX + README) — done
 * **Security (all 12 findings):** watcher lease heartbeat and decoupled atomic push (gateway-owned delivery), crash-proof poll loop,
@@ -106,7 +133,7 @@ _Last updated: end of pass 9 (pre-publication polish). Hackathon submission dead
 * **Desktop / web dashboard in the real apps** — rendered with an SDK stub (Desktop) and jsdom (web), not inside the real apps; visual
   polish and SDK prop details (e.g. `Button` ref/autoFocus, `Dialog` focus, `host.composer` while the page replaces the chat view) need an eyeball pass. Screenshots are the owner's to supply (`docs/screenshots/README.md`).
 * `plugins.isolation: host` mode for the dashboard backend is covered by the shared-DB design but not exercised.
-* BMW / Kia-Hyundai profiles are untested starters (labeled).
+* BMW / Kia-Hyundai profiles are verified against source and fixtures, not run on a car (labeled).
 
 ## Next steps (for the live pass)
 

@@ -1,7 +1,7 @@
 ---
 name: car-agent
 description: How to be a good car agent with the pit-crew tools — check state first, plan around the calendar, command safely, and never claim a command worked without read-back.
-version: 0.1.0
+version: 0.2.0
 metadata:
   hermes:
     tags: [car, ev, tesla, home-assistant, safety]

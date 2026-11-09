@@ -1,5 +1,5 @@
 name: pit-crew
-version: 0.1.0
+version: 0.2.0
 manifest_version: 2
 api_version: 1
 description: >-
@@ -38,7 +38,7 @@ config_schema:
   ha_url: {type: str, default: "", label: "Home Assistant · URL", description: "e.g. http://homeassistant.local:8123 (just the address, no path)."}
   ha_token: {type: secret, label: "Home Assistant · Access token", description: "Create a long-lived access token on your Home Assistant profile page (Security tab).", env: "PIT_CREW_HA_TOKEN"}
   ha_slug: {type: str, default: "", label: "Home Assistant · Car name", description: "The part of your car's entity names before the sensor name: for sensor.my_car_battery_level it is my_car. `/car discover` finds it."}
-  ha_profile: {type: str, default: "tesla_fleet", label: "Home Assistant · Car brand mapping", description: "Which entity layout your car uses: tesla_fleet (tested against recordings), bmw_connected_drive or kia_hyundai_connect (starters), or the path to your own JSON/YAML file. `/car discover` suggests one."}
+  ha_profile: {type: str, default: "tesla_fleet", label: "Home Assistant · Car brand mapping", description: "Which entity layout your car uses: tesla_fleet (built from recordings of a real car), kia_hyundai_connect (the kia_uvo HACS integration) or bmw_connected_drive (checked against the integration's source, not run on a car; Home Assistant removed it in 2026), or the path to your own JSON/YAML file. `/car discover` suggests one."}
   ha_verify_tls: {type: bool, default: true, label: "Home Assistant · Verify HTTPS certificate", description: "Turn off only for a self-signed certificate on your own network."}
   tesla_vin: {type: str, default: "", label: "Tesla · VIN", description: "The 17-character VIN of your car. Never shown in output or logs."}
   tesla_token: {type: secret, label: "Tesla · Access token", description: "Your Teslemetry or Tessie access token.", env: "PIT_CREW_TESLA_TOKEN"}

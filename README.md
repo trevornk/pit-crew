@@ -197,13 +197,17 @@ Full details and the threat model: [docs/SAFETY.md](docs/SAFETY.md).
 
 Honesty matters more than a long feature list.
 
-* **Tested without a car:** the safety engine, approval flow (against Hermes' real approval pipeline with a scripted human),
-  the watcher, readiness math, history, both pages (rendered in Node and jsdom), and the plugin loading in real Hermes.
-  See `tests/` (about 420 tests, no network).
-* **Built from recordings, not run live:** the Home Assistant `tesla_fleet` mapping is built and tested against sanitized
-  recordings of a real Model Y. **Commands have not been sent to a real car yet.**
-* **Mocks only:** Teslemetry and Tessie are tested against mocks of the `tesla-fleet-api` library. The BMW and Kia/Hyundai
-  mappings are untested starters.
+* **Run against a real car (read-only):** the Home Assistant `tesla_fleet` connection has read the status of the owner's real Model Y
+  (battery, charging, lock, doors, climate, place). The sanitized recordings of that car are the test fixtures.
+* **Not yet tried on a real car: every command** (lock, climate, charging, unlock through the approval prompt…). Practice mode and the
+  safety engine are tested thoroughly; the first live command is still ahead.
+* **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
+  v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
+  and the plugin loading in real Hermes. See `tests/` (about 590 tests, no network; CI fails if any is skipped).
+* **Checked against source, not run on a car:** the Kia/Hyundai profile (the `kia_uvo` HACS integration, v4) and the BMW profile
+  (Home Assistant's last version of the since-removed integration), against each project's entity names and test data.
+  The tire-pressure and odometer entities of `tesla_fleet` are checked against Home Assistant core's source.
+* **Mocks only:** Teslemetry and Tessie are tested against mocks of the `tesla-fleet-api` library.
 * **Not yet exercised live:** Telegram/Discord approval buttons and chat pushes, and the pages inside the real apps. If a
   surface doesn't deliver Hermes' approval response, set `approval_confirmation: hermes_gate` (Advanced) and let us know.
 

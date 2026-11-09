@@ -68,7 +68,7 @@ Pick one source for the car (**Settings → Plugins → Pit Crew → Connection 
 | Connection | Best if… | Setup | Costs | Commands? |
 |---|---|---|---|---|
 | **simulator** (default) | you want to try it, or have no supported car | none | free | simulated |
-| **homeassistant** | you already run Home Assistant with a car integration (Tesla Fleet, BMW, Kia/Hyundai…) | ~10 min | free | yes, through HA |
+| **homeassistant** | you already run Home Assistant with a car integration (Tesla Fleet, Teslemetry, Tessie, BMW, Kia/Hyundai…) | ~10 min | free | yes, through HA |
 | **teslemetry** | you have a Tesla and want the shortest path | ~5 min | Teslemetry subscription | yes |
 | **tessie** | you already use Tessie | ~5 min | Tessie subscription | yes |
 | **teslamate** | you run TeslaMate and want its past data | ~5 min | free | never (read-only) |
@@ -101,15 +101,19 @@ Pit Crew holds none).
      ```
 3. Run `/car discover`. It reads Home Assistant read-only, finds your car and tells you the *Car name* (like `my_car` for
    `sensor.my_car_battery_level`) and the *brand mapping* (for a Tesla: `tesla_fleet`). Enter both (`ha_slug`, `ha_profile`).
-4. **Tesla Fleet integration:** Home Assistant ships several useful entities disabled: *Shift state* and *Speed* (without a
+4. **Tesla Fleet or Teslemetry integration:** Home Assistant ships several useful entities disabled: *Shift state* and *Speed* (without a
    motion source Pit Crew refuses unlock/trunk/frunk/vent, because it can't prove the car is parked), *Odometer*, and the four
    *Tire pressure* sensors (needed for the low-tire and fast-air-loss alerts). Enable them: Settings → Devices & services →
-   Tesla Fleet → your car → entities → show disabled entities. `/car discover`, `/car` and `car_status` list exactly which ones
+   Tesla Fleet (or Teslemetry) → your car → entities → show disabled entities. Tessie ships those enabled. `/car discover`, `/car` and `car_status` list exactly which ones
    are still missing.
 5. `/car`: compare with the car's app. Stay in practice mode until the numbers match.
 
 Bundled mappings: `tesla_fleet` (built and tested against sanitized recordings of a real Model Y, and its entity names
-checked against Home Assistant core's source); `kia_hyundai_connect` for the **HACS custom integration**
+checked against Home Assistant core's source); `teslemetry_ha` and `tessie_ha` for Home Assistant's **`teslemetry`** and
+**`tessie`** integrations (**verified against Home Assistant core's source and synthetic test states, not run on a real car**;
+they differ from `tesla_fleet` in a few names, and Pit Crew will not accept their "P" gear or 0 speed as proof the car is parked,
+so unlock/trunk/frunk/vent need the car plugged in or a TeslaMate state entity; details in
+[docs/HA_TESLA_INTEGRATIONS.md](docs/HA_TESLA_INTEGRATIONS.md)); `kia_hyundai_connect` for the **HACS custom integration**
 [kia_uvo](https://github.com/Hyundai-Kia-Connect/kia_uvo) v4 and `bmw_connected_drive` (**verified against each integration's
 source and test data, not run on a real car**). Note: Home Assistant **removed** the BMW Connected Drive integration in March
 2026 after BMW blocked third-party access, so that mapping only fits an install that still has the old entities. Another brand? `/car discover` proposes a generic mapping, and a mapping
@@ -221,7 +225,7 @@ Honesty matters more than a long feature list.
   safety engine are tested thoroughly; the first live command is still ahead.
 * **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
   v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
-  and the plugin loading in real Hermes. See `tests/` (about 620 tests, no network; CI fails if any is skipped).
+  and the plugin loading in real Hermes. See `tests/` (about 650 tests, no network; CI fails if any is skipped).
 * **Checked against source, not run on a car:** the Kia/Hyundai profile (the `kia_uvo` HACS integration, v4) and the BMW profile
   (Home Assistant's last version of the since-removed integration), against each project's entity names and test data.
   The tire-pressure and odometer entities of `tesla_fleet` are checked against Home Assistant core's source.

@@ -137,7 +137,7 @@ A **history provider** is the same idea: subclass `HistoryProvider` (`drives`, `
 ## Home Assistant profiles (no code)
 
 For any brand that has a Home Assistant integration, you often don't need code at all — a profile maps entities to fields
-and services to commands. `adapters/profiles/tesla_fleet.json` is the complete reference. A custom profile can live anywhere:
+and services to commands. `adapters/profiles/tesla_fleet.json` is the complete reference (`teslemetry_ha.json` and `tessie_ha.json` show the optional `untrusted_values` field key and `discovery_signature`; see [HA_TESLA_INTEGRATIONS.md](HA_TESLA_INTEGRATIONS.md)). A custom profile can live anywhere:
 set *HA entity profile* to its path (JSON, or YAML if PyYAML is installed).
 
 ```jsonc

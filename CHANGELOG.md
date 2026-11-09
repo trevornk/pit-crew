@@ -7,6 +7,10 @@
   `/car`, the Desktop page and the web dashboard. Three new alerts (twelve in all): *the car reports a tire warning* (its own TPMS warning: Home Assistant `tesla_fleet` *Tire pressure warning* sensors, Teslemetry/Tessie `tpms_*_warning_*`), *a tire is low on air* (your psi, else 90% of the
   car's recommended pressure, else 38 psi for a Tesla / 30 psi for anything else) and *a tire is losing air fast* (a drop of N psi
   within a window). Stale, unavailable, implausible or non-finite readings never alert.
+- **Home Assistant `teslemetry` and `tessie` integrations** get their own profiles (`teslemetry_ha`, `tessie_ha`), verified against
+  Home Assistant core's source (not run on a real car; `tested: false`). `/car discover` picks the right one from a few entities each
+  integration alone creates. New profile keys `untrusted_values` (a "P" gear / 0 speed that those integrations fill in for missing
+  data never proves the car is parked) and `discovery_signature`. See docs/HA_TESLA_INTEGRATIONS.md for the mapping and verdicts.
 - **Review fixes.** Trips no longer lose miles when Home Assistant refreshes the odometer less often than Pit Crew polls; a tire
   cooling after a drive is no longer reported as a leak (60 min cool-down, documented); one sleeping tire sensor no longer silences the
   rules for the other three; rule settings have sane minimums (a 0 psi drop can't fire on any two readings); on the Kia/Hyundai profile

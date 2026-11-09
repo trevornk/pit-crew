@@ -8,7 +8,7 @@ _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submis
   Home Assistant ships that entity disabled; the mapping itself matches HA core's source.
 * **Not live-tested yet (the owner will do this separately): commands.** Lock/climate/charge from `/car live`, the unlock approval
   round-trip on a real surface (Telegram/Discord/Desktop), chat pushes, and both pages inside the real apps.
-* **In CI on every push** (`.github/workflows/ci.yml`): all 622 tests with none skipped: Python 3.12 test tools resolved with a
+* **In CI on every push** (`.github/workflows/ci.yml`): all 652 tests with none skipped: Python 3.12 test tools resolved with a
   3-day release-age quarantine, Node 22 with pinned `react`/`react-dom`/`jsdom` (`tests/node`, `npm ci`), and **Hermes Agent v0.23.0
   installed from its own `uv.lock` (Python 3.14)** so the real `PluginManager` load and the real approval pipeline run; then
   `hermes plugins validate .`. A job step fails the build if any test was skipped. Locally the Node and Hermes tests skip with a

@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # setup-uv publishes exact tags only (no floating major), and its cache needs a uv.lock this repo does not have.
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
@@ -65,13 +65,20 @@ jobs:
           PY
 
       - name: Hermes validates the plugin (manifest, capability probe, security scan)
-        # --install-deps asks GitHub/PyPI to resolve Hermes' own dependency set, which can fail transiently (a 504 was seen);
-        # retry a few times so only a real validation failure turns the build red.
+        # --install-deps asks GitHub/PyPI to resolve Hermes' own dependency set, which can fail transiently (a 504 was seen).
+        # Only a failure whose output shows a network / 5xx / timeout problem is retried; a real validation failure fails at once.
         run: |
+          transient='HTTP (status )?(5[0-9][0-9])|(^|[^0-9])50[234]([^0-9]|$)|timed out|timeout|Connection (reset|refused|aborted)|Temporary failure|Could not resolve|Network is unreachable|Bad Gateway|Service Unavailable|Gateway Time-out|TLS|SSL'
           for attempt in 1 2 3; do
             rm -rf "$RUNNER_TEMP/hermes-home" && mkdir -p "$RUNNER_TEMP/hermes-home"
-            if HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps; then exit 0; fi
-            echo "validate attempt $attempt failed" >&2
+            if HERMES_HOME="$RUNNER_TEMP/hermes-home" "$HERMES_BIN" plugins validate . --install-deps > "$RUNNER_TEMP/validate.log" 2>&1; then
+              cat "$RUNNER_TEMP/validate.log"; exit 0
+            fi
+            cat "$RUNNER_TEMP/validate.log"
+            if ! grep -Eiq "$transient" "$RUNNER_TEMP/validate.log"; then
+              echo "validation failed (not a transient network error): not retrying" >&2; exit 1
+            fi
+            echo "validate attempt $attempt hit a transient error; retrying" >&2
             sleep 15
           done
           exit 1

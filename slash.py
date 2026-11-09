@@ -39,7 +39,7 @@ Safety
   /car log [n]            recent command attempts
 Setup
   /car discover           find your car in Home Assistant
-  /car notify here|off|status   send proactive alerts to THIS chat
+  /car notify here|off|status|test   send proactive alerts to THIS chat (test: push a test message to check delivery)
   /car import teslamate [days]  backfill trips/charges from TeslaMate (optional)
   /car rules              alert rules and thresholds
   /car desktop-install    get the Pit Crew page into a Desktop app on another machine
@@ -349,6 +349,12 @@ def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
     if sub == "off":
         d.unbind()
         return "Alerts will no longer be pushed to a chat (they still appear in `/car alerts` and are mentioned on your next turn)."
+    if sub == "test":
+        res = d.send_test()
+        if res["ok"]:
+            note = "" if res.get("push_enabled") else "\n(Pushed alerts are switched off in settings, so real alerts would not be sent until you turn `alert_push` on.)"
+            return "Test alert sent: delivery to the bound chat works. Look for “Pit Crew test alert: delivery works”." + note
+        return "Test alert FAILED: " + str(res["hint"])
     st = d.status()
     t = d.target()
     if not st["bound"]:

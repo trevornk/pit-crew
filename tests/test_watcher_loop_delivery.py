@@ -279,3 +279,46 @@ def test_simulated_car_alerts_are_labelled(service, clock):
     service.watcher.poll_once(force=True)
     titles = [a["title"] for a in service.alerts()]
     assert titles and all(t.startswith("[Simulated] ") for t in titles)
+
+
+def test_notify_test_pushes_labelled_message_without_creating_alerts(svc, stub, clock):
+    d = svc.watcher.deliverer
+    d.bind("agent:main:telegram:dm:42", "telegram")
+    before_last = svc.store.kv_get("notify_last")
+    out = slash.handle("notify test")
+    assert "Test alert sent" in out
+    content, key = svc.ctx.injected[-1]
+    assert key == "agent:main:telegram:dm:42" and "Pit Crew test alert: delivery works" in content
+    assert "not typed by the user" in content and "do NOT send any car command" in content
+    assert svc.alerts(("new", "surfaced", "acked", "resolved")) == []
+    assert svc.store.kv_get("notify_last") == before_last          # status/dedupe state untouched
+
+
+def test_notify_test_reports_failure_with_the_existing_hint(svc):
+    svc.ctx.inject_message = lambda *a, **k: False
+    svc.watcher.deliverer.bind("k", "telegram")
+    out = slash.handle("notify test")
+    assert out.startswith("Test alert FAILED") and "allow_gateway_injection" in out
+    assert svc.alerts(("new",)) == []
+
+
+def test_notify_test_inject_exception_is_a_failure_not_a_crash(svc):
+    def boom(*a, **k):
+        raise RuntimeError("gateway down")
+    svc.ctx.inject_message = boom
+    svc.watcher.deliverer.bind("k", "telegram")
+    assert slash.handle("notify test").startswith("Test alert FAILED")
+
+
+def test_notify_test_without_binding_or_context(svc):
+    assert "No chat is bound" in slash.handle("notify test") and svc.ctx.injected == []
+    svc.watcher.deliverer.bind("k", "telegram")
+    svc.ctx = None
+    assert slash.handle("notify test").startswith("Test alert FAILED")
+
+
+def test_notify_test_does_not_touch_rules_or_dedupe(svc, stub, clock):
+    svc.watcher.deliverer.bind("k", "telegram")
+    slash.handle("notify test")
+    res = trigger_alert(stub, clock, svc)           # a real alert afterwards is still raised and pushed
+    assert res["pushed"] is True and len(svc.alerts(("surfaced",))) == 1

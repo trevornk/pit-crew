@@ -4,7 +4,7 @@
 
 Pit Crew gives your Hermes agent a car it can actually take care of. It knows how charged, locked and warm the car is
 right now, remembers how you drive, tells you tonight whether you'll make tomorrow's trip, and keeps watch while you
-sleep. When it wants to touch the car, it asks you first.
+sleep. When it wants to touch the car it follows your Hermes approval setting: it asks you first when approvals are on, and says so when they are off.
 
 *A skill can't watch your car at 2 AM. This does.*
 

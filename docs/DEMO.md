@@ -6,7 +6,7 @@ Go live before recording (`/car live 1`). Use the simulator for everything excep
 
 | t | Shot | Caption / what it proves |
 |---|---|---|
-| 0–6 s | Title card **"Pit Crew — a car agent that watches, plans, and only acts with your OK."** + 2 s of the real car in the driveway | the pitch |
+| 0–6 s | Title card **"Pit Crew — a car agent that watches, plans, and acts within your Hermes approval settings."** + 2 s of the real car in the driveway | the pitch |
 | 6–16 s | Type `/car` → instant card. Ask *"Will I be ready for my 8:30 dentist appointment tomorrow?"* → the agent reads the calendar, calls `car_readiness`: "Not ready: the limit is 50%, raise to 70%?" | usefulness · more than a skill |
 | 16–24 s | "Yes" → `charge_limit` (comfort, no prompt) → "the car confirmed it". The readiness card turns green | reliability (read-back) |
 | 24–40 s | **Proactive.** Cut to the phone (Telegram). The watcher pushes *"Your car is unlocked and away from home — want me to lock it?"* with nobody typing. Reply "yes" → "Locked — confirmed". Caption: *"background watcher; nobody asked."* (Simulator: page → **Leave it unlocked**, **Drive 20 mi away**, **Fast-forward 30 min**; caption "simulated car".) | creativity · more than a skill |

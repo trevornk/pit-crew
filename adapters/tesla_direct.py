@@ -49,6 +49,7 @@ MODES = ("teslemetry", "tessie")
 DATA_ENDPOINTS = ["charge_state", "climate_state", "drive_state", "vehicle_state"]
 CALL_TIMEOUT_S = 40.0
 RATE_LIMIT_BACKOFF_S = 300.0
+ERROR_BACKOFF_S = 60.0   # after a failed data call: serve the cache instead of re-asking every poll
 BOOST_WINDOW_S = 45.0
 BOOST_MIN_POLL_S = 4.0
 SEAT_IDS = {"driver": 0, "passenger": 1, "rear_left": 2, "rear_center": 4, "rear_right": 5}
@@ -114,7 +115,7 @@ def zone_for(lat: Any, lon: Any, zones: Mapping[str, Tuple[float, float, float]]
 
 
 def _num(v: Any) -> Optional[float]:
-    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else None
 
 
 def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
@@ -243,9 +244,15 @@ class AsyncRunner:
 
     def close(self) -> None:
         with self._lock:
-            if self._loop is not None:
-                self._loop.call_soon_threadsafe(self._loop.stop)
-                self._loop = None
+            loop, thread = self._loop, self._thread
+            self._loop = self._thread = None
+        if loop is None:
+            return
+        loop.call_soon_threadsafe(loop.stop)
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=5.0)
+        if not loop.is_running():
+            loop.close()                      # release the selector and self-pipe descriptors (one pair per replaced adapter)
 
 
 def describe_error(exc: BaseException) -> str:
@@ -474,6 +481,8 @@ class TeslaDirectAdapter(CarAdapter):
         self._cache: Optional[VehicleState] = None
         self._last_data_at: float = 0.0
         self._backoff_until: float = 0.0
+        self._error_until: float = 0.0
+        self._last_error: str = ""
         self._boost_until: float = 0.0
         self._wake_once = False
         self._last_seen_now = 0.0
@@ -514,6 +523,11 @@ class TeslaDirectAdapter(CarAdapter):
                 if self._cache is not None:
                     return self._cached(now)
                 raise AdapterUnavailable(f"rate limited by the service; retrying in {int(self._backoff_until - now)} s")
+            if now < self._error_until:
+                # a data call just failed: don't hammer a metered/rate-limited API with two calls per poll while it does
+                if self._cache is not None:
+                    return self._cached(now)
+                raise AdapterUnavailable(f"the Tesla service returned an error; retrying in {int(self._error_until - now)} s ({self._last_error})")
             if self._cache is not None and now - self._last_data_at < self._min_poll(now):
                 return self._cached(now)
             try:
@@ -530,6 +544,9 @@ class TeslaDirectAdapter(CarAdapter):
                 logger.warning("Tesla service rate limit hit; backing off for %d s", RATE_LIMIT_BACKOFF_S)
                 if self._cache is not None:
                     return self._cached(now)
+                raise
+            except AdapterError as exc:
+                self._error_until, self._last_error = now + ERROR_BACKOFF_S, str(exc)[:200]
                 raise
             st = tesla_data_to_state(data, now, name=self._cfg.name or "Tesla", zones=self._cfg.zones or None,
                                      source=self.kind)
@@ -574,12 +591,31 @@ class TeslaDirectAdapter(CarAdapter):
 
 
 # ----------------------------------------------------------------------------------------------------------
+def _setting_float(s: Mapping[str, Any], key: str, default: float, label: str) -> float:
+    """A numeric setting; garbage is a clear AdapterError, not a ValueError out of the factory."""
+    raw = s.get(key)
+    if raw in (None, ""):
+        return default
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        raise AdapterError(f"“{label}” must be a number (got {str(raw)[:20]!r})") from None
+    if not math.isfinite(val):
+        raise AdapterError(f"“{label}” must be a finite number")
+    return val
+
+
 def _zones_from_settings(s: Mapping[str, Any]) -> Dict[str, Tuple[float, float, float]]:
     zones: Dict[str, Tuple[float, float, float]] = {}
-    lat, lon = float(s.get("tesla_home_latitude") or 0.0), float(s.get("tesla_home_longitude") or 0.0)
+    lat = _setting_float(s, "tesla_home_latitude", 0.0, "Tesla · Home latitude")
+    lon = _setting_float(s, "tesla_home_longitude", 0.0, "Tesla · Home longitude")
     if lat or lon:
-        zones["home"] = (lat, lon, float(s.get("tesla_home_radius_m") or 150))
-    for zname, spec in (s.get("tesla_zones") or {}).items():
+        zones["home"] = (lat, lon, _setting_float(s, "tesla_home_radius_m", 150.0, "Tesla · Home radius (m)") or 150.0)
+    extra = s.get("tesla_zones") or {}
+    if not isinstance(extra, Mapping):
+        logger.warning("ignoring tesla_zones: expected a mapping of name -> [lat, lon, radius_m]")
+        extra = {}
+    for zname, spec in extra.items():
         try:
             zlat, zlon, zr = spec
             zones[str(zname).strip().lower()] = (float(zlat), float(zlon), float(zr))
@@ -596,7 +632,7 @@ def build_tesla(ctx: BuildContext, *, client_factory: Any = None) -> TeslaDirect
     vin = str(s.get("tesla_vin") or "").strip().upper()
     if not vin:
         raise AdapterError("The Tesla VIN isn't set. Enter your car's 17-character VIN in Settings → Plugins → Pit Crew → “Tesla · VIN”")
-    cfg = TeslaConfig(mode=mode, vin=vin, min_poll_s=float(s.get("tesla_min_poll_s") or 120),
+    cfg = TeslaConfig(mode=mode, vin=vin, min_poll_s=_setting_float(s, "tesla_min_poll_s", 120.0, "Advanced · Min seconds between Tesla data calls") or 120.0,
                       zones=_zones_from_settings(s), name=str(s.get("car_name") or ""))
     # The ONLY way a credential reaches this adapter: a declared secret via Hermes' secret scope (ctx.secret).
     cfg.token = ctx.secret(ENV_TESLA_TOKEN) or ""

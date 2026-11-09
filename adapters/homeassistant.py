@@ -9,6 +9,7 @@ through Hermes' secret scope.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Tuple
@@ -32,8 +33,16 @@ STATE_FETCH_TTL_S = 3.0
 PARKED_STATES = frozenset({"asleep", "online", "charging", "suspended", "updating"})
 
 
+def _finite(value: float) -> float:
+    """A reading that is NaN or infinite is a broken sensor, not data: it would defeat every comparison downstream
+    (``nan > 1`` is False, so a NaN speed used to read as 'parked')."""
+    if not math.isfinite(value):
+        raise ValueError("non-finite reading")
+    return value
+
+
 def parse_ha_time(text: Optional[str]) -> Optional[float]:
-    if not text:
+    if not text or not isinstance(text, str):
         return None
     try:
         s = text.replace("Z", "+00:00")
@@ -54,11 +63,12 @@ class HomeAssistantAdapter(CarAdapter):
         self._base = normalize_base_url(base_url, "Home Assistant")
         if not token:
             raise AdapterError("Home Assistant access token is missing. Paste a long-lived token into Settings → Plugins → Pit Crew → “Home Assistant · Access token” (or set "+ENV_HA_TOKEN+" in the profile .env)")
+        slug = (slug or "").strip()
         if not slug:
             raise AdapterError("Pit Crew doesn't know which Home Assistant car to use yet. Run `/car discover` to find it, then enter it as “Home Assistant · Car name”")
         self._token = token
         self._profile = profile
-        self._slug = slug.strip()
+        self._slug = slug
         self._name = name or self._slug.replace("_", " ").title()
         self._overrides = dict(overrides or {})
         self._verify = verify_tls
@@ -82,7 +92,11 @@ class HomeAssistantAdapter(CarAdapter):
         data = self._get("/api/states")
         if not isinstance(data, list):
             raise AdapterError("Home Assistant /api/states did not return a list")
-        states = {s["entity_id"]: s for s in data if isinstance(s, dict) and "entity_id" in s}
+        states = {s["entity_id"]: s for s in data
+                  if isinstance(s, dict) and isinstance(s.get("entity_id"), str)}
+        for s in states.values():                       # tolerate odd shapes instead of crashing a whole poll
+            if not isinstance(s.get("attributes"), dict):
+                s["attributes"] = {}
         with self._lock:
             self._states = states
             self._have_states = True
@@ -132,14 +146,15 @@ class HomeAssistantAdapter(CarAdapter):
             if low in BAD_STATES:
                 return FieldValue(None, None, False)
             if kind == "number":
-                value = convert_by_dimension(float(raw), spec.get("dimension", ""), attrs.get("unit_of_measurement"))
+                value = _finite(convert_by_dimension(_finite(float(raw)), spec.get("dimension", ""),
+                                                     attrs.get("unit_of_measurement")))
             elif kind == "attr":
                 attr = attrs.get(spec["attr"])
                 if attr is None:
                     return FieldValue(None, None, False)
                 if isinstance(attr, (int, float)) and spec.get("dimension"):
                     unit = attrs.get("temperature_unit") or attrs.get("unit_of_measurement")
-                    value = convert_by_dimension(float(attr), spec["dimension"], unit)
+                    value = _finite(convert_by_dimension(_finite(float(attr)), spec["dimension"], unit))
                 else:
                     value = attr
             elif kind in ("attr_open_list", "attr_open"):
@@ -174,7 +189,7 @@ class HomeAssistantAdapter(CarAdapter):
                     return FieldValue(None, None, False)
             else:  # pragma: no cover - guarded by profile validation
                 return FieldValue(None, None, False)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError, KeyError):
             return FieldValue(None, None, False)
         return FieldValue(value, stamp)
 

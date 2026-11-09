@@ -89,8 +89,8 @@ def score_profile(profile: Mapping[str, Any], slug: str, entity_ids: set) -> Dic
 
 def discover(states: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
     """Return ranked profile matches plus (if needed) a generic skeleton. Pure; no network."""
-    entity_ids = {str(s.get("entity_id")) for s in states if s.get("entity_id")}
-    state_list = [s for s in states]
+    state_list = [s for s in states if isinstance(s, Mapping)]          # a generator is iterated once
+    entity_ids = {str(s.get("entity_id")) for s in state_list if s.get("entity_id")}
     proposals: List[Dict[str, Any]] = []
     for pname in bundled_profiles():
         profile = load_profile(pname)

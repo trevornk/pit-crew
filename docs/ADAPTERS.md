@@ -62,7 +62,10 @@ Rules the safety engine relies on:
 charge_power_kw, charge_limit_pct, charge_eta_min, charge_current_a, charge_current_max_a, charger_voltage_v,
 charge_port_open, locked, doors_open (list of names), windows_open (list), trunk_open, frunk_open, sentry_on, user_present,
 climate_on, cabin_temp_f, outside_temp_f, target_temp_f, defrost_on, location_zone, shift_state, speed_mph, moving, asleep,
-software_update_available, software_version, odometer_mi` — provide what you have.
+software_update_available, software_version, odometer_mi, tire_psi_fl / tire_psi_fr / tire_psi_rl / tire_psi_rr (psi),
+tire_rec_front_psi / tire_rec_rear_psi (psi, the car's recommended cold pressure)` — provide what you have. Pressures must
+be psi; a pressure whose unit you don't know is better reported as unavailable than guessed (a bar value read as psi looks like
+a flat tire).
 
 ### Commands and risk classes
 
@@ -159,11 +162,23 @@ Top-level profile keys also include `moving_state_entity` (a state entity whose 
 `sensor.teslamate_{slug}_state`) and `motion_hint` (text shown when no motion source exists).
 
 Field kinds: `number`, `attr`, `on_off` (`invert`), `enum` (`map`), `timestamp_minutes`, `cover_open`, `lock_locked`,
-`open_list`, `climate_on`, `zone`, `shift`. Units are converted from the entity's reported unit via `dimension`
-(`distance`, `temperature`, `speed`, `power`, `energy`). `/car discover` scores the bundled profiles against your HA and
+`open_list`, `attr_open_list` (openings reported as attributes of one entity, e.g. BMW's Lids: `{"entity": …, "attrs":
+{"front_driver": "leftFront"}}`), `attr_open` (one such attribute as a boolean), `climate_on`, `zone`, `shift`. Units are
+converted from the entity's reported unit via `dimension` (`distance`, `temperature`, `speed`, `power`, `energy`, `pressure`;
+an unknown pressure unit makes the field unavailable).
+
+Other per-field keys: `optional` (not counted against discovery coverage), `alt_entities` (older entity ids of the same thing,
+tried after `entity`), and `disabled_by_default` with `enable_as` (the entity's name in Home Assistant) for entities the
+integration ships disabled: discovery, `/car` and `car_status` then tell the user exactly which ones to enable.
+Top-level `disabled_command_entities` lists disabled controls a command needs, `integration_title` names the integration in
+those instructions, `verified_against` records what the profile was checked against, and `deprecated` /
+`deprecated_note` mark a profile for an integration that no longer works (it is ranked below current ones). `/car discover` scores the bundled profiles against your HA and
 proposes a generic mapping when none fits.
 
-Label a profile you haven't verified on a real car as `"tested": false` — the UI and status say so.
+Label a profile you haven't verified on a real car as `"tested": false` — the UI and status say so. If you checked it against
+the integration's source and fixtures, say that in `verified_against`; the status then reads "verified against the integration
+source and fixtures; not run on a real car" instead of "untested". The bundled BMW and Kia/Hyundai profiles are checked this way
+by `tests/test_brand_profiles.py` against `tests/fixtures/integrations/` (see its README for provenance).
 
 ## Testing your adapter
 

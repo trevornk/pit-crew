@@ -1,0 +1,479 @@
+{
+  "name": "teslemetry_ha",
+  "label": "Tesla via the Home Assistant 'teslemetry' integration (verified against HA core source, not run on a real car)",
+  "integration": "teslemetry",
+  "tested": false,
+  "notes": "Entity ids come from Home Assistant core's teslemetry source (strings.json names) and are the same as tesla_fleet's except the windows cover, which is cover.<slug>_vent_windows. Teslemetry ships the Shift state, Speed, Odometer, four tire pressures, four tire warnings and Battery range sensors DISABLED; enable them in Home Assistant. Teslemetry can stream (telemetry) or poll depending on your Teslemetry setup; streamed sensors restore their last value after a Home Assistant restart, so freshness from Home Assistant's timestamps is not proof the car just reported. Both Home Assistant's 'Shift state' (null becomes 'p') and 'Speed' (null becomes 0) fill in a parked-looking value when the car sent nothing, and the integration serves cached or restored values, so 'P' and a speed of 0 are NOT accepted as proof the car is parked (untrusted_values). A gear of D/R/N or a speed above 1 mph still blocks as moving. Parked is proven by a plugged-in cable or a TeslaMate state entity. Not run on a real car. Set ha_slug to your car's slug (e.g. 'my_car' for lock.my_car_lock). Low-tire alerts default to 38 psi; set the rule's min_psi for other models. The rear seat heaters (select.<slug>_seat_heater_rear_*) also ship disabled.",
+  "moving_state_entity": "sensor.teslamate_{slug}_state",
+  "motion_hint": "Home Assistant ships the Teslemetry 'Shift state' and 'Speed' entities DISABLED. Enable both. Because Teslemetry reports 'P' / 0 when the car sent nothing, Pit Crew does not treat them as proof the car is parked; it accepts a plugged-in cable, or a TeslaMate state entity (sensor.teslamate_<car>_state) via ha_entity_overrides {\"moving_state_entity\": \"...\"}. Until one of those confirms, unlock, trunk, frunk and window-vent are refused.",
+  "fields": {
+    "battery_pct": {
+      "entity": "sensor.{slug}_battery_level",
+      "kind": "number"
+    },
+    "range_mi": {
+      "entity": "sensor.{slug}_battery_range",
+      "kind": "number",
+      "dimension": "distance",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Battery range"
+    },
+    "charging_state": {
+      "entity": "sensor.{slug}_charging",
+      "kind": "enum",
+      "map": {
+        "starting": "starting",
+        "charging": "charging",
+        "stopped": "stopped",
+        "complete": "complete",
+        "disconnected": "disconnected",
+        "no_power": "no_power"
+      }
+    },
+    "plugged_in": {
+      "entity": "binary_sensor.{slug}_charge_cable",
+      "kind": "on_off"
+    },
+    "charge_power_kw": {
+      "entity": "sensor.{slug}_charger_power",
+      "kind": "number",
+      "dimension": "power"
+    },
+    "charge_limit_pct": {
+      "entity": "number.{slug}_charge_limit",
+      "kind": "number"
+    },
+    "charge_eta_min": {
+      "entity": "sensor.{slug}_time_to_full_charge",
+      "kind": "timestamp_minutes",
+      "none_is_zero": true
+    },
+    "charge_current_a": {
+      "entity": "sensor.{slug}_charger_current",
+      "kind": "number"
+    },
+    "charge_current_max_a": {
+      "entity": "number.{slug}_charge_current",
+      "kind": "attr",
+      "attr": "max"
+    },
+    "charger_voltage_v": {
+      "entity": "sensor.{slug}_charger_voltage",
+      "kind": "number"
+    },
+    "charge_port_open": {
+      "entity": "cover.{slug}_charge_port_door",
+      "kind": "cover_open"
+    },
+    "locked": {
+      "entity": "lock.{slug}_lock",
+      "kind": "lock_locked"
+    },
+    "doors_open": {
+      "kind": "open_list",
+      "entities": {
+        "front_driver": "binary_sensor.{slug}_front_driver_door",
+        "front_passenger": "binary_sensor.{slug}_front_passenger_door",
+        "rear_driver": "binary_sensor.{slug}_rear_driver_door",
+        "rear_passenger": "binary_sensor.{slug}_rear_passenger_door"
+      }
+    },
+    "windows_open": {
+      "kind": "open_list",
+      "entities": {
+        "front_driver": "binary_sensor.{slug}_front_driver_window",
+        "front_passenger": "binary_sensor.{slug}_front_passenger_window",
+        "rear_driver": "binary_sensor.{slug}_rear_driver_window",
+        "rear_passenger": "binary_sensor.{slug}_rear_passenger_window"
+      }
+    },
+    "trunk_open": {
+      "entity": "cover.{slug}_trunk",
+      "kind": "cover_open"
+    },
+    "frunk_open": {
+      "entity": "cover.{slug}_frunk",
+      "kind": "cover_open"
+    },
+    "sentry_on": {
+      "entity": "switch.{slug}_sentry_mode",
+      "kind": "on_off"
+    },
+    "user_present": {
+      "entity": "binary_sensor.{slug}_user_present",
+      "kind": "on_off"
+    },
+    "climate_on": {
+      "entity": "climate.{slug}_climate",
+      "kind": "climate_on"
+    },
+    "cabin_temp_f": {
+      "entity": "sensor.{slug}_inside_temperature",
+      "kind": "number",
+      "dimension": "temperature"
+    },
+    "outside_temp_f": {
+      "entity": "sensor.{slug}_outside_temperature",
+      "kind": "number",
+      "dimension": "temperature"
+    },
+    "target_temp_f": {
+      "entity": "climate.{slug}_climate",
+      "kind": "attr",
+      "attr": "temperature",
+      "dimension": "temperature"
+    },
+    "defrost_on": {
+      "entity": "switch.{slug}_defrost",
+      "kind": "on_off"
+    },
+    "location_zone": {
+      "entity": "device_tracker.{slug}_location",
+      "kind": "zone"
+    },
+    "shift_state": {
+      "entity": "sensor.{slug}_shift_state",
+      "kind": "shift",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Shift state",
+      "untrusted_values": [
+        "P"
+      ]
+    },
+    "speed_mph": {
+      "entity": "sensor.{slug}_speed",
+      "kind": "number",
+      "dimension": "speed",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Speed",
+      "untrusted_values": [
+        0
+      ]
+    },
+    "asleep": {
+      "entity": "binary_sensor.{slug}_status",
+      "kind": "on_off",
+      "invert": true
+    },
+    "software_update_available": {
+      "entity": "update.{slug}_update",
+      "kind": "on_off"
+    },
+    "software_version": {
+      "entity": "update.{slug}_update",
+      "kind": "attr",
+      "attr": "installed_version"
+    },
+    "odometer_mi": {
+      "entity": "sensor.{slug}_odometer",
+      "kind": "number",
+      "dimension": "distance",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Odometer"
+    },
+    "tire_psi_fl": {
+      "entity": "sensor.{slug}_tire_pressure_front_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure front left"
+    },
+    "tire_psi_fr": {
+      "entity": "sensor.{slug}_tire_pressure_front_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure front right"
+    },
+    "tire_psi_rl": {
+      "entity": "sensor.{slug}_tire_pressure_rear_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure rear left"
+    },
+    "tire_psi_rr": {
+      "entity": "sensor.{slug}_tire_pressure_rear_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure rear right"
+    },
+    "tire_warn_fl": {
+      "entity": "binary_sensor.{slug}_tire_pressure_warning_front_left",
+      "kind": "on_off",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure warning front left"
+    },
+    "tire_warn_fr": {
+      "entity": "binary_sensor.{slug}_tire_pressure_warning_front_right",
+      "kind": "on_off",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure warning front right"
+    },
+    "tire_warn_rl": {
+      "entity": "binary_sensor.{slug}_tire_pressure_warning_rear_left",
+      "kind": "on_off",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure warning rear left"
+    },
+    "tire_warn_rr": {
+      "entity": "binary_sensor.{slug}_tire_pressure_warning_rear_right",
+      "kind": "on_off",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Tire pressure warning rear right"
+    }
+  },
+  "commands": {
+    "climate_on": {
+      "steps": [
+        {
+          "service": "climate.set_hvac_mode",
+          "entity": "climate.{slug}_climate",
+          "data": {
+            "hvac_mode": "heat_cool"
+          }
+        },
+        {
+          "service": "climate.set_temperature",
+          "entity": "climate.{slug}_climate",
+          "when_arg": "temp_f",
+          "data": {
+            "temperature": {
+              "arg": "temp_f",
+              "unit_of": "temperature"
+            }
+          }
+        }
+      ]
+    },
+    "climate_off": {
+      "steps": [
+        {
+          "service": "climate.set_hvac_mode",
+          "entity": "climate.{slug}_climate",
+          "data": {
+            "hvac_mode": "off"
+          }
+        }
+      ]
+    },
+    "set_temp": {
+      "steps": [
+        {
+          "service": "climate.set_temperature",
+          "entity": "climate.{slug}_climate",
+          "data": {
+            "temperature": {
+              "arg": "temp_f",
+              "unit_of": "temperature"
+            }
+          }
+        }
+      ]
+    },
+    "defrost": {
+      "steps": [
+        {
+          "service_by_arg": {
+            "arg": "on",
+            "true": "switch.turn_on",
+            "false": "switch.turn_off"
+          },
+          "entity": "switch.{slug}_defrost"
+        }
+      ]
+    },
+    "seat_heat": {
+      "steps": [
+        {
+          "service": "select.select_option",
+          "entity_by_arg": {
+            "arg": "seat",
+            "map": {
+              "driver": "select.{slug}_seat_heater_front_left",
+              "passenger": "select.{slug}_seat_heater_front_right",
+              "rear_left": "select.{slug}_seat_heater_rear_left",
+              "rear_center": "select.{slug}_seat_heater_rear_center",
+              "rear_right": "select.{slug}_seat_heater_rear_right"
+            }
+          },
+          "data": {
+            "option": {
+              "arg": "level",
+              "map": {
+                "0": "off",
+                "1": "low",
+                "2": "medium",
+                "3": "high"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "charge_limit": {
+      "steps": [
+        {
+          "service": "number.set_value",
+          "entity": "number.{slug}_charge_limit",
+          "data": {
+            "value": {
+              "arg": "percent"
+            }
+          }
+        }
+      ]
+    },
+    "charge_start": {
+      "steps": [
+        {
+          "service": "switch.turn_on",
+          "entity": "switch.{slug}_charge"
+        }
+      ]
+    },
+    "charge_stop": {
+      "steps": [
+        {
+          "service": "switch.turn_off",
+          "entity": "switch.{slug}_charge"
+        }
+      ]
+    },
+    "charge_amps": {
+      "steps": [
+        {
+          "service": "number.set_value",
+          "entity": "number.{slug}_charge_current",
+          "data": {
+            "value": {
+              "arg": "amps"
+            }
+          }
+        }
+      ]
+    },
+    "lock": {
+      "steps": [
+        {
+          "service": "lock.lock",
+          "entity": "lock.{slug}_lock"
+        }
+      ]
+    },
+    "unlock": {
+      "steps": [
+        {
+          "service": "lock.unlock",
+          "entity": "lock.{slug}_lock"
+        }
+      ]
+    },
+    "open_trunk": {
+      "steps": [
+        {
+          "service": "cover.open_cover",
+          "entity": "cover.{slug}_trunk"
+        }
+      ]
+    },
+    "open_frunk": {
+      "steps": [
+        {
+          "service": "cover.open_cover",
+          "entity": "cover.{slug}_frunk"
+        }
+      ]
+    },
+    "vent_windows": {
+      "steps": [
+        {
+          "service": "cover.open_cover",
+          "entity": "cover.{slug}_vent_windows"
+        }
+      ]
+    },
+    "close_windows": {
+      "steps": [
+        {
+          "service": "cover.close_cover",
+          "entity": "cover.{slug}_vent_windows"
+        }
+      ]
+    },
+    "sentry_on": {
+      "steps": [
+        {
+          "service": "switch.turn_on",
+          "entity": "switch.{slug}_sentry_mode"
+        }
+      ]
+    },
+    "sentry_off": {
+      "steps": [
+        {
+          "service": "switch.turn_off",
+          "entity": "switch.{slug}_sentry_mode"
+        }
+      ]
+    },
+    "honk": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_honk_horn"
+        }
+      ]
+    },
+    "flash": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_flash_lights"
+        }
+      ]
+    }
+  },
+  "integration_title": "Teslemetry",
+  "tire_min_psi_default": 38,
+  "verified_against": "Home Assistant core dev @ 4368abee2a92 (2026-11-09): homeassistant/components/teslemetry/{sensor,binary_sensor,lock,cover,climate,number,switch,select,button,device_tracker,update,entity}.py and strings.json. Entity ids derived from translation names. Not run on a real car.",
+  "discovery_signature": {
+    "present": [
+      "cover.{slug}_vent_windows"
+    ],
+    "absent": [
+      "switch.{slug}_defrost_mode",
+      "cover.{slug}_windows"
+    ]
+  },
+  "disabled_command_entities": [
+    {
+      "entity": "select.{slug}_seat_heater_rear_left",
+      "enable_as": "Seat heater rear left",
+      "for": "seat_heat"
+    },
+    {
+      "entity": "select.{slug}_seat_heater_rear_center",
+      "enable_as": "Seat heater rear center",
+      "for": "seat_heat"
+    },
+    {
+      "entity": "select.{slug}_seat_heater_rear_right",
+      "enable_as": "Seat heater rear right",
+      "for": "seat_heat"
+    }
+  ]
+}

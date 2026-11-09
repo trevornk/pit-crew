@@ -1,0 +1,577 @@
+[
+ {
+  "entity_id": "sensor.demo_teslemetry_battery_level",
+  "state": "71",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Battery Level",
+   "unit_of_measurement": "%",
+   "device_class": "battery"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_battery_range",
+  "state": "214.3",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Battery Range",
+   "unit_of_measurement": "mi",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_charging",
+  "state": "charging",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charging",
+   "device_class": "enum",
+   "options": [
+    "starting",
+    "charging",
+    "stopped",
+    "complete",
+    "disconnected",
+    "no_power"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_charge_cable",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charge Cable",
+   "device_class": "connectivity"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_charger_power",
+  "state": "7",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charger Power",
+   "unit_of_measurement": "kW",
+   "device_class": "power"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.demo_teslemetry_charge_limit",
+  "state": "80",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charge Limit",
+   "unit_of_measurement": "%",
+   "min": 50,
+   "max": 100,
+   "step": 1,
+   "mode": "auto"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_time_to_full_charge",
+  "state": "2026-02-01T12:30:00+00:00",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Time To Full Charge",
+   "device_class": "timestamp"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_charger_current",
+  "state": "32",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charger Current",
+   "unit_of_measurement": "A",
+   "device_class": "current"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.demo_teslemetry_charge_current",
+  "state": "32",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charge Current",
+   "unit_of_measurement": "A",
+   "min": 0,
+   "max": 32,
+   "step": 1,
+   "mode": "auto"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_charger_voltage",
+  "state": "240",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charger Voltage",
+   "unit_of_measurement": "V",
+   "device_class": "voltage"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_teslemetry_charge_port_door",
+  "state": "open",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charge Port Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.demo_teslemetry_lock",
+  "state": "locked",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Lock"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_front_driver_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Front Driver Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_front_driver_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Front Driver Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_front_passenger_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Front Passenger Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_front_passenger_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Front Passenger Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_rear_driver_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Rear Driver Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_rear_driver_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Rear Driver Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_rear_passenger_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Rear Passenger Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_rear_passenger_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Rear Passenger Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_teslemetry_trunk",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Trunk",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_teslemetry_frunk",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Frunk",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_teslemetry_vent_windows",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Vent Windows",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_teslemetry_sentry_mode",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Sentry Mode"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_teslemetry_charge",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Charge"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_user_present",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry User Present",
+   "device_class": "presence"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.demo_teslemetry_climate",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Climate",
+   "hvac_modes": [
+    "heat_cool",
+    "off"
+   ],
+   "min_temp": 59,
+   "max_temp": 82,
+   "temperature": 68,
+   "current_temperature": 61
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_inside_temperature",
+  "state": "61",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Inside Temperature",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_outside_temperature",
+  "state": "48",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Outside Temperature",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_teslemetry_defrost",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Defrost"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "device_tracker.demo_teslemetry_location",
+  "state": "home",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Location",
+   "source_type": "gps"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_status",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Status",
+   "device_class": "connectivity"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "update.demo_teslemetry_update",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Update",
+   "installed_version": "2025.44.1",
+   "latest_version": "2025.44.1"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.demo_teslemetry_seat_heater_front_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Seat Heater Front Left",
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.demo_teslemetry_seat_heater_front_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Seat Heater Front Right",
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.demo_teslemetry_honk_horn",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Honk Horn"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.demo_teslemetry_flash_lights",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Flash Lights"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_shift_state",
+  "state": "p",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Shift State",
+   "device_class": "enum",
+   "options": [
+    "p",
+    "d",
+    "r",
+    "n"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_speed",
+  "state": "0",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Speed",
+   "unit_of_measurement": "mph",
+   "device_class": "speed"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_odometer",
+  "state": "12345",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Odometer",
+   "unit_of_measurement": "mi",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_tire_pressure_front_left",
+  "state": "42.1",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Front Left",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_tire_pressure_warning_front_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Warning Front Left",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_tire_pressure_front_right",
+  "state": "41.8",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Front Right",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_tire_pressure_warning_front_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Warning Front Right",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_tire_pressure_rear_left",
+  "state": "41.9",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Rear Left",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_tire_pressure_warning_rear_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Warning Rear Left",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_teslemetry_tire_pressure_rear_right",
+  "state": "42.3",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Rear Right",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_teslemetry_tire_pressure_warning_rear_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Teslemetry Tire Pressure Warning Rear Right",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ }
+]

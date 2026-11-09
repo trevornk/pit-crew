@@ -25,4 +25,13 @@ Offline Home Assistant states used to test `adapters/profiles/bmw_connected_driv
   (`<domain>.<device name slug>_<entity name slug>`), values are plausible, units follow the integration's
   dynamic-unit behaviour.
 
+## teslemetry/, tessie/
+
+* `entity_catalog.json` – entity names from Home Assistant core's `strings.json` for each integration and which entities ship
+  disabled (`entity_registry_enabled_default=False` in the platform files), read from core `origin/dev` at `4368abee2a92`
+  (2026-11-09). Both integrations set `translation_key` to the data key, so a name's slug is the entity id suffix.
+* `ha_states_us.json` – synthetic states for a plugged-in, charging, parked car in US units (mi, °F, psi), with the optional
+  entities enabled. Built from the shapes in the source (enum values, units, `p` gear / 0 speed defaults, timestamp sensor for time
+  to full charge); not recorded from a car or a real Home Assistant.
+
 Licences: Home Assistant core is Apache-2.0; kia_uvo is MIT. Only entity ids, names and example values are used.

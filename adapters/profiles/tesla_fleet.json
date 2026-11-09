@@ -439,5 +439,13 @@
     }
   },
   "integration_title": "Tesla Fleet",
-  "tire_min_psi_default": 38
+  "tire_min_psi_default": 38,
+  "discovery_signature": {
+    "present": [
+      "cover.{slug}_windows"
+    ],
+    "absent": [
+      "cover.{slug}_vent_windows"
+    ]
+  }
 }

@@ -1,0 +1,577 @@
+[
+ {
+  "entity_id": "sensor.demo_tessie_battery_level",
+  "state": "71",
+  "attributes": {
+   "friendly_name": "Demo Tessie Battery Level",
+   "unit_of_measurement": "%",
+   "device_class": "battery"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_battery_range",
+  "state": "214.3",
+  "attributes": {
+   "friendly_name": "Demo Tessie Battery Range",
+   "unit_of_measurement": "mi",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_charging",
+  "state": "charging",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charging",
+   "device_class": "enum",
+   "options": [
+    "starting",
+    "charging",
+    "stopped",
+    "complete",
+    "disconnected",
+    "no_power"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_charge_cable",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charge Cable",
+   "device_class": "connectivity"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_charger_power",
+  "state": "7",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charger Power",
+   "unit_of_measurement": "kW",
+   "device_class": "power"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.demo_tessie_charge_limit",
+  "state": "80",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charge Limit",
+   "unit_of_measurement": "%",
+   "min": 50,
+   "max": 100,
+   "step": 1,
+   "mode": "auto"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_time_to_full_charge",
+  "state": "2026-02-01T12:30:00+00:00",
+  "attributes": {
+   "friendly_name": "Demo Tessie Time To Full Charge",
+   "device_class": "timestamp"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_charger_current",
+  "state": "32",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charger Current",
+   "unit_of_measurement": "A",
+   "device_class": "current"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.demo_tessie_charge_current",
+  "state": "32",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charge Current",
+   "unit_of_measurement": "A",
+   "min": 0,
+   "max": 32,
+   "step": 1,
+   "mode": "auto"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_charger_voltage",
+  "state": "240",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charger Voltage",
+   "unit_of_measurement": "V",
+   "device_class": "voltage"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_tessie_charge_port_door",
+  "state": "open",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charge Port Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.demo_tessie_lock",
+  "state": "locked",
+  "attributes": {
+   "friendly_name": "Demo Tessie Lock"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_front_driver_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Front Driver Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_front_driver_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Front Driver Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_front_passenger_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Front Passenger Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_front_passenger_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Front Passenger Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_rear_driver_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Rear Driver Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_rear_driver_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Rear Driver Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_rear_passenger_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Rear Passenger Door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_rear_passenger_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Rear Passenger Window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_tessie_trunk",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Tessie Trunk",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_tessie_frunk",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Tessie Frunk",
+   "device_class": "door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.demo_tessie_vent_windows",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Demo Tessie Vent Windows",
+   "device_class": "window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_tessie_sentry_mode",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Sentry Mode"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_tessie_charge",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Tessie Charge"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_user_present",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie User Present",
+   "device_class": "occupancy"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.demo_tessie_climate",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Climate",
+   "hvac_modes": [
+    "heat_cool",
+    "off"
+   ],
+   "min_temp": 59,
+   "max_temp": 82,
+   "temperature": 68,
+   "current_temperature": 61
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_inside_temperature",
+  "state": "61",
+  "attributes": {
+   "friendly_name": "Demo Tessie Inside Temperature",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_outside_temperature",
+  "state": "48",
+  "attributes": {
+   "friendly_name": "Demo Tessie Outside Temperature",
+   "unit_of_measurement": "°F",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.demo_tessie_defrost_mode",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Defrost Mode"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "device_tracker.demo_tessie_location",
+  "state": "home",
+  "attributes": {
+   "friendly_name": "Demo Tessie Location",
+   "source_type": "gps"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_status",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Demo Tessie Status",
+   "device_class": "connectivity"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "update.demo_tessie_update",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Update",
+   "installed_version": "2025.44.1",
+   "latest_version": "2025.44.1"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.demo_tessie_seat_heater_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Seat Heater Left",
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.demo_tessie_seat_heater_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Seat Heater Right",
+   "options": [
+    "off",
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.demo_tessie_honk_horn",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Tessie Honk Horn"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.demo_tessie_flash_lights",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Demo Tessie Flash Lights"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_shift_state",
+  "state": "p",
+  "attributes": {
+   "friendly_name": "Demo Tessie Shift State",
+   "device_class": "enum",
+   "options": [
+    "p",
+    "d",
+    "r",
+    "n"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_speed",
+  "state": "0",
+  "attributes": {
+   "friendly_name": "Demo Tessie Speed",
+   "unit_of_measurement": "mph",
+   "device_class": "speed"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_odometer",
+  "state": "12345",
+  "attributes": {
+   "friendly_name": "Demo Tessie Odometer",
+   "unit_of_measurement": "mi",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_tire_pressure_front_left",
+  "state": "42.1",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Front Left",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_tire_pressure_warning_front_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Warning Front Left",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_tire_pressure_front_right",
+  "state": "41.8",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Front Right",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_tire_pressure_warning_front_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Warning Front Right",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_tire_pressure_rear_left",
+  "state": "41.9",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Rear Left",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_tire_pressure_warning_rear_left",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Warning Rear Left",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.demo_tessie_tire_pressure_rear_right",
+  "state": "42.3",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Rear Right",
+   "unit_of_measurement": "psi",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.demo_tessie_tire_pressure_warning_rear_right",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Demo Tessie Tire Pressure Warning Rear Right",
+   "device_class": "problem"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ }
+]

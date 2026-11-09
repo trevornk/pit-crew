@@ -80,6 +80,7 @@ class FakeHA:
         self.states = {s["entity_id"]: copy.deepcopy(s) for s in (states or load_fixture("ha_states_tesla_fleet.json"))}
         self.apply_effects = apply_effects
         self.fail_services = False
+        self.now_fn = None          # when set (a callable returning epoch seconds), service effects restamp the entity like HA does
         self.service_calls: List[Tuple[str, Dict[str, Any]]] = []
         self._server = _Server(self)
         self.url = self._server.url
@@ -118,6 +119,10 @@ class FakeHA:
             return
         st = self.states[ent]
         domain, name = service.split("/")
+        if self.now_fn is not None:
+            from datetime import datetime, timezone
+            st["last_reported"] = st["last_updated"] = st["last_changed"] = datetime.fromtimestamp(
+                self.now_fn(), tz=timezone.utc).isoformat()
         if domain == "lock":
             st["state"] = "locked" if name == "lock" else "unlocked"
         elif domain == "switch":

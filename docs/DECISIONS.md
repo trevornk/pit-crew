@@ -248,3 +248,22 @@ Notable choices made while building, newest last. Format: decision — why.
 * **Version**: `constants.VERSION` is read from `plugin.yaml` (one place); `/car help` and the unknown-subcommand reply print it.
 * **CI**: actions pinned to commit SHAs (tag in a comment, resolved with `gh api` reads); the validate retry only repeats when the
   output shows a network/5xx/timeout-class error.
+
+## Teslemetry and Tessie through Home Assistant
+* **Separate profiles, not `tesla_fleet` as-is.** From HA core `origin/dev` (4368abee2a92): the windows cover is `Vent windows`
+  (`cover.<slug>_vent_windows`) in both integrations vs `Windows` in tesla_fleet; Tessie names defrost `Defrost mode` and the front seat
+  heaters `Seat heater left/right`; Teslemetry ships Battery range disabled. The rest of the names match. No release tag exists in the
+  checkout, so only `dev` was compared. Details and evidence: docs/HA_TESLA_INTEGRATIONS.md.
+* **`untrusted_values` on shift state and speed (new profile key).** Both integrations turn a missing gear into `p` and Teslemetry turns
+  a missing speed into `0`; Tessie serves its cache (`use_cache=True`), Teslemetry streamed sensors restore their last value after a
+  restart, and neither exposes when the *car* last reported, so HA's timestamps cannot rescue it. A "P"/0 reading is therefore
+  unavailable and parked has to come from a fresh plug or a TeslaMate state entity; D/R/N or speed above 1 still block. Cost: unlock,
+  trunk, frunk and vent are refused for an unplugged car without TeslaMate. Chosen over accepting "P", because a wrong "parked" can
+  unlock a moving car.
+* **`tesla_fleet` left as-is** although its source has the same `"p"`/`0` defaulting. It is polled straight from the Fleet API, it was run
+  on a real car, and changing its motion rules is the owner's call; flagged in the result report as a follow-up.
+* **`discovery_signature`.** The HA states API carries no integration domain, and the three Tesla integrations share most names. A few
+  entities only one creates (present) or that the others would have (absent) give a small tie-break (up to ±0.1 on the coverage score),
+  so a tesla_fleet car keeps the tested profile and cannot be steered by a handful of optional entities.
+* **Teslemetry rear seat heaters** are listed as `disabled_command_entities` (they ship disabled); tesla_fleet's identical situation is not
+  added to the tested profile.

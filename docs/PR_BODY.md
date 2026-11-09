@@ -54,5 +54,5 @@ README quickstart.
   integrations' source and fixtures, not run on a real car (BMW's integration was removed from HA core in March 2026; the Kia
   profile targets the kia_uvo HACS custom integration); the direct Tesla adapter is tested against mocks only; the live approval
   round-trip has been exercised on the CLI and in CI through Hermes' real approval pipeline, not yet on every gateway surface.
-* 622 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
+* 652 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
   scanner `safe`.

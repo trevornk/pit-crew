@@ -186,7 +186,9 @@ plugins:
       allow_gateway_injection: true
 ```
 
-Pushes are delivered by the gateway process, so keep the gateway running.
+Pushes are delivered by the gateway process, so keep the gateway running. To check delivery end to end, run `/car notify test` in
+the bound chat: it sends "Pit Crew test alert: delivery works" through the same path as real alerts (no alert is created) and
+tells you whether Hermes accepted it.
 
 ## Safe by design
 
@@ -264,7 +266,7 @@ Start with the simulator; stay in practice mode until `/car` matches the car's o
 **Tools** (the agent uses them): `car_status`, `car_history`, `car_readiness`, `car_command`, `car_alerts`, `car_rules`.
 
 **`/car`**: `ready [when] [mi]` · `lock` · `warm [°F]` · `alerts [ack [id]]` · `live [hours]` · `practice` · `log [n]` ·
-`rules` · `notify here|off|status` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
+`rules` · `notify here|off|status|test` · `discover` · `import teslamate [days]` · `desktop-install` · `sim …` (simulated car only).
 (`arm` and `disarm` still work as aliases.)
 
 **Automations** (ordinary cron jobs, one command each): `/blueprint pit-crew:morning-brief`, `:precondition`, `:nightly-security`.

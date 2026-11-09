@@ -82,6 +82,9 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             problems.append(f"field '{name}': 'data_time_entity' must be an entity id")
         if spec.get("data_time_required") and not spec.get("data_time_entity"):
             problems.append(f"field '{name}': 'data_time_required' needs 'data_time_entity'")
+        bad = spec.get("untrusted_values")
+        if bad is not None and not (isinstance(bad, list) and bad and all(isinstance(b, (str, int, float)) for b in bad)):
+            problems.append(f"field '{name}': 'untrusted_values' must be a non-empty list of values")
         alts = spec.get("alt_entities")
         if alts is not None and not (isinstance(alts, list) and all(isinstance(a, str) for a in alts)):
             problems.append(f"field '{name}': 'alt_entities' must be a list of entity ids")
@@ -94,6 +97,12 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
             problems.append(f"field '{name}' needs 'attrs' (opening name -> attribute name)")
         elif spec["kind"] in ("attr", "attr_open") and not isinstance(spec.get("attr"), str):
             problems.append(f"field '{name}' needs 'attr'")
+    sig = profile.get("discovery_signature")
+    if sig is not None:
+        ok = isinstance(sig, dict) and set(sig) <= {"present", "absent"} and all(
+            isinstance(sig.get(k, []), list) and all(isinstance(e, str) and "{slug}" in e for e in sig.get(k, [])) for k in sig)
+        if not ok:
+            problems.append("'discovery_signature' must be {present: [...], absent: [...]} lists of entity ids containing {slug}")
     default_psi = profile.get("tire_min_psi_default")
     if default_psi is not None and not (isinstance(default_psi, (int, float)) and 10 <= default_psi <= 80):
         problems.append("'tire_min_psi_default' must be a psi value between 10 and 80")

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
+from ..redact import plain
 from ..brain.commands import CHARGE_AMPS_MAX, CHARGE_AMPS_MIN, CHARGE_LIMIT_MAX, CHARGE_LIMIT_MIN, TEMP_MAX_F, TEMP_MIN_F
 from ..brain.commands import CommandSpec
 from ..brain.models import VehicleState
@@ -138,14 +139,14 @@ def evaluate(spec: CommandSpec, args: Mapping[str, Any], state: VehicleState, se
                     f"the car's location reading is {_age_text(zage)} old (limit {_age_text(zlimit)}), so it cannot be "
                     "trusted to still be at a trusted zone; refresh status first")
         elif zone is not None and zone in trusted:
-            res.add("trusted_zone", True, f"car is at trusted zone '{zone}'")
+            res.add("trusted_zone", True, f"car is at trusted zone '{plain(zone)}'")
         elif override_zone:
             res.add("trusted_zone", True, "zone check overridden by explicit request")
             res.warnings.append(
-                f"the car is NOT at a trusted location ({zone or 'location unknown'}); "
+                f"the car is NOT at a trusted location ({plain(zone) or 'location unknown'}); "
                 "approving this overrides the zone protection")
         else:
-            where = f"at '{zone}'" if zone else "at an unknown location"
+            where = f"at '{plain(zone)}'" if zone else "at an unknown location"
             res.add("trusted_zone", False,
                     f"the car is {where}, not at a trusted zone ({', '.join(trusted) or 'none set'}). "
                     "If the user really wants this, retry with override_zone=true — they will be asked to confirm",

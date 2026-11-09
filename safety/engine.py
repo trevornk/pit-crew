@@ -63,7 +63,7 @@ class SafetyEngine:
                 **extra: Any) -> Dict[str, Any]:
         out: Dict[str, Any] = {"ok": ok, "status": status, "command": command,
                                "risk": spec.risk if spec else "unknown", "armed": armed, "dry_run": dry_run,
-                               "message": message, "approval": approval, "audit_id": audit_id}
+                               "message": scrub(message), "approval": approval, "audit_id": audit_id}
         if policy is not None:
             out["policy"] = policy.to_dict()
         if readback is not None:

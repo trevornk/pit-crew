@@ -14,6 +14,15 @@ from .service import get_service
 
 logger = logging.getLogger(__name__)
 
+
+def _num(text: str) -> bool:
+    """An ASCII number like ``72`` or ``70.5`` (``str.isdigit`` also accepts '²' and other digits float() rejects)."""
+    return text.isascii() and text.replace(".", "", 1).isdigit()
+
+
+def _count(text: str, default: int, cap: int = 1000) -> int:
+    return min(int(text), cap) if text.isascii() and text.isdigit() else default
+
 from .watcher.rules import RULE_LABELS, RULES_BY_ID  # noqa: E402
 
 HELP = """\
@@ -190,7 +199,7 @@ def _alerts_text(svc: Any, rest: List[str]) -> str:
             ids = [int(a["id"]) for a in svc.alerts(("new", "surfaced"))]
             if not ids:
                 return "No open alerts to acknowledge."
-        elif target.isdigit():
+        elif target.isascii() and target.isdigit() and len(target) < 15:
             ids = [int(target)]
         else:
             return "Alert ids are numbers: see `/car alerts`. (`/car alerts ack` alone acknowledges all of them.)"
@@ -228,7 +237,7 @@ def _user_suggestion(text: str) -> str:
 
 def _arm(svc: Any, rest: List[str]) -> str:
     confirmed = "confirm" in rest
-    nums = [r for r in rest if r.replace(".", "", 1).isdigit()]
+    nums = [r for r in rest if _num(r)]
     want = float(nums[0]) if nums else None
     hours = svc.clamp_hours(want)
     note = ""
@@ -268,11 +277,11 @@ def _ready(svc: Any, rest: List[str]) -> str:
     if words:
         last = words[-1].lower().rstrip(".")
         for suffix in ("miles", "mi"):
-            if last.endswith(suffix) and last[: -len(suffix)].replace(".", "", 1).isdigit():
+            if last.endswith(suffix) and _num(last[: -len(suffix)]):
                 miles, words = float(last[: -len(suffix)]), words[:-1]
                 break
         else:
-            if len(words) > 1 and last.replace(".", "", 1).isdigit() and not words[-2].lower().endswith(("am", "pm", ":")):
+            if len(words) > 1 and _num(last) and not words[-2].lower().endswith(("am", "pm", ":")):
                 if ":" not in words[-2] and not words[-2].isdigit():
                     miles, words = float(last), words[:-1]
     res = svc.readiness(" ".join(words) or None, miles)
@@ -398,14 +407,14 @@ def handle(raw_args: str = "", *, session_id: str = "", session_key: str = "", p
         if sub == "lock":
             return _quick(svc, "lock", {}, "lock")
         if sub in ("warm", "warmup", "warm-up"):
-            temp = rest[0] if rest and rest[0].replace(".", "", 1).isdigit() else None
+            temp = rest[0] if rest and _num(rest[0]) else None
             return _quick(svc, "climate_on", {"temp_f": float(temp)} if temp else {"temp_f": 70}, "warm")
         if sub in ("ready", "readiness"):
             return _ready(svc, rest)
         if sub == "alerts":
             return _alerts_text(svc, rest)
         if sub == "log":
-            return _audit_text(svc, int(rest[0]) if rest and rest[0].isdigit() else 10)
+            return _audit_text(svc, _count(rest[0], 10, 200) if rest else 10)
         if sub == "rules":
             lines = []
             for r in svc.watcher.engine.describe_rules():
@@ -417,7 +426,7 @@ def handle(raw_args: str = "", *, session_id: str = "", session_key: str = "", p
         if sub == "import":
             if not rest or rest[0] != "teslamate":
                 return "Usage: /car import teslamate [days]"
-            res = svc.import_history("teslamate", int(rest[1]) if len(rest) > 1 and rest[1].isdigit() else 365)
+            res = svc.import_history("teslamate", _count(rest[1], 365, 3650) if len(rest) > 1 else 365)
             if not res["ok"]:
                 return f"Import failed: {res['error']}"
             return (f"Imported {res['drives']} trips and {res['charges']} charging sessions from TeslaMate "

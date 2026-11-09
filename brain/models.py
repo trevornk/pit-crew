@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
+from ..redact import plain
+
 CHARGING_STATES = ("charging", "starting", "stopped", "complete", "disconnected", "no_power", "unknown")
 ACTIVELY_CHARGING = ("charging", "starting")
 
@@ -288,7 +290,7 @@ def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
     now = time.time() if now is None else now
     v = state.value
     parts: List[str] = []
-    label = state.name or "The car"
+    label = plain(state.name, 40) or "The car"
     if state.has("battery_pct"):
         bit = f"{label} is at {v('battery_pct'):.0f}% battery"
         if state.has("range_mi"):
@@ -316,7 +318,7 @@ def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
     if state.has("locked"):
         parts.append("locked" if v("locked") else "UNLOCKED")
     if state.has("location_zone"):
-        parts.append(f"at {v('location_zone')}")
+        parts.append(f"at {plain(v('location_zone'), 40)}")
     openings = []
     for key, label_ in (("doors_open", "door"), ("windows_open", "window")):
         val = v(key)

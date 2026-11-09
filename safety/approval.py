@@ -26,6 +26,7 @@ from ..brain.commands import canonical_args
 RULE_PREFIX = "pit-crew"
 PATTERN_PREFIX = "plugin_rule:" + RULE_PREFIX + ":"
 TICKET_TTL_S = 600.0
+CONFIRMED_VALID_S = 120.0      # a human "yes" is for the call that is about to run, not for a later one
 APPROVING_CHOICES = ("once", "session", "always")
 
 
@@ -38,6 +39,8 @@ class Ticket:
     issued_at: float
     state: str = "pending"  # pending | confirmed | denied | consumed
     choice: str = ""
+    decided_at: float = 0.0
+    seq: int = 0              # issue order (timestamps can tie)
 
 
 @dataclass
@@ -54,6 +57,7 @@ class ApprovalBroker:
         self._clock = clock
         self._lock = threading.Lock()
         self._tickets: Dict[str, Ticket] = {}
+        self._seq = 0
 
     def _gc(self) -> None:
         cutoff = self._clock() - TICKET_TTL_S
@@ -65,6 +69,8 @@ class ApprovalBroker:
                         task_id=task_id or "", issued_at=self._clock())
         with self._lock:
             self._gc()
+            self._seq += 1
+            ticket.seq = self._seq
             self._tickets[ticket.nonce] = ticket
         return ticket
 
@@ -82,6 +88,7 @@ class ApprovalBroker:
             if ticket is None or ticket.state != "pending":
                 return False
             ticket.choice = choice
+            ticket.decided_at = self._clock()
             ticket.state = "confirmed" if choice in APPROVING_CHOICES else "denied"
             return True
 
@@ -98,11 +105,15 @@ class ApprovalBroker:
                 t for t in self._tickets.values()
                 if t.digest == digest and t.state != "consumed"
                 and (not task_id or not t.task_id or t.task_id == task_id)]
-            candidates.sort(key=lambda t: t.issued_at, reverse=True)
-            for t in candidates:
+            candidates.sort(key=lambda t: (t.issued_at, t.seq), reverse=True)
+            # Only the NEWEST matching ticket can speak for this call. Falling through to an older confirmed one let a
+            # call whose own prompt never happened (pending) ride on an approval given to an earlier call that never ran.
+            for t in candidates[:1]:
                 if t.state == "denied":
                     t.state = "consumed"
                     return ApprovalEvidence("hermes_approval", f"declined ({t.choice})", denied=True)
+                if t.state == "confirmed" and self._clock() - (t.decided_at or t.issued_at) > CONFIRMED_VALID_S:
+                    return None
                 if t.state == "confirmed" or (t.state == "pending" and not strict):
                     t.state = "consumed"
                     return ApprovalEvidence("hermes_approval", t.choice or "gate passed")

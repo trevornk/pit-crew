@@ -3,7 +3,7 @@
   "label": "Pit Crew",
   "description": "Live car state, readiness, safe commands, alerts and audit log.",
   "icon": "Zap",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "tab": {
     "path": "/pit-crew",
     "position": "after:skills"

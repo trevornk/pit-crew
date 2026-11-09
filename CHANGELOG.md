@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+- **Tire pressure.** Per-tire pressure (psi) and the car's recommended pressure are part of the normalized state, mapped for Home
+  Assistant `tesla_fleet` (the four *Tire pressure* sensors), Teslemetry/Tessie (`tpms_pressure_*`, with per-tire freshness),
+  BMW and Kia/Hyundai, and the simulator (temperature-aware, with leak / low-tire / pump-up controls). Shown in `car_status`,
+  `/car`, the Desktop page and the web dashboard. Two new alerts (eleven in all): *a tire is low on air* (your psi, else 90% of the
+  car's recommended pressure, else 38 psi for a Tesla / 30 psi for anything else) and *a tire is losing air fast* (a drop of N psi
+  within a window). Stale, unavailable, implausible or non-finite readings never alert.
+- **Disabled-by-default Home Assistant entities** (Odometer, Shift state, Speed, tire pressures, Kia's hazard-light buttons) are now
+  explained: `/car discover`, `/car`, `car_status` and the rule list say exactly which to enable. The `tesla_fleet` odometer mapping
+  was confirmed against Home Assistant core (`sensor.<slug>_odometer`, miles, disabled by default).
+- **Brand profiles** verified against the integrations' source and fixtures (not run on a real car): Kia/Hyundai now targets the
+  `kia_uvo` v4 HACS custom integration (full field/command coverage, older entity ids kept as aliases); BMW was corrected (the
+  charge-limit entity never existed) and is marked deprecated because Home Assistant removed the integration in March 2026. New
+  profile features: attribute-based openings, alternate entity ids, disabled controls, deprecation notes.
+- **CI** now runs everything: the Node/jsdom page tests (pinned react/react-dom/jsdom + lockfile in `tests/node`) and the plugin-load
+  and approval-pipeline tests against Hermes Agent v0.23.0 installed from its own `uv.lock`, fails if any test is skipped, runs
+  `hermes plugins validate`, and uses current Node 24 actions. Page tests skip with a clear reason when Node is absent locally.
+- **Bug-audit fixes** (each with a regression test): NaN/inf sensor values (a NaN speed counted as "parked"), gateway timeouts on
+  commands, an approval for an earlier call that never ran vouching for a later one, secrets/zone names reaching approval prompts and
+  tool results, impossible trips reported as "tight", unlocked/Sentry alerts while driving, delivery races resurrecting resolved
+  alerts, the watcher not restarting after a reload, runaway charge-energy and odometer-glitch history, the Desktop dialog stuck after
+  one command, the web page showing stale data as live, double-sent commands, and unvalidated page API bodies. "in 2 hours" now means
+  two hours from now.
+- **Flaky test fixed** (`test_simulated_car_records_new_activity…`): it depended on the time of day; the simulator now follows the
+  service clock, and a trip that starts by unplugging is recorded.
+
 ## 0.1.0 (unreleased)
 - **Pass 9 (pre-publication polish).**
   Security: the watcher lease is renewed on a fixed heartbeat (no more drifting to the dashboard process); alerts are stored by

@@ -5,7 +5,7 @@
 
 ## Add Pit Crew (`pit-crew`) — proactive, safety-gated car agent
 
-Live car state, a "will I be ready for tomorrow?" planner, a background watcher with nine toggleable rules, and commands
+Live car state, a "will I be ready for tomorrow?" planner, a background watcher with eleven toggleable rules (including low tire pressure and fast air loss), and commands
 that only run through safety checks enforced in code. Works with Home Assistant (any brand with an HA integration; the
 `tesla_fleet` mapping is built and tested against sanitized recordings of a real car; commands have not been run on a real car yet), direct Teslemetry/Tessie, read-only TeslaMate, or a built-in **simulated
 car** so a reviewer can try everything with no car. Ships a Desktop page, a web-dashboard page, a `/car` command, three cron
@@ -49,7 +49,10 @@ README quickstart.
   mount the API without registering the plugin. `hermes plugins validate` reports "no core override" with no warnings.
 * **Rule 10.** CI (`.github/workflows/ci.yml`) resolves *test tooling* with a release-age quarantine; the plugin's own
   dependency is the single bounded `tesla-fleet-api>=1.5,<2`, checked against Hermes' pins with `pip install --dry-run -c`.
-* **Known limits** (also in the entry's `known_issues`): BMW and Kia/Hyundai HA profiles are untested starters; the direct Tesla
-  adapter is tested against mocks only; the live approval round-trip has been exercised on the CLI and in tests through
-  Hermes' real approval pipeline, not yet on every gateway surface.
-* 380+ tests, `hermes plugins validate .` clean, no binaries, scanner `safe`.
+* **Known limits** (also in the entry's `known_issues`): read-only status has been verified on a real Model Y through Home
+  Assistant, but no command has been run on a real car yet; the BMW and Kia/Hyundai HA profiles are verified against the
+  integrations' source and fixtures, not run on a real car (BMW's integration was removed from HA core in March 2026; the Kia
+  profile targets the kia_uvo HACS custom integration); the direct Tesla adapter is tested against mocks only; the live approval
+  round-trip has been exercised on the CLI and in CI through Hermes' real approval pipeline, not yet on every gateway surface.
+* 593 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
+  scanner `safe`.

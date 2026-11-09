@@ -17,13 +17,20 @@ def _json(payload: Dict[str, Any]) -> str:
     return json.dumps(payload, default=str, ensure_ascii=False)
 
 
+def _truthy(value: Any) -> bool:
+    """A model may pass the string "false"; ``bool("false")`` is True."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on", "y")
+    return bool(value)
+
+
 def _error(message: str, **extra: Any) -> str:
     return _json({"ok": False, "error": message, **extra})
 
 
 def car_status(args: Dict[str, Any], **kwargs: Any) -> str:
     try:
-        return _json(get_service().status(force=bool((args or {}).get("refresh"))))
+        return _json(get_service().status(force=_truthy((args or {}).get("refresh"))))
     except Exception as exc:  # last-resort guard: tools must never raise into the agent loop
         logger.exception("car_status failed")
         return _error(f"car_status failed: {type(exc).__name__}: {exc}")
@@ -59,7 +66,7 @@ def car_readiness(args: Dict[str, Any], **kwargs: Any) -> str:
         temp = args.get("expected_temp_f")
         return _json(get_service().readiness(
             args.get("departure"), float(miles) if miles is not None else None,
-            round_trip=bool(args.get("round_trip")), expected_temp_f=float(temp) if temp is not None else None))
+            round_trip=_truthy(args.get("round_trip")), expected_temp_f=float(temp) if temp is not None else None))
     except (TypeError, ValueError) as exc:
         return _error(f"bad argument: {exc}")
     except Exception as exc:
@@ -116,7 +123,7 @@ def car_alerts(args: Dict[str, Any], **kwargs: Any) -> str:
             return _json({"ok": True, "acknowledged": done})
         if action != "list":
             return _error(f"unknown action '{action}'", hint="use list, ack or check_now")
-        states = ("new", "surfaced", "acked", "resolved") if args.get("include_resolved") else ("new", "surfaced", "acked")
+        states = ("new", "surfaced", "acked", "resolved") if _truthy(args.get("include_resolved")) else ("new", "surfaced", "acked")
         rows = svc.alerts(states)
         for r in rows:
             if r["state"] == "new":

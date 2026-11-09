@@ -17,6 +17,7 @@ from .adapters import base as adapters_base
 from .adapters.base import (CREDENTIAL_BG_TEXT, SecretScopeUnavailable, AdapterError, BuildContext, CarAdapter, HistoryProvider)
 from .brain.commands import Capabilities
 from .brain.models import VehicleState, describe_state
+from .redact import scrub
 from .history_store import CombinedHistory, OwnHistory, Recorder, import_history
 from .constants import ENV_HA_TOKEN, ENV_TESLAMATE_TOKEN, PLUGIN_ID
 from .settings import Settings, hermes_settings_provider
@@ -186,7 +187,7 @@ class CarService:
             try:
                 state = self.adapter.fetch_state(self.now())
             except AdapterError as exc:
-                self.last_error = str(exc)
+                self.last_error = scrub(str(exc))
                 raise
             self.last_error = None
             self._recorder.record(state, state.captured_at)
@@ -287,7 +288,7 @@ class CarService:
             return self.adapter.describe()
         except AdapterError as exc:
             return {"kind": str(self.settings.get("adapter")), "label": "not connected", "simulated": False,
-                    "error": str(exc)}
+                    "error": scrub(str(exc))}
 
     def status(self, *, force: bool = False) -> Dict[str, Any]:
         """JSON-ready status (never raises): state, summary, safety posture, capabilities."""
@@ -295,11 +296,11 @@ class CarService:
         try:
             state = self.get_state(force=force)
         except SecretScopeUnavailable as exc:
-            out.update({"ok": False, "error": str(exc), "warnings": [CREDENTIAL_BG_TEXT],
+            out.update({"ok": False, "error": scrub(str(exc)), "warnings": [CREDENTIAL_BG_TEXT],
                         "degraded": BG_STATE})
             return out
         except AdapterError as exc:
-            out.update({"ok": False, "error": str(exc),
+            out.update({"ok": False, "error": scrub(str(exc)),
                         "hint": "Check the adapter settings (URL, token, entity slug) or switch the adapter to 'simulator'."})
             return out
         now = self.now()
@@ -329,7 +330,7 @@ class CarService:
             provider = self.history_provider
             return history_report(provider, kind, self.now(), days=days, start=start, end=end)
         except AdapterError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": scrub(str(exc))}
 
     def import_history(self, source: str = "teslamate", days: int = 365) -> Dict[str, Any]:
         """Backfill the own history store from an optional source (TeslaMate). Idempotent. Never raises."""
@@ -341,7 +342,7 @@ class CarService:
             now = self.now()
             counts = import_history(self.store, provider, now - days * 86400.0, now, source=source)
         except AdapterError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": scrub(str(exc))}
         return {"ok": True, "source": source, "days": days, **counts}
 
     # -- readiness --------------------------------------------------------------------------
@@ -358,7 +359,7 @@ class CarService:
         try:
             when = parse_when(departure or snap["default_departure"], now_dt)
         except WhenError as exc:
-            return {"ok": False, "error": str(exc),
+            return {"ok": False, "error": scrub(str(exc)),
                     "hint": "give a departure like 'tomorrow 7:30 AM' or an ISO date-time"}
         if float(snap["battery_kwh"] or 0) <= 0:   # R18
             return {"ok": False, "error": "the battery_kwh setting must be greater than 0"}
@@ -370,7 +371,7 @@ class CarService:
         try:
             state = self.get_state()
         except AdapterError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": scrub(str(exc))}
         drives = []
         battery_kwh, battery_src = float(snap["battery_kwh"]), "your battery_kwh setting"
         provider = self.history_provider
@@ -421,7 +422,7 @@ class CarService:
             states = json_request("GET", base + "/api/states", token=token, what="Home Assistant",
                                   verify_tls=bool(snap["ha_verify_tls"]))
         except AdapterError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": scrub(str(exc))}
         if not isinstance(states, list):
             return {"ok": False, "error": "Home Assistant /api/states did not return a list"}
         return {"ok": True, **discover(states)}

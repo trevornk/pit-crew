@@ -26,7 +26,7 @@ HERMES_PATTERNS: List[str] = [
 _VIN = re.compile(r"\b(?=[A-HJ-NPR-Z0-9]*\d)(?=[A-HJ-NPR-Z0-9]*[A-HJ-NPR-Z])[A-HJ-NPR-Z0-9]{17}\b")
 _JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
 _BEARER = re.compile(r"(?i)\b(bearer|token)\s+[A-Za-z0-9._~+/=-]{12,}")
-_COORD_KV = re.compile(r"(?i)([\"']?(?:lat|latitude|lon|lng|longitude)[\"']?\s*[:=]\s*)-?\d{1,3}\.\d{3,}")
+_COORD_KV = re.compile(r"(?i)([\"']?(?:lat|latitude|lon|lng|longitude)[\"']?\s*[:=]\s*)-?\d{1,3}\.\d{2,}")
 _COORD_PAIR = re.compile(r"(?<!\d)-?\d{1,2}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}(?!\d)")
 
 
@@ -39,3 +39,16 @@ def scrub(text: object) -> str:
     s = _COORD_PAIR.sub("[location redacted]", s)
     s = _VIN.sub("[VIN]", s)
     return s
+
+
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
+
+
+def plain(text: object, limit: int = 60) -> str:
+    """Untrusted text (a Home Assistant zone or entity name, a car's name) made safe to put in a prompt or an alert:
+    no control characters or line breaks (so it cannot fake extra lines such as "Approve only if..."), collapsed
+    spaces, a length limit, and the usual secret scrubbing."""
+    s = _CONTROL.sub(" ", str(text))
+    s = " ".join(s.split())
+    s = scrub(s)
+    return s if len(s) <= limit else s[: limit - 1].rstrip() + "…"

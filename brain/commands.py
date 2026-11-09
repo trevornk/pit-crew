@@ -15,6 +15,7 @@ Risk classes
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
@@ -202,6 +203,8 @@ def _coerce_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ArgError(f"expected true/false, got {value!r}")
         return bool(value)
     s = str(value).strip().lower()
     if s in ("1", "true", "yes", "on", "y"):
@@ -217,6 +220,8 @@ def validate_args(spec: CommandSpec, raw: Optional[Mapping[str, Any]]) -> Dict[s
     Unknown keys are rejected except the policy flags ``override_zone`` and ``wake_ok`` which are
     handled by the safety engine.
     """
+    if raw is not None and not isinstance(raw, Mapping):
+        raise ArgError("arguments must be an object of name: value pairs")
     raw = dict(raw or {})
     flags = {k: raw.pop(k) for k in ("override_zone", "wake_ok") if k in raw}
     known = {a.name for a in spec.args}
@@ -235,10 +240,14 @@ def validate_args(spec: CommandSpec, raw: Optional[Mapping[str, Any]]) -> Dict[s
         try:
             if a.kind == "float":
                 num = float(val)
+                if not math.isfinite(num):
+                    raise ArgError(f"{a.name} must be a finite number")
                 if a.minimum is not None and num < a.minimum or a.maximum is not None and num > a.maximum:
                     raise ArgError(f"{a.name} must be between {a.minimum:g} and {a.maximum:g}, got {num:g}")
                 clean[a.name] = round(num, 1)
             elif a.kind == "int":
+                if not math.isfinite(float(val)):
+                    raise ArgError(f"{a.name} must be a finite number")
                 num_i = int(round(float(val)))
                 if a.minimum is not None and num_i < a.minimum or a.maximum is not None and num_i > a.maximum:
                     raise ArgError(f"{a.name} must be between {a.minimum:g} and {a.maximum:g}, got {num_i}")
@@ -252,7 +261,7 @@ def validate_args(spec: CommandSpec, raw: Optional[Mapping[str, Any]]) -> Dict[s
                 clean[a.name] = s
             else:  # pragma: no cover - guarded by specs above
                 raise ArgError(f"unsupported argument kind {a.kind}")
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             if isinstance(exc, ArgError):
                 raise
             raise ArgError(f"{a.name}: {exc}") from exc

@@ -60,3 +60,23 @@ def test_failed_migration_keeps_honouring_the_old_overrides(stub_service, stub):
     svc.store.kv_set("rule_overrides", {"left_unlocked_away": {"minutes": 45}})
     assert svc.watcher.engine.rule_config(RULES_BY_ID["left_unlocked_away"])["minutes"] == 45
     assert svc.store.kv_get("rule_overrides", None)                                   # kept for a later attempt
+
+
+def test_a_refused_write_is_reported_by_the_tool_not_swallowed(stub_service, stub):
+    import json
+
+    from pit_crew import tools
+
+    svc = stub_service()
+
+    class Refusing:
+        def __getattr__(self, name):
+            return getattr(inner, name)
+
+        def set_config(self, key, value):
+            raise PermissionError("Plugin settings cannot be changed in a managed install")
+
+    inner = svc.ctx
+    svc.ctx = Refusing()
+    out = json.loads(tools.car_rules({"action": "configure", "rule": "left_unlocked_away", "settings": {"minutes": 20}}))
+    assert out["ok"] is False and "couldn't save the rule" in out["error"] and "managed install" in out["error"]

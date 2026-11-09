@@ -23,7 +23,7 @@ def test_page_renders_with_simulator(service, tmp_path):
     for needle in ("Simulated car", "Practice mode", "Go live…", "of range", "Climate", "Doors", "Windows", "Trunk",
                    "Frunk", "Sentry", "Will I be ready?", "Alerts", "All clear", "More controls", "History of commands", "Safety &amp; settings",
                    "Alert rules", "Try it: simulator controls", "Fast-forward 30 min", "Practice mode · nothing is sent", "charge limit",
-                   "Goes through Hermes’ approvals", "Lock", "Warm up", "Charge", "Ask Hermes", "Unlock", "Honk", "Connect my real car",
+                   "Asked in chat, under your Hermes approval setting", "Lock", "Warm up", "Charge", "Ask Hermes", "Unlock", "Honk", "Connect my real car",
                    "This is a simulated car"):
         assert needle in page, needle
     assert "%" in chip and "codicon-lock" in chip
@@ -105,7 +105,7 @@ def test_commands_explain_inapplicable_ones_and_risky_ones_go_through_hermes(ser
     out = render(tmp_path, summary, rules=mod.rules())["page"]
     for reason in ("Already locked", "Sentry is already off", "Not plugged in", "Not charging right now"):
         assert reason in out, reason
-    assert "never sent from a button" in out and "Goes through Hermes’ approvals" in out
+    assert "requested in chat, not sent by these buttons" in out and "Asked in chat, under your Hermes approval setting" in out
     assert "Practice mode · nothing is sent" in out
 
 
@@ -178,10 +178,10 @@ def test_web_dashboard_page_renders_real_backend_json(service, tmp_path):
     html = out["html"]
     assert out["name"] == "pit-crew"
     for needle in ("Pit Crew", "Simulated car", "of range", "Doors", "Will I be ready?", "Alerts", "Controls",
-                   "Goes through Hermes’ approvals", "History of commands", "Try it: simulator controls", "Practice mode · nothing is sent", "Go live…"):
+                   "Asked in chat, under your Hermes approval setting", "History of commands", "Try it: simulator controls", "Practice mode · nothing is sent", "Go live…"):
         assert needle in html, needle
     # approval-class commands are preview-only on this page: no way to send them
-    assert "never sent from a button" in html
+    assert "requested in chat, not sent by these buttons" in html
     assert [c for c in out["calls"] if c[1] == "POST"] == []        # rendering alone sends nothing
 
 

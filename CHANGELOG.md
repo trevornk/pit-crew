@@ -1,6 +1,10 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Pages tell the truth about the car's state.** A finished command's result is marked out of date once a different car state
+  arrives; simulated alert times are labelled "simulated" (History is real clock time; Live expiry was and stays wall clock);
+  each greyed-out button shows its own reason; "Check now" says how many alerts are still open; the approval wording is one plain
+  sentence (requested in chat, follows your Hermes approval setting); the simulator banner says what the simulator does.
 - **Alerts are delivered through Hermes' own cross-platform send, to any platform.** Pushes no longer use `ctx.inject_message`
   (which needed a live gateway in the calling process, a gateway session entry for the chat, and started an agent turn for every
   alert). Set **Alerts · Where alerts go** (`alert_target`) or use `/car notify here|<target>` with a cron-style target (`telegram`,

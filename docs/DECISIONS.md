@@ -267,3 +267,20 @@ Notable choices made while building, newest last. Format: decision — why.
   so a tesla_fleet car keeps the tested profile and cannot be steered by a handful of optional entities.
 * **Teslemetry rear seat heaters** are listed as `disabled_command_entities` (they ship disabled); tesla_fleet's identical situation is not
   added to the tested profile.
+
+## Approval bridge (Hermes Tool Search)
+* **Unwrap `tool_call` in the gate, not in the tool.** Hermes fires `pre_tool_call` once for the bridge name and re-dispatches the real
+  tool with `skip_pre_tool_call_hook=True`, so only a hook that understands the bridge can ask the human. No Hermes patch needed.
+  The ticket is issued under the hook's `task_id`, which the re-dispatch passes unchanged, so `broker.take` finds it; nothing about the
+  broker changed.
+* **Batches with an approval-class command are refused, not split.** One prompt per hook verdict is all Hermes supports, and a prompt
+  that covers several commands would let one yes authorise more than the person saw. (Hermes itself already rejects multi-entry
+  batches of local tools; the rule protects against versions that do not.) Comfort-only batches and other tools pass as before.
+* **Unreadable bridge arguments fail closed only when they name `car_command`** (or the envelope is unreadable and mentions it);
+  unrelated unreadable calls are not ours to block. Dry-run (disarmed) bridge calls need no prompt, same as direct calls.
+* **seat_heat read-back skipped.** tesla_fleet exposes `select.<slug>_seat_heater_*` (options off/low/medium/high) and the sanitized
+  fixture has the two front ones, but confirming needs five new state fields, a new profile field kind (option text to level), simulator
+  and display changes, and the rear seats are absent from the fixture. Not clean; seat_heat stays `sent_unconfirmed`.
+* **`/car notify test`** uses the same `inject_message` call as real pushes with a framing line telling the model it is a test and to
+  send no command. It writes no alert row and does not update `notify_last`, so it cannot change status, rules or dedupe. It reports
+  failure with the same hint as a refused real push.

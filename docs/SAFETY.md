@@ -49,6 +49,11 @@ model calls car_command(unlock)
 
 Design points:
 
+* **Works with Hermes Tool Search.** When Hermes defers plugin tools, the model calls `car_command` via the bridge tool
+  `tool_call`, and Hermes runs `pre_tool_call` once, for `tool_call` only. The gate unwraps the bridged call and decides exactly as for
+  a direct call, so the approval prompt still appears. **Batching is refused:** a `tool_call` with several entries, any of which is an
+  approval-class `car_command`, is blocked ("send approval-needed car commands on their own, one per tool_call"), and bridge arguments
+  that cannot be read but name `car_command` are blocked. Comfort-only batches are unaffected.
 * **Positive confirmation, not "the hook ran".** Hermes can be configured to skip approvals (YOLO, `approvals.mode: off`,
   cron auto-approve). In the default `approval_confirmation: strict` mode the tool still refuses unless it saw the human's
   *yes* for this exact call. `approval_confirmation: hermes_gate` relaxes this to trusting Hermes' gate alone.

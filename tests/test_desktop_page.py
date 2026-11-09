@@ -1,44 +1,15 @@
 """Render the Desktop plugin (page + chip) in Node against real backend JSON from the simulator."""
 
 import json
-import os
-import shutil
-import subprocess
-from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-NODE = shutil.which("node")
-NODE_MODULES = Path(os.environ.get("HERMES_NODE_MODULES", str(Path.home() / ".hermes" / "hermes-agent" / "node_modules")))
-
-pytestmark = pytest.mark.skipif(not NODE or not (NODE_MODULES / "react-dom").exists(),
-                                reason="needs node and a node_modules with react + react-dom")
+from pagerender import ROOT, backend_summary, needs_desktop_render, needs_web_render, render, render_web  # noqa: E402
 
 pytest.importorskip("fastapi")
 
 
-def render(tmp_path, summary, **extra):
-    data = {"summary": summary, "rules": {"ok": True, "rules": []}, "log": {"ok": True, "rows": []}, **extra}
-    f = tmp_path / "data.json"
-    f.write_text(json.dumps(data))
-    env = {**os.environ, "HERMES_NODE_MODULES": str(NODE_MODULES)}
-    proc = subprocess.run([NODE, str(ROOT / "tests" / "desktop" / "harness.mjs"), str(f)], capture_output=True, text=True,
-                          env=env, timeout=60, cwd=str(ROOT / "tests" / "desktop"))
-    lines = [l for l in proc.stdout.splitlines() if l.startswith("HARNESS_JSON:")]
-    assert lines, f"harness failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-2500:]}"
-    return json.loads(lines[-1][len("HARNESS_JSON:"):])
-
-
-def backend_summary(service):
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("car_plugin_api", ROOT / "dashboard" / "plugin_api.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod, mod.summary()
-
-
+@needs_desktop_render
 def test_page_renders_with_simulator(service, tmp_path):
     mod, summary = backend_summary(service)
     assert summary["simulated"] is True
@@ -58,6 +29,7 @@ def test_page_renders_with_simulator(service, tmp_path):
     assert "%" in chip and "codicon-lock" in chip
 
 
+@needs_desktop_render
 def test_page_shows_armed_unlocked_alert_and_stale(service, tmp_path):
     service.arm(2, by="t")
     service.adapter.control("leave_unlocked")
@@ -71,6 +43,7 @@ def test_page_shows_armed_unlocked_alert_and_stale(service, tmp_path):
     assert "codicon-unlock" in out["chip"] and 'data-dot="warn"' in out["chip"]
 
 
+@needs_desktop_render
 def test_page_handles_unreachable_car(make_service, tmp_path):
     svc = make_service({"adapter": "homeassistant", "ha_url": "http://127.0.0.1:9", "ha_slug": "x"},
                        secrets={"PIT_CREW_HA_TOKEN": "t"})
@@ -94,6 +67,7 @@ def test_plugin_file_follows_catalog_rule_8():
     assert set(imports) <= {"@hermes/plugin-sdk", "react"}
 
 
+@needs_desktop_render
 def test_page_shows_motion_warning_for_cars_without_a_motion_source(stub_service, stub, tmp_path):
     for k in ("moving", "speed_mph", "shift_state"):
         stub.values.pop(k)
@@ -104,6 +78,7 @@ def test_page_shows_motion_warning_for_cars_without_a_motion_source(stub_service
     assert "Needs attention" in out["page"] and "reports no speed, gear or driving state" in out["page"]
 
 
+@needs_desktop_render
 def test_stale_readings_say_last_known_with_humane_ages_and_never_live(service, tmp_path):
     mod, summary = backend_summary(service)
     fr = summary["status"]["freshness"]
@@ -115,6 +90,7 @@ def test_stale_readings_say_last_known_with_humane_ages_and_never_live(service, 
     assert "confirmed 7 min ago" in out and "car last reported 7 min ago" in out
 
 
+@needs_desktop_render
 def test_commands_explain_inapplicable_ones_and_risky_ones_go_through_hermes(service, tmp_path):
     mod, summary = backend_summary(service)
     st = summary["status"]
@@ -127,6 +103,7 @@ def test_commands_explain_inapplicable_ones_and_risky_ones_go_through_hermes(ser
     assert "Practice mode · nothing is sent" in out
 
 
+@needs_desktop_render
 def test_single_alert_has_one_acknowledge_and_a_fix_button(service, tmp_path):
     mod, summary = backend_summary(service)
     alert = {"id": 1, "rule": "left_unlocked_away", "severity": "high", "state": "new", "title": "Your car is unlocked and away from home",
@@ -141,6 +118,7 @@ def test_single_alert_has_one_acknowledge_and_a_fix_button(service, tmp_path):
     assert "Acknowledge all" in out and ">Ask Hermes<" in out.replace("</i>", "")
 
 
+@needs_desktop_render
 def test_readiness_box_prefills_settings_and_explains_itself(service, tmp_path):
     mod, summary = backend_summary(service)
     out = render(tmp_path, summary, rules=mod.rules())["page"]
@@ -148,17 +126,6 @@ def test_readiness_box_prefills_settings_and_explains_itself(service, tmp_path):
 
 
 # -- the web-dashboard page (dashboard/dist/index.js) --------------------------------------------------------------
-def render_web(tmp_path, data, clicks=()):
-    f = tmp_path / "web.json"
-    f.write_text(json.dumps(data))
-    env = {**os.environ, "HERMES_NODE_MODULES": str(NODE_MODULES)}
-    proc = subprocess.run([NODE, str(ROOT / "tests" / "dashboard_web" / "harness.mjs"), str(f), json.dumps(list(clicks))], capture_output=True, text=True,
-                          env=env, timeout=60)
-    lines = [l for l in proc.stdout.splitlines() if l.startswith("HARNESS_JSON:")]
-    assert lines, f"web harness failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-2500:]}"
-    return json.loads(lines[-1][len("HARNESS_JSON:"):])
-
-
 def test_web_dashboard_manifest_has_a_real_entry_so_the_tab_never_404s():
     m = json.loads((ROOT / "dashboard" / "manifest.json").read_text())
     assert m["entry"] == "dist/index.js" and (ROOT / "dashboard" / m["entry"]).is_file()
@@ -169,6 +136,7 @@ def test_web_dashboard_manifest_has_a_real_entry_so_the_tab_never_404s():
     assert not re.search(r"\beval\s*\(|new Function|innerHTML|dangerouslySetInnerHTML|document\.write", src)
 
 
+@needs_web_render
 def test_web_dashboard_page_renders_real_backend_json(service, tmp_path):
     mod, summary = backend_summary(service)
     out = render_web(tmp_path, {"/summary": summary, "/log": {"ok": True, "rows": service.audit_log(5)}})
@@ -182,11 +150,13 @@ def test_web_dashboard_page_renders_real_backend_json(service, tmp_path):
     assert [c for c in out["calls"] if c[1] == "POST"] == []        # rendering alone sends nothing
 
 
+@needs_web_render
 def test_web_dashboard_unreachable_backend_shows_help_not_a_blank_page(tmp_path):
     out = render_web(tmp_path, {})
     assert "isn’t running on this Hermes" in out["html"] and "hermes plugins enable pit-crew" in out["html"]
 
 
+@needs_web_render
 def test_web_dashboard_risky_command_only_previews_and_offers_the_hermes_sentence(service, tmp_path):
     mod, summary = backend_summary(service)
     summary["status"]["security"]["locked"] = True

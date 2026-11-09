@@ -143,9 +143,10 @@ def test_tool_results_use_practice_wording(service):
 
 
 # -- web page flows (jsdom) ---------------------------------------------------------------------------------------------
-from test_desktop_page import backend_summary, render_web  # noqa: E402
+from pagerender import backend_summary, needs_web_render, render_web  # noqa: E402
 
 
+@needs_web_render
 def test_web_alert_fix_asks_for_confirmation_first(service, tmp_path):
     mod, summary = backend_summary(service)
     summary["alerts"] = [{"id": 1, "rule": "left_unlocked_away", "severity": "high", "state": "new", "title": "Your car is unlocked and away from home",
@@ -159,6 +160,7 @@ def test_web_alert_fix_asks_for_confirmation_first(service, tmp_path):
     assert "Go live for 8 h &amp; send" in out["html"] and "Practice run" in out["html"]
 
 
+@needs_web_render
 def test_web_go_live_is_inline_with_cancel(service, tmp_path):
     mod, summary = backend_summary(service)
     out = render_web(tmp_path, {"/summary": summary, "/log": {"ok": True, "rows": []}}, clicks=["Go live…"])

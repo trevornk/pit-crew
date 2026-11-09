@@ -24,6 +24,7 @@ def _num(text: str) -> bool:
 def _count(text: str, default: int, cap: int = 1000) -> int:
     return min(int(text), cap) if text.isascii() and text.isdigit() else default
 
+from .watcher.delivery import NOT_ROUTED_HINT  # noqa: E402
 from .watcher.rules import RULE_LABELS, RULES_BY_ID  # noqa: E402
 
 HELP = """\
@@ -339,7 +340,9 @@ def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
     d = svc.watcher.deliverer
     sub = rest[0] if rest else "status"
     if sub == "here":
-        d.bind(session_key, platform)
+        if d.bind(session_key, platform) is None:
+            return ("I couldn't tell which chat this is (Hermes gave this command no session key), so nothing was bound. "
+                    "Run `/car notify here` from inside the chat you want the alerts in.")
         if svc.ctx is None:
             return "Bound this chat, but the plugin context is unavailable so pushes may not work."
         local = (platform or "").lower() in ("", "cli", "tui", "desktop", "local", "acp")
@@ -358,14 +361,16 @@ def _notify(svc: Any, rest: List[str], session_key: str, platform: str) -> str:
         res = d.send_test()
         if res["ok"]:
             note = "" if res.get("push_enabled") else "\n(Pushed alerts are switched off in settings, so real alerts would not be sent until you turn `alert_push` on.)"
-            return "Test alert sent: delivery to the bound chat works. Look for “Pit Crew test alert: delivery works”." + note
+            return ("Hermes accepted the test message; it should appear in that chat shortly (look for “Pit Crew test alert: "
+                    "delivery works”). " + NOT_ROUTED_HINT + note)
         return "Test alert FAILED: " + str(res["hint"])
     st = d.status()
     t = d.target()
     if not st["bound"]:
         return "No chat is bound for pushed alerts. Run `/car notify here` in the chat you want."
     last = st["last_push"]
-    tail = f" Last push: {'ok' if last.get('ok') else 'refused'}." if last else ""
+    tail = (f" Last push: {'accepted by Hermes (arrival in the chat is not confirmed)' if last.get('ok') else 'refused'}."
+            if last else "")
     wait = ""
     if st.get("waiting_for_push"):
         wait += f"\n{st['waiting_for_push']} alert(s) are waiting to be pushed; Pit Crew keeps retrying (backing off) for 6 hours."

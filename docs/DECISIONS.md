@@ -325,4 +325,8 @@ Notable choices made while building, newest last. Format: decision — why.
   and display changes, and the rear seats are absent from the fixture. Not clean; seat_heat stays `sent_unconfirmed`.
 * **`/car notify test`** uses the same `inject_message` call as real pushes with a framing line telling the model it is a test and to
   send no command. It writes no alert row and does not update `notify_last`, so it cannot change status, rules or dedupe. It reports
-  failure with the same hint as a refused real push.
+  failure with the same hint as a refused real push. Wording is deliberately "Hermes accepted the test message; it should appear shortly":
+  `inject_message` returning True means a host accepted it, and an unroutable key is found afterwards and only logged
+  (`gateway/run_plugin_injection.py`, "Plugin message injection was not routed"). `notify_last.ok` carries the same meaning
+  (`accepted_by_hermes`). Pit Crew refuses to bind a chat without a `session_key` and never calls the key-less form (on Hermes' own
+  deprecation track); an old key-less binding reports why it can't push.

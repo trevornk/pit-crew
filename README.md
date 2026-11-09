@@ -51,7 +51,7 @@ will I be ready for a 40-mile trip tomorrow at 7:30?
 /car sim drive 10 away        ... and drive away from home
 /car sim advance 15           fast-forward 15 minutes: the watcher raises an alert
 /car lock                     fix it (practice mode: checked and logged, nothing is sent)
-/car live                     go live (you confirm; it stops by itself after 1 h)
+/car live                     go live (you confirm; it stops by itself after 1 h, or your "Go live for" setting)
 unlock my car                 Hermes asks YOU to approve, then reads the car back
 /car log                      the audit trail
 /car practice                 back to practice mode
@@ -214,7 +214,13 @@ Slack, WhatsApp, SMS, e-mail and other platforms use the same call but were not 
 Safety isn't a setting you remember to turn on; it's how Pit Crew works.
 
 * **Practice mode first.** Until you tap **Go live**, commands are checked and logged but never sent. Going live stops by
-  itself after a few hours.
+  itself: after **Safety · Go live for (hours, 1-24)** (`live_default_hours`, default 1 h) for the button and a plain `/car live`, or
+  after the hours you type (`/car live 3`; 15 min to 72 h). There is no "forever" setting for Go live, and nothing goes live unless you
+  type the command or click the button.
+* **"Confirmed" means the car said so.** Home Assistant's Tesla integrations show a command's result the moment Tesla accepts it, before
+  the car is re-read (tesla_fleet re-reads about every 10 minutes). Pit Crew does not count that as confirmation: it says "accepted, the
+  car hasn't reported back yet" until a real re-read shows the change, and only says "already locked/closed" when the car reported it
+  under a minute before the command.
 * **Risky commands follow your Hermes approval setting.** Unlock, trunk, frunk, window vent, Sentry-off, honk and flash go
   through Hermes' own approval gate. With approvals on (`manual` or `smart`) Hermes asks **you**. (In `smart` mode Hermes still
   asks a person for plugin approvals; it does not hand them to its guardian.) With approvals `off` or yolo, Hermes doesn't ask,
@@ -253,8 +259,9 @@ Honesty matters more than a long feature list.
 * **Real-car test (2026-11-09, Home Assistant `tesla_fleet`):** twelve commands that need no approval (lock, climate, set temperature,
   defrost, seat heat, charge start/stop, charge limit, charge amps, close windows, Sentry…) were sent; the owner saw the car do each of
   them. That test also found, and this version fixes, stale charging data shown as current, charging read-back that could not see the
-  car's answer, and alerts that were never retried to the bound chat. **Not yet tried on a real car:** unlock, trunk, frunk, vent and
-  the other approval-prompt commands.
+  car's answer, and alerts that were never retried to the bound chat. A second session the same day sent the approval commands
+  (unlock, trunk, frunk, vent, Sentry off, honk, flash): the car did each one; it showed that Home Assistant's own instant "new state"
+  had been read as the car's confirmation and that a 5-minute-old "unlocked" was read as "already unlocked". Both are fixed.
 * **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
   v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
   and the plugin loading in real Hermes. See `tests/` (about 650 tests, no network; CI fails if any is skipped).

@@ -159,7 +159,9 @@ set *HA entity profile* to its path (JSON, or YAML if PyYAML is installed).
 ```
 
 Top-level profile keys also include `moving_state_entity` (a state entity whose value `driving` means moving, e.g. TeslaMate's
-`sensor.teslamate_{slug}_state`) and `motion_hint` (text shown when no motion source exists).
+`sensor.teslamate_{slug}_state`), `motion_hint` (text shown when no motion source exists) and `optimistic_commands` (`true` when the
+integration writes a commanded entity's new state itself as soon as the API call returns, as tesla_fleet, teslemetry and tessie do: Pit
+Crew then never counts that entity's own post-command write as the car's confirmation; see DECISIONS "Second real-car session").
 
 Field kinds: `number`, `attr`, `on_off` (`invert`), `enum` (`map`), `timestamp_minutes`, `cover_open`, `lock_locked`,
 `open_list`, `attr_open_list` (openings reported as attributes of one entity, e.g. BMW's Lids: `{"entity": …, "attrs":

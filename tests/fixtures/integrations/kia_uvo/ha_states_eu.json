@@ -1,0 +1,416 @@
+[
+ {
+  "entity_id": "sensor.my_ev_eu_ev_battery_level",
+  "state": "64",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Battery Level",
+   "unit_of_measurement": "%",
+   "device_class": "battery"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_ev_range",
+  "state": "291",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Range",
+   "unit_of_measurement": "km",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_ev_charging_power",
+  "state": "7.4",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Charging Power",
+   "unit_of_measurement": "kW",
+   "device_class": "power"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_estimated_charge_duration",
+  "state": "95",
+  "attributes": {
+   "friendly_name": "my_ev_eu Estimated Charge Duration",
+   "unit_of_measurement": "min",
+   "device_class": "duration"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_outside_temperature",
+  "state": "13",
+  "attributes": {
+   "friendly_name": "my_ev_eu Outside temperature",
+   "unit_of_measurement": "\u00b0C",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_set_temperature",
+  "state": "21",
+  "attributes": {
+   "friendly_name": "my_ev_eu Set Temperature",
+   "unit_of_measurement": "\u00b0C",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_gear_position",
+  "state": "P",
+  "attributes": {
+   "friendly_name": "my_ev_eu Gear Position"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_odometer",
+  "state": "29521",
+  "attributes": {
+   "friendly_name": "my_ev_eu Odometer",
+   "unit_of_measurement": "km",
+   "device_class": "distance"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_tire_pressure_front_left",
+  "state": "2.4",
+  "attributes": {
+   "friendly_name": "my_ev_eu Tire Pressure - Front Left",
+   "unit_of_measurement": "bar",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_tire_pressure_front_right",
+  "state": "2.4",
+  "attributes": {
+   "friendly_name": "my_ev_eu Tire Pressure - Front Right",
+   "unit_of_measurement": "bar",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_tire_pressure_rear_left",
+  "state": "2.5",
+  "attributes": {
+   "friendly_name": "my_ev_eu Tire Pressure - Rear Left",
+   "unit_of_measurement": "bar",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.my_ev_eu_tire_pressure_rear_right",
+  "state": "2.2",
+  "attributes": {
+   "friendly_name": "my_ev_eu Tire Pressure - Rear Right",
+   "unit_of_measurement": "bar",
+   "device_class": "pressure"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_ev_battery_charge",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Battery Charge"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_ev_battery_plug",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Battery Plug"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_ev_charge_port",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Charge Port"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_front_left_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Front Left Door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_front_right_door",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "my_ev_eu Front Right Door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_back_left_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Back Left Door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_back_right_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Back Right Door"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_front_left_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Front Left Window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_front_right_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Front Right Window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_back_left_window",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "my_ev_eu Back Left Window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_back_right_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Back Right Window"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_sunroof",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Sunroof"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_trunk",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Trunk"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_hood",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Hood"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_air_conditioner",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Air Conditioner"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.my_ev_eu_defrost",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Defrost"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.my_ev_eu_door_lock",
+  "state": "locked",
+  "attributes": {
+   "friendly_name": "my_ev_eu Door Lock"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "device_tracker.my_ev_eu_location",
+  "state": "home",
+  "attributes": {
+   "friendly_name": "my_ev_eu Location"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.my_ev_eu_ac_charging_limit",
+  "state": "80",
+  "attributes": {
+   "friendly_name": "my_ev_eu AC Charging Limit",
+   "unit_of_measurement": "%",
+   "min": 50,
+   "max": 100,
+   "step": 10
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.my_ev_eu_ev_charging",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "my_ev_eu EV Charging"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.my_ev_eu_climate",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "my_ev_eu Climate"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.my_ev_eu_climate_control",
+  "state": "off",
+  "attributes": {
+   "hvac_modes": [
+    "off",
+    "auto"
+   ],
+   "min_temp": 62,
+   "max_temp": 82,
+   "temperature": 70,
+   "temperature_unit": "\u00b0C",
+   "friendly_name": "my_ev_eu Climate Control"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.my_ev_eu_force_refresh",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "my_ev_eu Force Refresh"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.my_ev_eu_open_all_windows",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "my_ev_eu Open All Windows"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.my_ev_eu_close_all_windows",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "my_ev_eu Close All Windows"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.my_ev_eu_vent_all_windows",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "my_ev_eu Vent All Windows"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ }
+]

@@ -1,0 +1,334 @@
+[
+ {
+  "entity_id": "binary_sensor.i3_rex_charging_status",
+  "state": "off",
+  "attributes": {
+   "device_class": "battery_charging",
+   "friendly_name": "i3 (+ REX) Charging status"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_check_control_messages",
+  "state": "off",
+  "attributes": {
+   "device_class": "problem",
+   "friendly_name": "i3 (+ REX) Check control messages"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_condition_based_services",
+  "state": "off",
+  "attributes": {
+   "brake_fluid": "OK",
+   "brake_fluid_date": "2022-10-01",
+   "device_class": "problem",
+   "friendly_name": "i3 (+ REX) Condition-based services",
+   "vehicle_check": "OK",
+   "vehicle_check_date": "2023-05-01",
+   "vehicle_tuv": "OK",
+   "vehicle_tuv_date": "2023-05-01"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_connection_status",
+  "state": "on",
+  "attributes": {
+   "device_class": "plug",
+   "friendly_name": "i3 (+ REX) Connection status"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_door_lock_state",
+  "state": "on",
+  "attributes": {
+   "device_class": "lock",
+   "door_lock_state": "UNLOCKED",
+   "friendly_name": "i3 (+ REX) Door lock state"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_lids",
+  "state": "off",
+  "attributes": {
+   "device_class": "opening",
+   "friendly_name": "i3 (+ REX) Lids",
+   "hood": "CLOSED",
+   "leftFront": "CLOSED",
+   "leftRear": "CLOSED",
+   "rightFront": "CLOSED",
+   "rightRear": "CLOSED",
+   "sunRoof": "CLOSED",
+   "trunk": "CLOSED"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_pre_entry_climatization",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Pre-entry climatization"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.i3_rex_windows",
+  "state": "off",
+  "attributes": {
+   "device_class": "opening",
+   "friendly_name": "i3 (+ REX) Windows",
+   "leftFront": "CLOSED",
+   "rightFront": "CLOSED"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.i3_rex_activate_air_conditioning",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Activate air conditioning"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.i3_rex_find_vehicle",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Find vehicle"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.i3_rex_flash_lights",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Flash lights"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.i3_rex_sound_horn",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Sound horn"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.i3_rex_lock",
+  "state": "unlocked",
+  "attributes": {
+   "door_lock_state": "UNLOCKED",
+   "friendly_name": "i3 (+ REX) Lock"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.i3_rex_charging_mode",
+  "state": "delayed_charging",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Charging mode",
+   "options": [
+    "immediate_charging",
+    "delayed_charging",
+    "no_action"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_ac_current_limit",
+  "state": "unknown",
+  "attributes": {
+   "device_class": "current",
+   "friendly_name": "i3 (+ REX) AC current limit"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_charging_end_time",
+  "state": "unknown",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "i3 (+ REX) Charging end time"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_charging_start_time",
+  "state": "2023-06-23T01:01:00+00:00",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "i3 (+ REX) Charging start time"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_charging_status",
+  "state": "waiting_for_charging",
+  "attributes": {
+   "device_class": "enum",
+   "friendly_name": "i3 (+ REX) Charging status",
+   "options": [
+    "default",
+    "charging",
+    "error",
+    "complete",
+    "fully_charged",
+    "finished_fully_charged",
+    "finished_not_full",
+    "invalid",
+    "not_charging",
+    "plugged_in",
+    "waiting_for_charging",
+    "target_reached"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_charging_target",
+  "state": "100",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Charging target",
+   "unit_of_measurement": "%"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_mileage",
+  "state": "137009",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "i3 (+ REX) Mileage",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_battery_percent",
+  "state": "82",
+  "attributes": {
+   "device_class": "battery",
+   "friendly_name": "i3 (+ REX) Remaining battery percent",
+   "unit_of_measurement": "%"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_fuel",
+  "state": "6",
+  "attributes": {
+   "device_class": "volume_storage",
+   "friendly_name": "i3 (+ REX) Remaining fuel"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_fuel_percent",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "i3 (+ REX) Remaining fuel percent",
+   "unit_of_measurement": "%"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_range_electric",
+  "state": "174",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "i3 (+ REX) Remaining range electric",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_range_fuel",
+  "state": "105",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "i3 (+ REX) Remaining range fuel",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.i3_rex_remaining_range_total",
+  "state": "279",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "i3 (+ REX) Remaining range total",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "device_tracker.i3_rex",
+  "state": "home",
+  "attributes": {
+   "source_type": "gps",
+   "direction": 90,
+   "friendly_name": "i3_rex"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ }
+]

@@ -30,7 +30,8 @@ def candidate_slugs(profile: Mapping[str, Any], entity_ids: Iterable[str]) -> Li
     """Slugs implied by entities that match any of the profile's single-entity field templates."""
     ids = list(entity_ids)
     found: Dict[str, int] = defaultdict(int)
-    templates = [spec["entity"] for spec in profile["fields"].values() if "entity" in spec]
+    templates = [t for spec in profile["fields"].values() if "entity" in spec
+                 for t in (spec["entity"], *(spec.get("alt_entities") or []))]
     for tpl in templates:
         pat = _pattern_for(tpl)
         for eid in ids:
@@ -74,9 +75,14 @@ def score_profile(profile: Mapping[str, Any], slug: str, entity_ids: set) -> Dic
     # Entities the integration ships disabled never show in /api/states; say which ones to enable (motion ones were
     # explained above). Odometer and tire pressure are the usual surprises.
     off = [n for n in disabled_field_names(profile) if n in optional_missing and n not in ("shift_state", "speed_mph")]
-    if off:
-        warnings.append(enable_instructions(profile, off))
-    return {"profile": profile["name"], "slug": slug, "tested": bool(profile.get("tested")), "warnings": warnings,
+    off_cmds = [c for c in profile.get("disabled_command_entities") or []
+                if c["entity"].replace("{slug}", slug) not in entity_ids]
+    if off or off_cmds:
+        warnings.append(enable_instructions(profile, off, [f"{c['enable_as']} (for {c['for']})" for c in off_cmds]))
+    if profile.get("deprecated"):
+        warnings.append(str(profile.get("deprecated_note") or "This profile is for an integration that no longer works."))
+    return {"profile": profile["name"], "slug": slug, "tested": bool(profile.get("tested")),
+            "deprecated": bool(profile.get("deprecated")), "warnings": warnings,
             "coverage": round(len(matched) / required, 2) if required else 0.0,
             "fields_matched": matched, "fields_missing": missing, "commands_available": cmds_ok}
 
@@ -90,14 +96,17 @@ def discover(states: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
         profile = load_profile(pname)
         for slug in candidate_slugs(profile, entity_ids)[:5]:
             proposals.append(score_profile(profile, slug, entity_ids))
-    proposals.sort(key=lambda p: (-p["coverage"], not p["tested"]))
+    # A profile for an integration that no longer works loses ties (and near-ties) but is still offered when it is the
+    # only good match, with its warning.
+    proposals.sort(key=lambda p: (-(p["coverage"] - (0.05 if p["deprecated"] else 0.0)), not p["tested"]))
     best = proposals[0] if proposals else None
     out: Dict[str, Any] = {"entities_seen": len(entity_ids), "proposals": proposals[:5]}
     if best and best["coverage"] >= 0.6:
         out["warnings"] = best["warnings"]
         out["recommended"] = {"ha_profile": best["profile"], "ha_slug": best["slug"],
                               "note": ("tested profile" if best["tested"] else
-                                       "UNTESTED starter profile — verify the values before trusting commands")}
+                                       "profile verified against the integration's source and fixtures; not run on a real car — "
+                                       "check the values before trusting commands")}
     else:
         out["generic_proposal"] = propose_generic(state_list)
         out["recommended"] = None

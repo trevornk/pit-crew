@@ -1,25 +1,270 @@
 {
   "name": "bmw_connected_drive",
-  "label": "BMW / MINI via the Home Assistant 'bmw_connected_drive' integration (UNTESTED starter)",
+  "label": "BMW / MINI via the Home Assistant 'bmw_connected_drive' integration (REMOVED from HA core; verified against its last source, not run on a real car)",
   "integration": "bmw_connected_drive",
+  "integration_title": "BMW Connected Drive",
   "tested": false,
-  "notes": "UNTESTED starter profile written from the integration's documentation, not verified on a real car. Check every value in `/car` against the BMW app before relying on it, and keep the car disarmed until you have. Pull requests with corrections are welcome.",
+  "deprecated": true,
+  "deprecated_note": "Home Assistant removed the BMW Connected Drive integration in March 2026 (core PR #165075) after BMW blocked third-party access in September 2025, so this profile only fits an install that still has the old entities. For EU cars BMW's CarData API has a community integration (https://github.com/kvanbiesen/bmw-cardata-ha) that this release has not been mapped to.",
+  "verified_against": "home-assistant/core f055c6c7fda36756f26b992b539ceed61bf00f88 (the last commit that still contained the integration), strings.json + sensor/binary_sensor/lock/button/number/select/switch/device_tracker.py, and the entity states in its own test snapshots (tests/fixtures/integrations/bmw_connected_drive). Not run on a real car.",
+  "notes": "Entity ids follow <domain>.<vehicle name slug>_<entity name slug>, e.g. lock.i4_edrive40_lock, so ha_slug is your car's slugged name (i4_edrive40). Doors, windows, trunk and hood come from the attributes of the Lids and Windows entities (left/right = driver/passenger on a left-hand-drive car). Tire target pressures ship disabled in HA. Read-only mode in the integration hides the buttons; climate/charging switches exist only when the car supports remote stop.",
   "fields": {
-    "battery_pct":   {"entity": "sensor.{slug}_remaining_battery_percent", "kind": "number"},
-    "range_mi":      {"entity": "sensor.{slug}_remaining_range_electric", "kind": "number", "dimension": "distance"},
-    "plugged_in":    {"entity": "binary_sensor.{slug}_connection_status", "kind": "on_off"},
-    "charging_state": {"entity": "binary_sensor.{slug}_charging_status", "kind": "enum", "map": {"on": "charging", "off": "stopped"}},
-    "charge_limit_pct": {"entity": "number.{slug}_charging_target", "kind": "number", "optional": true},
-    "locked":        {"entity": "lock.{slug}_lock", "kind": "lock_locked"},
-    "location_zone": {"entity": "device_tracker.{slug}", "kind": "zone"},
-    "odometer_mi":   {"entity": "sensor.{slug}_mileage", "kind": "number", "dimension": "distance", "optional": true}
+    "battery_pct": {
+      "entity": "sensor.{slug}_remaining_battery_percent",
+      "kind": "number"
+    },
+    "range_mi": {
+      "entity": "sensor.{slug}_remaining_range_electric",
+      "kind": "number",
+      "dimension": "distance"
+    },
+    "charging_state": {
+      "entity": "sensor.{slug}_charging_status",
+      "kind": "enum",
+      "alt_entities": [
+        "binary_sensor.{slug}_charging_status"
+      ],
+      "map": {
+        "charging": "charging",
+        "on": "charging",
+        "complete": "complete",
+        "fully_charged": "complete",
+        "finished_fully_charged": "complete",
+        "target_reached": "complete",
+        "finished_not_full": "stopped",
+        "not_charging": "stopped",
+        "plugged_in": "stopped",
+        "waiting_for_charging": "stopped",
+        "off": "stopped",
+        "error": "unknown",
+        "default": "unknown",
+        "invalid": "unknown"
+      }
+    },
+    "plugged_in": {
+      "entity": "binary_sensor.{slug}_connection_status",
+      "kind": "on_off"
+    },
+    "charge_limit_pct": {
+      "entity": "number.{slug}_target_soc",
+      "kind": "number",
+      "alt_entities": [
+        "sensor.{slug}_charging_target"
+      ],
+      "optional": true
+    },
+    "charge_eta_min": {
+      "entity": "sensor.{slug}_charging_end_time",
+      "kind": "timestamp_minutes",
+      "none_is_zero": true,
+      "optional": true
+    },
+    "charge_current_max_a": {
+      "entity": "select.{slug}_ac_charging_limit",
+      "kind": "number",
+      "optional": true
+    },
+    "locked": {
+      "entity": "lock.{slug}_lock",
+      "kind": "lock_locked"
+    },
+    "doors_open": {
+      "entity": "binary_sensor.{slug}_lids",
+      "kind": "attr_open_list",
+      "optional": true,
+      "attrs": {
+        "front_driver": "leftFront",
+        "front_passenger": "rightFront",
+        "rear_driver": "leftRear",
+        "rear_passenger": "rightRear",
+        "sunroof": "sunRoof"
+      }
+    },
+    "windows_open": {
+      "entity": "binary_sensor.{slug}_windows",
+      "kind": "attr_open_list",
+      "optional": true,
+      "attrs": {
+        "front_driver": "leftFront",
+        "front_passenger": "rightFront",
+        "rear_driver": "leftRear",
+        "rear_passenger": "rightRear",
+        "rear": "rear"
+      }
+    },
+    "trunk_open": {
+      "entity": "binary_sensor.{slug}_lids",
+      "kind": "attr_open",
+      "attr": "trunk",
+      "optional": true
+    },
+    "frunk_open": {
+      "entity": "binary_sensor.{slug}_lids",
+      "kind": "attr_open",
+      "attr": "hood",
+      "optional": true
+    },
+    "climate_on": {
+      "entity": "switch.{slug}_climate",
+      "kind": "on_off",
+      "optional": true
+    },
+    "location_zone": {
+      "entity": "device_tracker.{slug}",
+      "kind": "zone"
+    },
+    "odometer_mi": {
+      "entity": "sensor.{slug}_mileage",
+      "kind": "number",
+      "dimension": "distance",
+      "optional": true
+    },
+    "tire_psi_fl": {
+      "entity": "sensor.{slug}_front_left_tire_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_fr": {
+      "entity": "sensor.{slug}_front_right_tire_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_rl": {
+      "entity": "sensor.{slug}_rear_left_tire_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_rr": {
+      "entity": "sensor.{slug}_rear_right_tire_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_rec_front_psi": {
+      "entity": "sensor.{slug}_front_left_target_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Front left target pressure"
+    },
+    "tire_rec_rear_psi": {
+      "entity": "sensor.{slug}_rear_left_target_pressure",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true,
+      "disabled_by_default": true,
+      "enable_as": "Rear left target pressure"
+    }
   },
   "commands": {
-    "lock":   {"steps": [{"service": "lock.lock", "entity": "lock.{slug}_lock"}]},
-    "unlock": {"steps": [{"service": "lock.unlock", "entity": "lock.{slug}_lock"}]},
-    "climate_on":  {"steps": [{"service": "button.press", "entity": "button.{slug}_activate_air_conditioning"}]},
-    "climate_off": {"steps": [{"service": "button.press", "entity": "button.{slug}_deactivate_air_conditioning"}]},
-    "honk":  {"steps": [{"service": "button.press", "entity": "button.{slug}_sound_horn"}]},
-    "flash": {"steps": [{"service": "button.press", "entity": "button.{slug}_flash_lights"}]}
+    "lock": {
+      "steps": [
+        {
+          "service": "lock.lock",
+          "entity": "lock.{slug}_lock"
+        }
+      ]
+    },
+    "unlock": {
+      "steps": [
+        {
+          "service": "lock.unlock",
+          "entity": "lock.{slug}_lock"
+        }
+      ]
+    },
+    "climate_on": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_activate_air_conditioning"
+        }
+      ]
+    },
+    "climate_off": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_deactivate_air_conditioning"
+        }
+      ]
+    },
+    "honk": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_sound_horn"
+        }
+      ]
+    },
+    "flash": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_flash_lights"
+        }
+      ]
+    },
+    "charge_start": {
+      "steps": [
+        {
+          "service": "switch.turn_on",
+          "entity": "switch.{slug}_charging"
+        }
+      ]
+    },
+    "charge_stop": {
+      "steps": [
+        {
+          "service": "switch.turn_off",
+          "entity": "switch.{slug}_charging"
+        }
+      ]
+    },
+    "charge_limit": {
+      "steps": [
+        {
+          "service": "number.set_value",
+          "entity": "number.{slug}_target_soc",
+          "data": {
+            "value": {
+              "arg": "percent"
+            }
+          }
+        }
+      ]
+    },
+    "charge_amps": {
+      "steps": [
+        {
+          "service": "select.select_option",
+          "entity": "select.{slug}_ac_charging_limit",
+          "data": {
+            "option": {
+              "arg": "amps",
+              "map": {
+                "6": "6",
+                "7": "7",
+                "8": "8",
+                "9": "9",
+                "10": "10",
+                "11": "11",
+                "12": "12",
+                "13": "13",
+                "14": "14",
+                "15": "15",
+                "16": "16",
+                "20": "20",
+                "32": "32"
+              }
+            }
+          }
+        }
+      ]
+    }
   }
 }

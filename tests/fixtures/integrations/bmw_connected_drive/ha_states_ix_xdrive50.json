@@ -1,0 +1,492 @@
+[
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_charging_status",
+  "state": "on",
+  "attributes": {
+   "device_class": "battery_charging",
+   "friendly_name": "iX xDrive50 Charging status"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_check_control_messages",
+  "state": "off",
+  "attributes": {
+   "device_class": "problem",
+   "friendly_name": "iX xDrive50 Check control messages",
+   "tire_pressure": "LOW"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_condition_based_services",
+  "state": "off",
+  "attributes": {
+   "brake_fluid": "OK",
+   "brake_fluid_date": "2024-12-01",
+   "brake_fluid_distance": "50000 km",
+   "device_class": "problem",
+   "friendly_name": "iX xDrive50 Condition-based services",
+   "tire_wear_front": "OK",
+   "tire_wear_rear": "OK",
+   "vehicle_check": "OK",
+   "vehicle_check_date": "2024-12-01",
+   "vehicle_check_distance": "50000 km",
+   "vehicle_tuv": "OK",
+   "vehicle_tuv_date": "2024-12-01",
+   "vehicle_tuv_distance": "50000 km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_connection_status",
+  "state": "on",
+  "attributes": {
+   "device_class": "plug",
+   "friendly_name": "iX xDrive50 Connection status"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_door_lock_state",
+  "state": "off",
+  "attributes": {
+   "device_class": "lock",
+   "door_lock_state": "LOCKED",
+   "friendly_name": "iX xDrive50 Door lock state"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_lids",
+  "state": "off",
+  "attributes": {
+   "device_class": "opening",
+   "friendly_name": "iX xDrive50 Lids",
+   "hood": "CLOSED",
+   "leftFront": "CLOSED",
+   "leftRear": "CLOSED",
+   "rightFront": "CLOSED",
+   "rightRear": "CLOSED",
+   "sunRoof": "CLOSED",
+   "trunk": "CLOSED"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_pre_entry_climatization",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Pre-entry climatization"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.ix_xdrive50_windows",
+  "state": "off",
+  "attributes": {
+   "device_class": "opening",
+   "friendly_name": "iX xDrive50 Windows",
+   "leftFront": "CLOSED",
+   "leftRear": "CLOSED",
+   "rear": "CLOSED",
+   "rightFront": "CLOSED",
+   "rightRear": "CLOSED"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.ix_xdrive50_activate_air_conditioning",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Activate air conditioning"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.ix_xdrive50_deactivate_air_conditioning",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Deactivate air conditioning"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.ix_xdrive50_find_vehicle",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Find vehicle"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.ix_xdrive50_flash_lights",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Flash lights"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "button.ix_xdrive50_sound_horn",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Sound horn"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.ix_xdrive50_lock",
+  "state": "locked",
+  "attributes": {
+   "door_lock_state": "LOCKED",
+   "friendly_name": "iX xDrive50 Lock"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "number.ix_xdrive50_target_soc",
+  "state": "80",
+  "attributes": {
+   "device_class": "battery",
+   "friendly_name": "iX xDrive50 Target SoC",
+   "max": 100.0,
+   "min": 20.0,
+   "step": 5.0
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.ix_xdrive50_ac_charging_limit",
+  "state": "16",
+  "attributes": {
+   "friendly_name": "iX xDrive50 AC charging limit",
+   "options": [
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "20",
+    "32"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "select.ix_xdrive50_charging_mode",
+  "state": "immediate_charging",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Charging mode",
+   "options": [
+    "immediate_charging",
+    "delayed_charging",
+    "no_action"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_ac_current_limit",
+  "state": "16",
+  "attributes": {
+   "device_class": "current",
+   "friendly_name": "iX xDrive50 AC current limit"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_charging_end_time",
+  "state": "2023-06-22T10:40:00+00:00",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "iX xDrive50 Charging end time"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_charging_start_time",
+  "state": "unknown",
+  "attributes": {
+   "device_class": "timestamp",
+   "friendly_name": "iX xDrive50 Charging start time"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_charging_status",
+  "state": "charging",
+  "attributes": {
+   "device_class": "enum",
+   "friendly_name": "iX xDrive50 Charging status",
+   "options": [
+    "default",
+    "charging",
+    "error",
+    "complete",
+    "fully_charged",
+    "finished_fully_charged",
+    "finished_not_full",
+    "invalid",
+    "not_charging",
+    "plugged_in",
+    "waiting_for_charging",
+    "target_reached"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_charging_target",
+  "state": "80",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Charging target",
+   "unit_of_measurement": "%"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_climate_status",
+  "state": "inactive",
+  "attributes": {
+   "device_class": "enum",
+   "friendly_name": "iX xDrive50 Climate status",
+   "options": [
+    "cooling",
+    "heating",
+    "ventilation",
+    "inactive",
+    "standby"
+   ]
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_front_left_target_pressure",
+  "state": "2.41",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Front left target pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_front_left_tire_pressure",
+  "state": "2.41",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Front left tire pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_front_right_target_pressure",
+  "state": "2.41",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Front right target pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_front_right_tire_pressure",
+  "state": "2.41",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Front right tire pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_mileage",
+  "state": "1121",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "iX xDrive50 Mileage",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_rear_left_target_pressure",
+  "state": "2.69",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Rear left target pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_rear_left_tire_pressure",
+  "state": "2.61",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Rear left tire pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_rear_right_target_pressure",
+  "state": "2.69",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Rear right target pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_rear_right_tire_pressure",
+  "state": "2.69",
+  "attributes": {
+   "device_class": "pressure",
+   "friendly_name": "iX xDrive50 Rear right tire pressure",
+   "unit_of_measurement": "bar"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_remaining_battery_percent",
+  "state": "70",
+  "attributes": {
+   "device_class": "battery",
+   "friendly_name": "iX xDrive50 Remaining battery percent",
+   "unit_of_measurement": "%"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_remaining_range_electric",
+  "state": "340",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "iX xDrive50 Remaining range electric",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.ix_xdrive50_remaining_range_total",
+  "state": "340",
+  "attributes": {
+   "device_class": "distance",
+   "friendly_name": "iX xDrive50 Remaining range total",
+   "unit_of_measurement": "km"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.ix_xdrive50_charging",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Charging"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "switch.ix_xdrive50_climate",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "iX xDrive50 Climate"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ },
+ {
+  "entity_id": "device_tracker.ix_xdrive50",
+  "state": "home",
+  "attributes": {
+   "source_type": "gps",
+   "direction": 90,
+   "friendly_name": "ix_xdrive50"
+  },
+  "last_changed": "2026-02-01T10:00:00+00:00",
+  "last_reported": "2026-02-01T10:00:00+00:00",
+  "last_updated": "2026-02-01T10:00:00+00:00"
+ }
+]

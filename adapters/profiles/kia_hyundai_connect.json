@@ -1,22 +1,291 @@
 {
   "name": "kia_hyundai_connect",
-  "label": "Kia / Hyundai / Genesis via the 'kia_uvo' / 'hyundai_kia_connect' integration (UNTESTED starter)",
+  "label": "Kia / Hyundai / Genesis via the 'kia_uvo' custom integration (HACS; verified against its v4.0.0 source, not run on a real car)",
   "integration": "kia_uvo",
+  "integration_title": "Kia Uvo / Hyundai Bluelink",
   "tested": false,
-  "notes": "UNTESTED starter profile written from the integration's documentation, not verified on a real car. Check every value in `/car` against the Kia/Hyundai app before relying on it, and keep the car disarmed until you have. Pull requests with corrections are welcome.",
+  "verified_against": "Hyundai-Kia-Connect/kia_uvo v4.0.0 (a HACS custom integration, not part of Home Assistant core): custom_components/kia_uvo/strings.json and the sensor/binary_sensor/lock/switch/number/button/climate/device_tracker platforms (tests/fixtures/integrations/kia_uvo). That project ships no state recordings, so the offline test states are built from its entity catalogue. Not run on a real car.",
+  "notes": "Install kia_uvo from HACS, then `ha_slug` is your car's slugged name (for sensor.my_ev_ev_battery_level it is my_ev). Entity ids follow the v4 entity names (binary_sensor.<slug>_ev_battery_plug); the profile also accepts the older ids (…_ev_battery_is_plugged_in) via alt_entities. Distances, temperatures and pressures arrive in the unit the car reports (km/mi, °C/°F, psi/kPa/bar) and are converted. The car reports no speed, so Pit Crew treats it as parked only while plugged in, or when the Gear position is P. Honk and Flash use the two hazard-light buttons, which the integration ships DISABLED. kia_uvo also offers services (start_climate with seat heaters and defrost, departure schedules, V2L) that this profile does not use.",
+  "motion_hint": "Kia/Hyundai Connect reports no speed. Pit Crew treats the car as parked while it is plugged in or the Gear position sensor (sensor.<slug>_gear_position) says P; otherwise unlock, trunk, frunk and vent are refused.",
+  "disabled_command_entities": [
+    {
+      "entity": "button.{slug}_start_hazard_lights_and_horn",
+      "enable_as": "Start Hazard Lights and Horn",
+      "for": "honk"
+    },
+    {
+      "entity": "button.{slug}_start_hazard_lights",
+      "enable_as": "Start Hazard Lights",
+      "for": "flash"
+    }
+  ],
   "fields": {
-    "battery_pct":   {"entity": "sensor.{slug}_ev_battery_level", "kind": "number"},
-    "range_mi":      {"entity": "sensor.{slug}_ev_range", "kind": "number", "dimension": "distance"},
-    "plugged_in":    {"entity": "binary_sensor.{slug}_ev_battery_is_plugged_in", "kind": "on_off"},
-    "charging_state": {"entity": "binary_sensor.{slug}_ev_battery_is_charging", "kind": "enum", "map": {"on": "charging", "off": "stopped"}},
-    "charge_limit_pct": {"entity": "number.{slug}_ac_charging_limit", "kind": "number", "optional": true},
-    "locked":        {"entity": "lock.{slug}_door_lock", "kind": "lock_locked"},
-    "location_zone": {"entity": "device_tracker.{slug}_location", "kind": "zone"},
-    "climate_on":    {"entity": "binary_sensor.{slug}_air_conditioner_is_on", "kind": "on_off", "optional": true},
-    "odometer_mi":   {"entity": "sensor.{slug}_odometer", "kind": "number", "dimension": "distance", "optional": true}
+    "battery_pct": {
+      "entity": "sensor.{slug}_ev_battery_level",
+      "kind": "number"
+    },
+    "range_mi": {
+      "entity": "sensor.{slug}_ev_range",
+      "kind": "number",
+      "dimension": "distance"
+    },
+    "charging_state": {
+      "entity": "binary_sensor.{slug}_ev_battery_charge",
+      "alt_entities": [
+        "binary_sensor.{slug}_ev_battery_is_charging"
+      ],
+      "kind": "enum",
+      "map": {
+        "on": "charging",
+        "off": "stopped"
+      }
+    },
+    "plugged_in": {
+      "entity": "binary_sensor.{slug}_ev_battery_plug",
+      "alt_entities": [
+        "binary_sensor.{slug}_ev_battery_is_plugged_in"
+      ],
+      "kind": "on_off"
+    },
+    "charge_power_kw": {
+      "entity": "sensor.{slug}_ev_charging_power",
+      "kind": "number",
+      "dimension": "power",
+      "optional": true
+    },
+    "charge_limit_pct": {
+      "entity": "number.{slug}_ac_charging_limit",
+      "kind": "number",
+      "optional": true
+    },
+    "charge_eta_min": {
+      "entity": "sensor.{slug}_estimated_charge_duration",
+      "kind": "number",
+      "optional": true
+    },
+    "charge_port_open": {
+      "entity": "binary_sensor.{slug}_ev_charge_port",
+      "kind": "on_off",
+      "optional": true
+    },
+    "locked": {
+      "entity": "lock.{slug}_door_lock",
+      "kind": "lock_locked"
+    },
+    "doors_open": {
+      "kind": "open_list",
+      "optional": true,
+      "entities": {
+        "front_driver": "binary_sensor.{slug}_front_left_door",
+        "front_passenger": "binary_sensor.{slug}_front_right_door",
+        "rear_driver": "binary_sensor.{slug}_back_left_door",
+        "rear_passenger": "binary_sensor.{slug}_back_right_door"
+      }
+    },
+    "windows_open": {
+      "kind": "open_list",
+      "optional": true,
+      "entities": {
+        "front_driver": "binary_sensor.{slug}_front_left_window",
+        "front_passenger": "binary_sensor.{slug}_front_right_window",
+        "rear_driver": "binary_sensor.{slug}_back_left_window",
+        "rear_passenger": "binary_sensor.{slug}_back_right_window",
+        "sunroof": "binary_sensor.{slug}_sunroof"
+      }
+    },
+    "trunk_open": {
+      "entity": "binary_sensor.{slug}_trunk",
+      "kind": "on_off",
+      "optional": true
+    },
+    "frunk_open": {
+      "entity": "binary_sensor.{slug}_hood",
+      "kind": "on_off",
+      "optional": true
+    },
+    "climate_on": {
+      "entity": "binary_sensor.{slug}_air_conditioner",
+      "alt_entities": [
+        "binary_sensor.{slug}_air_conditioner_is_on"
+      ],
+      "kind": "on_off",
+      "optional": true
+    },
+    "outside_temp_f": {
+      "entity": "sensor.{slug}_outside_temperature",
+      "kind": "number",
+      "dimension": "temperature",
+      "optional": true
+    },
+    "target_temp_f": {
+      "entity": "sensor.{slug}_set_temperature",
+      "kind": "number",
+      "dimension": "temperature",
+      "optional": true
+    },
+    "defrost_on": {
+      "entity": "binary_sensor.{slug}_defrost",
+      "kind": "on_off",
+      "optional": true
+    },
+    "location_zone": {
+      "entity": "device_tracker.{slug}_location",
+      "kind": "zone"
+    },
+    "shift_state": {
+      "entity": "sensor.{slug}_gear_position",
+      "kind": "shift",
+      "optional": true
+    },
+    "odometer_mi": {
+      "entity": "sensor.{slug}_odometer",
+      "kind": "number",
+      "dimension": "distance",
+      "optional": true
+    },
+    "tire_psi_fl": {
+      "entity": "sensor.{slug}_tire_pressure_front_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_fr": {
+      "entity": "sensor.{slug}_tire_pressure_front_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_rl": {
+      "entity": "sensor.{slug}_tire_pressure_rear_left",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    },
+    "tire_psi_rr": {
+      "entity": "sensor.{slug}_tire_pressure_rear_right",
+      "kind": "number",
+      "dimension": "pressure",
+      "optional": true
+    }
   },
   "commands": {
-    "lock":   {"steps": [{"service": "lock.lock", "entity": "lock.{slug}_door_lock"}]},
-    "unlock": {"steps": [{"service": "lock.unlock", "entity": "lock.{slug}_door_lock"}]}
+    "lock": {
+      "steps": [
+        {
+          "service": "lock.lock",
+          "entity": "lock.{slug}_door_lock"
+        }
+      ]
+    },
+    "unlock": {
+      "steps": [
+        {
+          "service": "lock.unlock",
+          "entity": "lock.{slug}_door_lock"
+        }
+      ]
+    },
+    "climate_on": {
+      "steps": [
+        {
+          "service": "climate.set_temperature",
+          "entity": "climate.{slug}_climate_control",
+          "when_arg": "temp_f",
+          "data": {
+            "temperature": {
+              "arg": "temp_f",
+              "unit_of": "temperature"
+            }
+          }
+        },
+        {
+          "service": "switch.turn_on",
+          "entity": "switch.{slug}_climate"
+        }
+      ]
+    },
+    "climate_off": {
+      "steps": [
+        {
+          "service": "switch.turn_off",
+          "entity": "switch.{slug}_climate"
+        }
+      ]
+    },
+    "set_temp": {
+      "steps": [
+        {
+          "service": "climate.set_temperature",
+          "entity": "climate.{slug}_climate_control",
+          "data": {
+            "temperature": {
+              "arg": "temp_f",
+              "unit_of": "temperature"
+            }
+          }
+        }
+      ]
+    },
+    "charge_start": {
+      "steps": [
+        {
+          "service": "switch.turn_on",
+          "entity": "switch.{slug}_ev_charging"
+        }
+      ]
+    },
+    "charge_stop": {
+      "steps": [
+        {
+          "service": "switch.turn_off",
+          "entity": "switch.{slug}_ev_charging"
+        }
+      ]
+    },
+    "charge_limit": {
+      "steps": [
+        {
+          "service": "number.set_value",
+          "entity": "number.{slug}_ac_charging_limit",
+          "data": {
+            "value": {
+              "arg": "percent"
+            }
+          }
+        }
+      ]
+    },
+    "vent_windows": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_vent_all_windows"
+        }
+      ]
+    },
+    "close_windows": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_close_all_windows"
+        }
+      ]
+    },
+    "honk": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_start_hazard_lights_and_horn"
+        }
+      ]
+    },
+    "flash": {
+      "steps": [
+        {
+          "service": "button.press",
+          "entity": "button.{slug}_start_hazard_lights"
+        }
+      ]
+    }
   }
 }

@@ -11,6 +11,7 @@ const { JSDOM } = req('jsdom')
 const data = JSON.parse(readFileSync(process.argv[2], 'utf8'))
 const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/' })
 const calls = []
+let summaryCalls = 0
 const el = tag => props => React.createElement(tag, Object.fromEntries(Object.entries(props).filter(([k]) => !['variant', 'size'].includes(k))))
 const SDK = {
   React, hooks: { useState: React.useState, useEffect: React.useEffect, useCallback: React.useCallback, useMemo: React.useMemo, useRef: React.useRef },
@@ -18,6 +19,8 @@ const SDK = {
   fetchJSON: async (url, init) => {
     calls.push([url, init && init.method || 'GET', init && init.body || null])
     const path = url.replace('/api/plugins/pit-crew', '').split('?')[0]
+    // data.__fail_summary_after = N: the backend answers N summaries and then stops (a crashed/restarted Hermes)
+    if (path === '/summary' && data.__fail_summary_after !== undefined && ++summaryCalls > data.__fail_summary_after) throw new Error('502 Bad Gateway')
     if (!(path in data)) throw new Error('404: ' + path)
     return data[path]
   },
@@ -33,10 +36,12 @@ dom.window.__HERMES_PLUGINS__ = { register: (name, comp) => { page = [name, comp
 const root = createRoot(dom.window.document.getElementById('root'))
 root.render(React.createElement(page[1]))
 await new Promise(r => setTimeout(r, 300))
-for (const text of JSON.parse(process.argv[3] || '[]')) {
+for (const spec of JSON.parse(process.argv[3] || '[]')) {
+  const times = spec.endsWith('×2') ? 2 : 1          // "Send command×2": two clicks back to back (a double click)
+  const text = spec.replace(/×2$/, '')
   const btn = [...dom.window.document.querySelectorAll('button')].find(b => b.textContent === text)
   if (!btn) throw new Error('no button: ' + text)
-  btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  for (let i = 0; i < times; i++) btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
   await new Promise(r => setTimeout(r, 200))
 }
 console.log('HARNESS_JSON:' + JSON.stringify({ name: page[0], html: dom.window.document.getElementById('root').innerHTML, calls }))

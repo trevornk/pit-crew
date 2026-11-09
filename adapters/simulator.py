@@ -368,7 +368,11 @@ class SimulatorAdapter(CarAdapter):
 
     def _control(self, st: Dict[str, Any], action: str, kw: Mapping[str, Any]) -> str:
         for key, val in kw.items():          # a NaN/inf would be persisted in the clock offset and break the car for good
-            if isinstance(val, float) and not math.isfinite(val):
+            try:
+                finite = math.isfinite(float(val))      # "nan" arrives as a string from the pages
+            except (TypeError, ValueError):
+                continue
+            if not finite:
                 raise AdapterError(f"{key} must be a finite number")
         if action == "advance":
             minutes = float(kw.get("minutes", 30))

@@ -713,7 +713,7 @@ function Page() {
     h(AuditLog, null),
     h(Settings, { summary }),
     summary.simulated ? h(SimControls, { firstRun: true }) : null,
-    h(SafetyDialog, { request, summary, onClose: () => setRequest(null) }),
+    h(SafetyDialog, { key: request ? `${request.command}:${JSON.stringify(request.args || {})}:${request.n || 0}` : 'closed', request, summary, onClose: () => setRequest(null) }),
     goLive ? h(GoLiveDialog, { summary, onClose: () => setGoLive(false) }) : null)
 }
 

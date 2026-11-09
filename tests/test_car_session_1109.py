@@ -103,9 +103,10 @@ def test_open_trunk_confirmed_one_second_later_was_only_the_integrations_own_wri
 
 @pytest.mark.parametrize("cmd,eid,before", [("unlock", LOCK, "locked"), ("open_trunk", TRUNK, "closed")])
 def test_tesla_fleet_answers_after_one_read(make_service, ha, clock, cmd, eid, before):
-    """tesla_fleet re-reads the car every 600 s, so a 20 s read-back loop only delays the reply: one read, then answer."""
+    """tesla_fleet re-reads the car every 600 s, so a 20 s read-back loop only delays the reply: one read, then answer.
+    (With refresh_after_command off; the default re-read path is in test_fresh_state.py.)"""
     ha.set_state(eid, before)
-    svc = live(make_service, ha, clock)
+    svc = live(make_service, ha, clock, refresh_after_command=False)
     svc.capabilities()                                               # (the adapter's one-time first look at HA)
     reads = sum(1 for r in ha.requests if r[0] == "GET")
     res = svc.run_command(cmd, {}, surface="tool", approval=AUTO)

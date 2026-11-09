@@ -189,5 +189,6 @@ def test_tesla_fleet_charge_stop_does_not_wait_out_the_lag_window(make_service, 
         ha.set_state(SWITCH, "off"); stamp(ha, SWITCH, clock.t)
     ha._effect = only_the_optimistic_switch
     res = svc.run_command("charge_stop", {}, surface="test")
-    assert clock.t == NOW and res["readback"]["status"] == "accepted" and "Tesla accepted it" in res["message"]
+    # only the bounded re-read (5 s settle) after sending, never the 90 s window; HA did not really re-read the car here
+    assert clock.t <= NOW + 10 and res["readback"]["status"] == "accepted" and "Tesla accepted it" in res["message"]
 

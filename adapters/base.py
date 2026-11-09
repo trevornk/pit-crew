@@ -101,6 +101,21 @@ class CarAdapter(ABC):
         """Who accepts commands on the car's behalf, for messages ("Tesla accepted it"). Default: generic wording."""
         return "the car's service"
 
+    def refresh_plan(self) -> Optional[Dict[str, Any]]:
+        """``{"settle_s": float, "cost_note": str}`` when the adapter can ask its integration to re-read the car ONCE
+        right after a command (see :meth:`request_refresh`), else None (the default). Only the safety engine uses it,
+        and only after a live command whose result can be observed; status reads never refresh."""
+        return None
+
+    def request_refresh(self, timeout_s: float) -> str:
+        """Ask the integration to re-read the car now (one request; must never wake a sleeping car). Returns what was
+        refreshed, raises :class:`AdapterError` when the request failed."""
+        raise CommandNotSupported(f"{self.label} cannot request a re-read")
+
+    def after_send(self, now: float) -> None:
+        """Called right after a command was accepted (before the read-back), with the current time. Adapters with a second state source take a
+        baseline there, so a later change can be proven to have been reported after the command. Default: nothing."""
+
     def describe(self) -> Dict[str, Any]:
         return {"kind": self.kind, "label": self.label, "simulated": self.simulated}
 

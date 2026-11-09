@@ -71,7 +71,7 @@ class HomeAssistantAdapter(CarAdapter):
 
     def __init__(self, base_url: str, token: Optional[str], profile: Dict[str, Any], slug: str,
                  name: str = "", overrides: Optional[Mapping[str, str]] = None, verify_tls: bool = True,
-                 timeout: float = 10.0) -> None:
+                 timeout: float = 10.0, overlay: Any = None) -> None:
         self._base = normalize_base_url(base_url, "Home Assistant")
         if not token:
             raise AdapterError("Home Assistant access token is missing. Paste a long-lived token into Settings → Plugins → Pit Crew → “Home Assistant · Access token” (or set "+ENV_HA_TOKEN+" in the profile .env)")
@@ -83,6 +83,8 @@ class HomeAssistantAdapter(CarAdapter):
         self._slug = slug
         self._name = name or self._slug.replace("_", " ").title()
         self._overrides = dict(overrides or {})
+        #: optional TeslaMate overlay (adapters.teslamate.TeslaMateOverlay): fresher readings merged per field; read-only
+        self._overlay = overlay
         self._verify = verify_tls
         self._timeout = timeout
         self._lock = threading.RLock()
@@ -93,6 +95,13 @@ class HomeAssistantAdapter(CarAdapter):
         #: integrations that write the commanded entity's state themselves as soon as the API call returns
         self.optimistic = bool(profile.get("optimistic_commands"))
         self._targets = self._command_targets(profile, self._slug)
+        #: the entity Pit Crew asks HA to update after a command. HA re-writes it on that request even when the coordinator
+        #: skips the refresh (debouncer cooldown: entity.py async_update_ha_state -> _async_write_ha_state), so its stamp
+        #: is never evidence that the car was re-read.
+        ref = profile.get("refresh_after_command")
+        self._refresh_eid = (str(ref["entity"]).replace("{slug}", self._slug)
+                             if isinstance(ref, dict) and ref.get("entity") else None)
+        self._not_evidence = self._targets | ({self._refresh_eid} if self._refresh_eid else set())
 
     @staticmethod
     def _command_targets(profile: Mapping[str, Any], slug: str) -> frozenset:
@@ -302,7 +311,7 @@ class HomeAssistantAdapter(CarAdapter):
                 [str(e).replace("{slug}", self._slug) for e in spec["entities"].values()]
             for eid in ids:
                 obj = states.get(eid)
-                if obj is None or eid in self._targets:
+                if obj is None or eid in self._not_evidence:
                     continue
                 st = self._stamp(obj)
                 if st is not None:
@@ -321,8 +330,15 @@ class HomeAssistantAdapter(CarAdapter):
                 fv.assumed = True
         return last_reread
 
+    def _refresh_fields(self) -> frozenset:
+        """Field names read from the refresh entity (their stamp can be Pit Crew's own request, not a car re-read)."""
+        if not self._refresh_eid:
+            return frozenset()
+        return frozenset(n for n, spec in self._profile["fields"].items()
+                         if spec.get("kind") != "open_list" and self._refresh_eid in self._entity(n, spec))
+
     @staticmethod
-    def _confirm_while_online(fields: Dict[str, FieldValue], now: float) -> None:
+    def _confirm_while_online(fields: Dict[str, FieldValue], now: float, skip: frozenset = frozenset()) -> None:
         """R1 (revised after the 2026-11-09 real-car test): HA only moves an entity's ``last_reported`` when the integration
         writes it, and tesla_fleet does not re-write an unchanged door/lock/window/port value, so a shut door looks days old
         although the car is fine. While the car is online, the *slow-changing* fields in :data:`CONFIRMABLE_FIELDS` are
@@ -336,8 +352,8 @@ class HomeAssistantAdapter(CarAdapter):
         if not (asleep and asleep.available and asleep.value is False):
             return
         live = [f.updated_at for n, f in fields.items()
-                if n not in CONFIRMABLE_FIELDS and n not in NEVER_EVIDENCE and f.available and f.updated_at
-                and not f.assumed]
+                if n not in CONFIRMABLE_FIELDS and n not in NEVER_EVIDENCE and n not in skip and f.available
+                and f.updated_at and not f.assumed]
         if not live:
             return
         newest = max(live)
@@ -366,8 +382,8 @@ class HomeAssistantAdapter(CarAdapter):
         absent = [e for _, e in wanted if e not in self._states]
         driving_eid = self._moving_state_entity()
         have_driving = bool(driving_eid and driving_eid in self._states)
-        if not absent or have_driving:
-            return []
+        if not absent or have_driving or (self._overlay is not None and self._overlay.last_error is None):
+            return []     # (TeslaMate next to HA reports speed and gear)
         return ["Unlock, trunk, frunk and window-vent are blocked until the car's motion can be confirmed. "
                 + self.motion_hint() + " Missing entities: " + ", ".join(absent) + "."]
 
@@ -419,6 +435,10 @@ class HomeAssistantAdapter(CarAdapter):
             refreshed = self._mark_assumed(fields, states)
             if refreshed is not None:
                 hints["car_reported_at"] = refreshed
+                for name in self._refresh_fields():      # re-written by Pit Crew's own update request, not a re-read
+                    fv = fields.get(name)
+                    if fv is not None and fv.available and fv.updated_at and fv.updated_at > refreshed + REFRESH_TOLERANCE_S:
+                        fv.updated_at = refreshed
         # Derived 'moving' from every motion source the car offers: speed, gear and (optionally) a TeslaMate-style
         # state entity whose value 'driving' means moving. Any source saying moving wins; "not moving" is only claimed
         # from sources that reported, and carries the freshest of their timestamps (policy then checks it is fresh).
@@ -444,12 +464,38 @@ class HomeAssistantAdapter(CarAdapter):
         if plug and plug.available and plug.value is False and (
                 cstate is None or not cstate.available or cstate.value in ("stopped", "unknown")):
             fields["charging_state"] = FieldValue("disconnected", plug.updated_at)
-        self._confirm_while_online(fields, now)
+        self._confirm_while_online(fields, now, self._refresh_fields())
+        if self._overlay is not None:
+            self._merge_overlay(fields, hints, now)
         for name in FIELD_NAMES:
             fields.setdefault(name, FieldValue(None, None, False))
         if self._profile.get("tire_min_psi_default"):
             hints["tire_min_psi"] = float(self._profile["tire_min_psi_default"])
         return VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields, hints=hints)
+
+    def _merge_overlay(self, fields: Dict[str, FieldValue], hints: Dict[str, Any], now: float) -> None:
+        from .teslamate import MOTION_FIELDS, OVERLAY_FIELDS, SOURCE_NOTE, TM_AWAKE_AGE_S, _says_moving
+        tm = self._overlay.read(now)
+        if tm is None:
+            hints["source_note"] = (f"TeslaMate could not be read ({scrub(str(self._overlay.last_error))}); these "
+                                    "readings are Home Assistant's only.")
+            for n in OVERLAY_FIELDS:
+                if n in fields and fields[n].available:
+                    fields[n].source = "home_assistant"
+            return
+        self._overlay.merge(fields, tm, hints.get("car_reported_at"))
+        hints["source_note"] = SOURCE_NOTE.format(age=int(TM_AWAKE_AGE_S))
+        # any source saying moving wins (fail closed), whatever its age
+        moving = [fields[n] for n in MOTION_FIELDS if fields.get(n) is not None and fields[n].available
+                  and _says_moving(n, fields[n].value)]
+        if moving:
+            newest = max(moving, key=lambda f: f.updated_at or now)
+            fields["moving"] = FieldValue(True, newest.updated_at or now, source=newest.source)
+
+    def after_send(self, now: float) -> None:
+        """TeslaMate baseline right after a command was accepted: a change TeslaMate shows later was reported after it."""
+        if self._overlay is not None:
+            self._overlay.baseline(now)
 
     # -- capabilities ---------------------------------------------------------------------
     def capabilities(self) -> Capabilities:
@@ -561,15 +607,46 @@ class HomeAssistantAdapter(CarAdapter):
     def service_name(self) -> str:
         return str(self._profile.get("cloud_name") or "the car's service")
 
+    def refresh_plan(self) -> Optional[Dict[str, Any]]:
+        """The profile's ``refresh_after_command`` (tesla_fleet only): which ONE entity to update and how long to let the
+        car settle first. None when the profile has none or the entity is missing from Home Assistant."""
+        spec = self._profile.get("refresh_after_command")
+        if not isinstance(spec, dict) or not spec.get("entity"):
+            return None
+        eid = str(spec["entity"]).replace("{slug}", self._slug)
+        if self._have_states and eid not in self._states:
+            return None
+        settle = spec.get("settle_s", 5)
+        settle = float(settle) if isinstance(settle, (int, float)) and not isinstance(settle, bool) else 5.0
+        return {"entity": eid, "settle_s": max(0.0, min(settle, 8.0)), "cost_note": str(spec.get("cost_note") or "")}
+
+    def request_refresh(self, timeout_s: float) -> str:
+        """``homeassistant.update_entity`` on the plan's entity. In tesla_fleet that runs the whole vehicle coordinator's
+        refresh and HA answers when it finished. HA logs and swallows a failed update (entity.py async_update_ha_state),
+        so a 200 here does not prove a re-read: the engine checks the next read's re-read time."""
+        plan = self.refresh_plan()
+        if plan is None:
+            raise CommandNotSupported("this Home Assistant profile has no re-read entity")
+        json_request("POST", self._base + "/api/services/homeassistant/update_entity", token=self._token,
+                     body={"entity_id": plan["entity"]}, timeout=max(1.0, float(timeout_s)), verify_tls=self._verify,
+                     what="Home Assistant")
+        return plan["entity"]
+
     def describe(self) -> Dict[str, Any]:
-        return {"kind": self.kind, "label": self.label, "simulated": False, "tested_profile": self.tested,
-                "profile": self._profile.get("name"), "host": scrub(self._base)}
+        out = {"kind": self.kind, "label": self.label, "simulated": False, "tested_profile": self.tested,
+               "profile": self._profile.get("name"), "host": scrub(self._base)}
+        if self._overlay is not None:
+            out["fresher_state_from"] = "teslamate (read-only)"
+        return out
 
 
 def build_homeassistant(ctx: BuildContext) -> HomeAssistantAdapter:
     s = ctx.settings
+    from .teslamate import build_teslamate_overlay
+
     profile = load_profile(str(s.get("ha_profile") or "tesla_fleet"))
     return HomeAssistantAdapter(
         base_url=str(s.get("ha_url") or ""), token=ctx.secret(ENV_HA_TOKEN), profile=profile,
         slug=str(s.get("ha_slug") or ""), name=str(s.get("car_name") or ""),
-        overrides=s.get("ha_entity_overrides") or {}, verify_tls=bool(s.get("ha_verify_tls", True)))
+        overrides=s.get("ha_entity_overrides") or {}, verify_tls=bool(s.get("ha_verify_tls", True)),
+        overlay=build_teslamate_overlay(ctx))

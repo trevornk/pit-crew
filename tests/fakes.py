@@ -80,6 +80,7 @@ class FakeHA:
         self.states = {s["entity_id"]: copy.deepcopy(s) for s in (states or load_fixture("ha_states_tesla_fleet.json"))}
         self.apply_effects = apply_effects
         self.fail_services = False
+        self.fail_service_names: set = set()     # e.g. {"homeassistant/update_entity"}: only these answer 500
         self.now_fn = None          # when set (a callable returning epoch seconds), service effects restamp the entity like HA does
         self.service_calls: List[Tuple[str, Dict[str, Any]]] = []
         self._server = _Server(self)
@@ -107,6 +108,8 @@ class FakeHA:
             if self.fail_services:
                 return h._reply(500, {"message": "boom"})
             service = path[len("/api/services/"):]
+            if service in self.fail_service_names:
+                return h._reply(500, {"message": "boom"})
             self.service_calls.append((service, body or {}))
             if self.apply_effects:
                 self._effect(service, body or {})

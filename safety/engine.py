@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from ..adapters.base import AdapterError, AdapterUnavailable, SecretScopeUnavailable
 from ..brain.commands import ArgError, CommandSpec, canonical_args, get_spec, validate_args
-from ..brain.models import VehicleState
+from ..brain.models import FieldValue, VehicleState
 from ..brain.timeparse import fmt_clock
 from ..redact import scrub
 from . import policy as policy_mod
@@ -37,11 +37,14 @@ POLICY_FLAGS = ("override_zone", "wake_ok")
 #: "the car is already in that state" is only said when the car itself reported it at most this long before the command
 #: (a door locked by hand a minute ago is invisible to a 10-minute-old reading; see docs/DECISIONS.md)
 ALREADY_MAX_AGE_S = 60.0
+#: settle delay + the one re-read request after a command never take longer than this (seconds); see _refresh_after_send
+REFRESH_BUDGET_S = 10.0
 
 
 class SafetyEngine:
     def __init__(self, service: Any) -> None:
         self._svc = service
+        self._rb_state: Optional[VehicleState] = None    # the last state a read-back looked at (under _exec_lock)
         self._exec_lock = threading.RLock()   # R5: parallel car_command calls must not both pass the dedupe/rate checks
 
     # -- helpers --------------------------------------------------------------------------
@@ -281,16 +284,41 @@ class SafetyEngine:
 
         # -- live: read-back ------------------------------------------------------------------------
         t1 = time.monotonic()
+        try:
+            svc.adapter.after_send(svc.now())   # a second state source takes its baseline (TeslaMate next to HA)
+        except AdapterError as exc:
+            logger.info("after_send baseline failed: %s", exc)
+        refresh = self._refresh_after_send(spec, settings, already=self._already_fresh(spec, send_args, pre.get("state"))) \
+            if quick else None
         rb = self._read_back(spec, send_args, float(settings["verify_timeout_s"]), float(settings["verify_interval_s"]),
                              sent_at=sent_at, before=pre.get("state"), single_read=quick)
-        if quick and rb["status"] in ("accepted", "not_confirmed"):
+        if refresh is not None:
+            rb = self._judge_refreshed(spec, rb, refresh, sent_at)
+        if rb.get("refreshed") is not None:
+            pass                                 # judged above: the read after a requested re-read
+        elif quick and rb["status"] in ("accepted", "not_confirmed"):
             # The car's own report cannot arrive inside any wait we could reasonably make: say so now, don't stall.
             rb = {**rb, "status": "accepted", "quick": True, "waited_s": 0,
                   "detail": (f"read once right after sending; {svc.adapter.service_name()}'s report of the car comes "
                              f"about every {self._age_words(latency)}, so waiting longer would only delay this answer")}
         timing = {"send": send_ms, "readback": int((time.monotonic() - t1) * 1000)}
+        if refresh is not None:
+            timing["refresh"] = refresh["ms"]
         waited = int(rb.get('waited_s') or float(settings['verify_timeout_s']))
-        if rb.get("quick"):
+        who = svc.adapter.service_name()
+        Who = who[:1].upper() + who[1:]
+        if rb.get("refreshed") is not None and rb["status"] == "confirmed":
+            status, ok = "confirmed", True
+            msg = (f"Sent {label}, and the car confirmed it at {rb['at_local']} (Pit Crew asked Home Assistant to re-read "
+                   "the car once after sending).")
+        elif rb.get("refreshed") is not None and rb["status"] == "not_confirmed":
+            status, ok = "sent_unconfirmed", True
+            msg = f"Sent {label}: {Who} accepted it, but the car has NOT confirmed it. {rb['detail']}"
+        elif rb.get("refreshed") is not None and rb["status"] == "accepted":
+            status, ok = "sent_unconfirmed", True
+            msg = (f"Sent {label}: {Who} accepted it, but the car itself has not reported back yet: {rb['detail']} "
+                   f"The car reports back within ~{self._age_words(latency)}; check car_status later before relying on it.")
+        elif rb.get("quick"):
             status, ok = "sent_unconfirmed", True
             who = svc.adapter.service_name()
             msg = (f"Sent {label}: {who[:1].upper() + who[1:]} accepted it. The car reports back within "
@@ -322,6 +350,9 @@ class SafetyEngine:
         if approval_status == "hermes_auto":
             msg += " " + AUTO_APPROVED_NOTE
         tail = f"{sent.detail} | timing: service answered in {timing['send']} ms, read-back took {timing['readback']} ms"
+        if refresh is not None:
+            tail += (f" (incl. {refresh['settle_s']:g} s settle + re-read request {refresh['ms']} ms"
+                     + ("" if refresh["ok"] else ", failed") + ")")
         head = (reason[:max(0, 480 - len(tail))] + " | ") if reason else ""
         aid = finish(status, head + tail, rb["status"], rb.get("at"))
         return self._result(ok=ok, status=status, command=spec.name, spec=spec, armed=armed, policy=pol,
@@ -403,11 +434,13 @@ class SafetyEngine:
         deadline = started + window
         last: Optional[VehicleState] = None
         extra = {"stale_match": stale_match} if stale_match else {}
+        self._rb_state = None
         while True:
             try:
                 last = svc.get_state(force=True)
             except AdapterError as exc:
                 return {"status": "not_confirmed", "detail": f"could not re-read the car: {exc}", **extra}
+            self._rb_state = last
             verdict = spec.verify(last, args)
             saw_old_match = saw_assumed = False     # judged on the LATEST read only (a re-read can undo an assumption)
             if verdict is None:
@@ -421,7 +454,7 @@ class SafetyEngine:
                             "already": already, "detail": f"already {already} before the command; nothing needed to change"}
                 if assumed:
                     saw_assumed = True      # the integration's own optimistic write: not the car's report
-                elif sent_at is None or (obs is not None and obs >= sent_at - 5.0):
+                elif sent_at is None or (obs is not None and self._after_send(last, names, obs, sent_at)):
                     at = svc._wall()
                     return {"status": "confirmed", "at": at, "at_local": fmt_clock(svc.local_dt(svc.now())),
                             "detail": "state re-read from the car shows the change", **extra}
@@ -440,6 +473,94 @@ class SafetyEngine:
                     detail = "state still shows the old value"
                 return {"status": "not_confirmed", "detail": detail, "waited_s": window, **extra}
             svc._sleep(step)
+
+    def _already_fresh(self, spec: CommandSpec, args: Mapping[str, Any], before: Optional[VehicleState]) -> bool:
+        """The car itself reported the requested state < ALREADY_MAX_AGE_S before the command (no re-read needed)."""
+        if before is None or spec.verify is None:
+            return False
+        try:
+            was = spec.verify(before, args)
+        except (TypeError, ValueError, KeyError):
+            return False
+        age = self._reported_age(before, tuple(spec.verify_fields)) if was is True else None
+        return age is not None and age <= ALREADY_MAX_AGE_S
+
+    @staticmethod
+    def _after_send(state: VehicleState, names: Tuple[str, ...], obs: float, sent_at: float) -> bool:
+        """Was this report written after the command went out? The adapter's own stamps get 5 s for clock skew between
+        HA and this host. A reading from a merged second source (TeslaMate) must be stamped strictly after the send."""
+        if any((state.fields.get(n) or FieldValue()).source == "teslamate" for n in names):
+            return obs > sent_at
+        return obs >= sent_at - 5.0
+
+    # -- one requested re-read after a command (Home Assistant tesla_fleet) ----------------------------
+    def _refresh_after_send(self, spec: CommandSpec, settings: Mapping[str, Any], *,
+                            already: bool = False) -> Optional[Dict[str, Any]]:
+        """Ask the integration to re-read the car ONCE, after a short settle delay, so the single read-back that follows
+        can see the car's own report. Only for live commands with an observable result on adapters that offer it
+        (tesla_fleet's ``refresh_after_command``), only with the ``refresh_after_command`` setting on. Bounded: settle
+        (<= 8 s) + request, together at most :data:`REFRESH_BUDGET_S`. Never for status reads (only this path calls it)."""
+        svc = self._svc
+        if spec.verify is None or not settings.get("refresh_after_command") or already:
+            return None
+        try:
+            plan = svc.adapter.refresh_plan()
+        except AdapterError:
+            plan = None
+        if not plan:
+            return None
+        settle = max(0.0, min(float(plan.get("settle_s") or 0.0), REFRESH_BUDGET_S - 2.0))
+        if settle:
+            svc._sleep(settle)          # Tesla needs a moment before its vehicle data reflects the command
+        t0 = time.monotonic()
+        out: Dict[str, Any] = {"settle_s": settle, "ok": True, "detail": "", "requested_at": svc.now()}
+        try:
+            svc.adapter.request_refresh(timeout_s=REFRESH_BUDGET_S - settle)
+        except AdapterError as exc:
+            out.update(ok=False, detail=f"Pit Crew's request to re-read the car failed ({scrub(str(exc))}).")
+        out["ms"] = int((time.monotonic() - t0) * 1000)
+        return out
+
+    def _judge_refreshed(self, spec: CommandSpec, rb: Dict[str, Any], refresh: Mapping[str, Any],
+                         sent_at: float) -> Dict[str, Any]:
+        """The verdict of the one read that follows a requested re-read. ``confirmed`` only when the car's own report,
+        written after the command, shows the change (never an optimistic write, never a pre-command value, never a
+        refresh that found the car asleep: tesla_fleet then re-writes its old data without reading the car).
+        ``not_confirmed`` only when such a report shows the OLD value; everything else is ``accepted`` with the reason."""
+        svc = self._svc
+        state = self._rb_state
+        names = tuple(spec.verify_fields)
+        out = {k: v for k, v in rb.items() if k not in ("quick",)}
+        out["refreshed"] = bool(refresh["ok"])
+        out["waited_s"] = int(refresh["settle_s"] + refresh["ms"] / 1000.0)
+        only_tm = state is not None and names and all((state.fields.get(n) or FieldValue()).source == "teslamate"
+                                                     for n in names)
+        asleep = None if state is None else state.value("asleep")
+        reread = None if state is None else state.hints.get("car_reported_at")
+        if rb["status"] == "confirmed" and (rb.get("already") or only_tm or asleep is False):
+            return out
+        if not refresh["ok"]:
+            why = refresh["detail"]
+        elif state is None:
+            why = rb.get("detail") or "Pit Crew could not read the car after the re-read request."
+        elif asleep is True and not only_tm:
+            why = ("Home Assistant's re-read found the car asleep or offline, so it could not read the car's data "
+                   "(Tesla Fleet never wakes the car to re-read it).")
+        elif asleep is None and not only_tm:
+            why = ("Home Assistant does not say whether the car is awake, so its re-read can't be told apart from a "
+                   "re-write of old data.")
+        elif reread is None or reread < sent_at:
+            why = ("Home Assistant had not re-read the car by the time Pit Crew looked (it may have refreshed moments "
+                   "earlier and skipped this request, or the refresh failed).")
+        elif rb["status"] == "unverifiable":
+            why = "after the re-read Home Assistant shows the needed reading as unavailable (the refresh may have failed)."
+        else:
+            at = fmt_clock(svc.local_dt(reread))
+            return {**out, "status": "not_confirmed",
+                    "detail": (f"Home Assistant re-read the car at {at}, after the command, and the car still reports the "
+                               "old value. The car may not have acted (or Tesla had not caught up yet): check car_status "
+                               "in a minute before relying on it.")}
+        return {**out, "status": "accepted", "detail": why}
 
     @staticmethod
     def _reported_age(state: VehicleState, names: Tuple[str, ...]) -> Optional[float]:

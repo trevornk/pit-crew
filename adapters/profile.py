@@ -106,6 +106,12 @@ def validate_profile(profile: Dict[str, Any]) -> List[str]:
     lat = profile.get("report_latency_s")
     if lat is not None and not (isinstance(lat, (int, float)) and not isinstance(lat, bool) and 0 <= lat <= 86400):
         problems.append("'report_latency_s' must be a number of seconds between 0 and 86400")
+    refresh = profile.get("refresh_after_command")
+    if refresh is not None and not (
+            isinstance(refresh, dict) and isinstance(refresh.get("entity"), str) and "{slug}" in refresh["entity"]
+            and isinstance(refresh.get("settle_s", 5), (int, float)) and not isinstance(refresh.get("settle_s", 5), bool)
+            and 0 <= refresh.get("settle_s", 5) <= 8):
+        problems.append("'refresh_after_command' must be {entity: '<domain>.{slug}_...', settle_s: 0-8}")
     default_psi = profile.get("tire_min_psi_default")
     if default_psi is not None and not (isinstance(default_psi, (int, float)) and 10 <= default_psi <= 80):
         problems.append("'tire_min_psi_default' must be a psi value between 10 and 80")

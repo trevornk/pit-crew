@@ -101,6 +101,8 @@ class FieldValue:
     #: Home Assistant's tesla_fleet/teslemetry/tessie set the entity to the commanded value as soon as the API call
     #: returns) and the car has not been re-read since. It is the integration's assumption, not the car's report.
     assumed: bool = False
+    #: which source supplied this reading when a state merges two sources (``home_assistant`` / ``teslamate``); else None
+    source: Optional[str] = None
 
 
 def unavailable() -> FieldValue:
@@ -171,7 +173,7 @@ class VehicleState:
     def copy(self) -> "VehicleState":
         return VehicleState(
             name=self.name, source=self.source, captured_at=self.captured_at,
-            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at, v.assumed)
+            fields={k: FieldValue(v.value, v.updated_at, v.available, v.changed_at, v.assumed, v.source)
                     for k, v in self.fields.items()},
             simulated=self.simulated, hints=dict(self.hints),
         )
@@ -292,8 +294,21 @@ class VehicleState:
                 "unavailable_fields": unavailable_fields,
                 # values the integration set itself after a command; the car has not re-reported them yet
                 "assumed_after_command": assumed,
+                **self._source_info(),
             },
         }
+
+    def _source_info(self) -> Dict[str, Any]:
+        """Only when a second source is merged in (TeslaMate next to Home Assistant): which source each merged field came
+        from, and how that source's times are known."""
+        sources = {n: f.source for n, f in self.fields.items() if f.available and f.source}
+        if not sources:
+            return {}
+        out: Dict[str, Any] = {"field_sources": sources}
+        note = self.hints.get("source_note")
+        if note:
+            out["source_note"] = note
+        return out
 
     def to_storage(self) -> Dict[str, Any]:
         return {

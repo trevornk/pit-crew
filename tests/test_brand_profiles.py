@@ -48,6 +48,8 @@ def all_template_entities(profile, include_alts=False):
             out += [(name, e) for e in spec["entities"].values()]
         else:
             out.append((name, spec["entity"]))
+            if spec.get("data_time_entity"):
+                out.append((f"{name} data time", spec["data_time_entity"]))
             if include_alts:
                 out += [(name, e) for e in spec.get("alt_entities", [])]
     for cname, cspec in profile["commands"].items():
@@ -289,3 +291,43 @@ def test_a_current_profile_outranks_a_deprecated_one_with_equal_coverage():
     mixed = states("kia_uvo", "ha_states_us.json") + states("bmw_connected_drive", "ha_states_i4_edrive40.json")
     res = discover(mixed)
     assert res["proposals"][0]["deprecated"] is False
+
+
+# -- Kia: the integration serves a cached cloud copy, so HA's own stamp proves nothing about the car's data (review P1-3) --
+def _kia_with_data_time(when):
+    sts = states("kia_uvo", "ha_states_us.json")
+    for s in sts:
+        if s["entity_id"].endswith("_last_updated_at"):
+            s["state"] = when
+    return sts
+
+
+def test_kia_gear_p_from_hours_old_cloud_data_is_not_proof_of_parked():
+    unplugged = [s for s in _kia_with_data_time("2026-02-01T05:00:00+00:00") if not s["entity_id"].endswith("_ev_battery_plug")]
+    _, st, _ = fetch("kia_hyundai_connect", "my_ev", unplugged)
+    assert st.value("shift_state") == "P"                          # the reading is shown ...
+    assert st.age_s("shift_state", NOW) > 4 * 3600                 # ... as the old data it is, not as 'fresh' from HA's stamp
+    assert st.motion(NOW, 900) is None                             # and never proves parked
+    assert st.age_s("locked", NOW) > 4 * 3600 and st.age_s("location_zone", NOW) > 4 * 3600
+
+
+def test_kia_gear_p_with_fresh_data_time_proves_parked():
+    unplugged = [s for s in _kia_with_data_time("2026-02-01T10:00:00+00:00") if not s["entity_id"].endswith("_ev_battery_plug")]
+    _, st, _ = fetch("kia_hyundai_connect", "my_ev", unplugged)
+    assert st.motion(NOW, 900) is False
+
+
+def test_kia_without_the_data_time_sensor_does_not_trust_gear():
+    sts = [s for s in states("kia_uvo", "ha_states_us.json")
+           if not s["entity_id"].endswith(("_last_updated_at", "_ev_battery_plug"))]
+    _, st, _ = fetch("kia_hyundai_connect", "my_ev", sts)
+    assert not st.is_available("shift_state") and st.motion(NOW, 900) is None      # fail closed
+    assert st.is_available("locked")                                               # other fields fall back to HA's stamp
+
+
+def test_kia_profile_says_the_gear_claim_depends_on_the_data_time():
+    p = load_profile("kia_hyundai_connect")
+    assert "Last Updated At" in p["motion_hint"] and "stale" in p["motion_hint"]
+    bad = load_profile("kia_hyundai_connect")
+    bad["fields"]["shift_state"].pop("data_time_entity")
+    assert any("data_time_required" in x for x in validate_profile(bad))

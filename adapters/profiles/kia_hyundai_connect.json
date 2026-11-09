@@ -5,8 +5,8 @@
   "integration_title": "Kia Uvo / Hyundai Bluelink",
   "tested": false,
   "verified_against": "Hyundai-Kia-Connect/kia_uvo v4.0.0 (a HACS custom integration, not part of Home Assistant core): custom_components/kia_uvo/strings.json and the sensor/binary_sensor/lock/switch/number/button/climate/device_tracker platforms (tests/fixtures/integrations/kia_uvo). That project ships no state recordings, so the offline test states are built from its entity catalogue. Not run on a real car.",
-  "notes": "Install kia_uvo from HACS, then `ha_slug` is your car's slugged name (for sensor.my_ev_ev_battery_level it is my_ev). Entity ids follow the v4 entity names (binary_sensor.<slug>_ev_battery_plug); the profile also accepts the older ids (…_ev_battery_is_plugged_in) via alt_entities. Distances, temperatures and pressures arrive in the unit the car reports (km/mi, °C/°F, psi/kPa/bar) and are converted. The car reports no speed, so Pit Crew treats it as parked only while plugged in, or when the Gear position is P. Honk and Flash use the two hazard-light buttons, which the integration ships DISABLED. kia_uvo also offers services (start_climate with seat heaters and defrost, departure schedules, V2L) that this profile does not use.",
-  "motion_hint": "Kia/Hyundai Connect reports no speed. Pit Crew treats the car as parked while it is plugged in or the Gear position sensor (sensor.<slug>_gear_position) says P; otherwise unlock, trunk, frunk and vent are refused.",
+  "notes": "Install kia_uvo from HACS, then `ha_slug` is your car's slugged name (for sensor.my_ev_ev_battery_level it is my_ev). Entity ids follow the v4 entity names (binary_sensor.<slug>_ev_battery_plug); the profile also accepts the older ids (…_ev_battery_is_plugged_in) via alt_entities. Distances, temperatures and pressures arrive in the unit the car reports (km/mi, °C/°F, psi/kPa/bar) and are converted. The car reports no speed, so Pit Crew treats it as parked only while plugged in, or when the Gear position is P and the car's data is fresh (judged by its Last Updated At sensor, because the integration serves cached cloud data). Honk and Flash use the two hazard-light buttons, which the integration ships DISABLED. kia_uvo also offers services (start_climate with seat heaters and defrost, departure schedules, V2L) that this profile does not use.",
+  "motion_hint": "Kia/Hyundai Connect reports no speed. Pit Crew treats the car as parked while it is plugged in, or while the Gear position sensor (sensor.<slug>_gear_position) says P AND the integration's Last Updated At sensor shows the car's data is recent (the integration serves a cached cloud copy that can be hours old, so a stale 'P' counts for nothing); otherwise unlock, trunk, frunk and vent are refused.",
   "disabled_command_entities": [
     {
       "entity": "button.{slug}_start_hazard_lights_and_horn",
@@ -45,7 +45,8 @@
       "alt_entities": [
         "binary_sensor.{slug}_ev_battery_is_plugged_in"
       ],
-      "kind": "on_off"
+      "kind": "on_off",
+      "data_time_entity": "sensor.{slug}_last_updated_at"
     },
     "charge_power_kw": {
       "entity": "sensor.{slug}_ev_charging_power",
@@ -70,7 +71,8 @@
     },
     "locked": {
       "entity": "lock.{slug}_door_lock",
-      "kind": "lock_locked"
+      "kind": "lock_locked",
+      "data_time_entity": "sensor.{slug}_last_updated_at"
     },
     "doors_open": {
       "kind": "open_list",
@@ -130,12 +132,15 @@
     },
     "location_zone": {
       "entity": "device_tracker.{slug}_location",
-      "kind": "zone"
+      "kind": "zone",
+      "data_time_entity": "sensor.{slug}_last_updated_at"
     },
     "shift_state": {
       "entity": "sensor.{slug}_gear_position",
       "kind": "shift",
-      "optional": true
+      "optional": true,
+      "data_time_entity": "sensor.{slug}_last_updated_at",
+      "data_time_required": true
     },
     "odometer_mi": {
       "entity": "sensor.{slug}_odometer",

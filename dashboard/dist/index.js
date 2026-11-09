@@ -80,10 +80,12 @@
     return JSON.stringify([sec.locked, sec.windows_open, sec.trunk_open, sec.frunk_open, sec.sentry_on, cli.climate_on, chg.charging_state, chg.plugged_in]);
   }
   const OUTDATED = "This result is out of date: the car’s state has changed since. Close this and look at the current state.";
-  // "Nothing new" next to open alerts reads as all clear, so always say how many are still open.
-  function checkSummary(raised, stillOpen) {
-    const n = Number(raised) || 0, total = stillOpen + n;
-    return "Checked the car: " + (n ? n + " new alert" + (n === 1 ? "" : "s") : "No new alerts") + (total ? " · " + total + (n ? " open" : " still open") : " · all clear") + ".";
+  // "Nothing new" next to open alerts reads as all clear, so always say how many are open. Only the number of NEW
+  // alerts comes from the check; the open count is read from the current alert list on every render so it can never
+  // disagree with the "Alerts (N)" heading.
+  function checkSummary(raised, open) {
+    const n = Number(raised) || 0;
+    return "Checked the car: " + (n ? n + " new alert" + (n === 1 ? "" : "s") : "No new alerts") + (open ? " · " + open + (n ? " open" : " still open") : " · all clear") + ".";
   }
 
   function whereText(z) {
@@ -223,6 +225,7 @@
     const showAcked = useState(false);
     const shown = showAcked[0] ? open.concat(acked) : open;
     const note = useState("");
+    const checked = useState(null);    // {raised}: the result of the last check; the open count is never stored
     const ack = function (id) { api("/alerts/ack", { id: id }).then(function () { props.reload(false); }, function (e) { note[1]("Acknowledge failed: " + (e && e.message || e)); }); };
     const fix = function (a) {
       if (!a.action || a.state === "acked") return null;
@@ -235,10 +238,11 @@
         h("div", { style: row },
           open.length > 1 ? h(C.Button, { size: "sm", variant: "ghost", onClick: function () { ack("all"); } }, "Acknowledge all") : null,
           h(C.Button, { size: "sm", variant: "outline", disabled: !!props.down, onClick: function () {
-            api("/alerts/check", {}).then(function (r) { note[1](r.ok ? checkSummary(r.raised, open.length) : (r.error || "Could not check the car.")); props.reload(); },
-              function (e) { note[1]("Check failed: " + (e && e.message || e)); });
+            api("/alerts/check", {}).then(function (r) { note[1](r.ok ? "" : (r.error || "Could not check the car.")); checked[1](r.ok ? { raised: r.raised } : null); props.reload(); },
+              function (e) { checked[1](null); note[1]("Check failed: " + (e && e.message || e)); });
           } }, "Check now"))),
       note[0] ? h("div", { style: dim }, note[0]) : null,
+      checked[0] && !note[0] ? h("div", { style: dim }, checkSummary(checked[0].raised, open.length)) : null,
       shown.length === 0 ? h("div", { style: dim }, props.down ? "Can’t check yet: Pit Crew isn’t connected to your car." : "All clear. Nothing needs your attention right now.")
         : shown.map(function (a) {
           return h("div", { key: a.id, style: Object.assign({}, tile, { gap: 4, opacity: a.state === "acked" ? 0.6 : 1 }) },

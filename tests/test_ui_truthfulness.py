@@ -109,6 +109,21 @@ def test_web_check_now_counts_open_alerts(service, tmp_path):
     assert "No new alerts · all clear" in html
 
 
+@needs_web_render
+def test_web_open_count_follows_the_current_alert_list(service, tmp_path):
+    mod, summary = backend_summary(service)
+    two = {**summary, "alerts": [ALERT, {**ALERT, "id": 2}]}
+    one = {**summary, "alerts": [ALERT]}
+    none = {**summary, "alerts": []}
+    base = {"/log": {"ok": True, "rows": []}, "/alerts/check": {"ok": True, "raised": 0}}
+    # the list shrinks after the check (an alert resolved): the line must agree with the heading
+    html = render_web(tmp_path, {**base, "__summary_sequence": [two, one]}, clicks=["Check now"])["html"]
+    assert "Alerts (1)" in html and "No new alerts · 1 still open" in html and "2 still open" not in html
+    # the list empties (sim Reset): never "N still open" beside "All clear"
+    html = render_web(tmp_path, {**base, "__summary_sequence": [two, none]}, clicks=["Check now"])["html"]
+    assert "All clear. Nothing needs" in html and "No new alerts · all clear" in html and "still open" not in html
+
+
 @needs_desktop_render
 def test_desktop_check_summary_wording():
     import re

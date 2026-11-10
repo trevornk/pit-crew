@@ -49,6 +49,18 @@ def test_always_mode_stop_pauses_and_live_resumes_with_no_expiry(stub_service, s
     assert [r["command"] for r in svc.store.audit_recent(5) if r["command"] in ("arm", "disarm")][:2] == ["arm", "disarm"]
 
 
+def test_legacy_on_demand_stop_record_is_not_an_always_pause(stub_service, stub):
+    """Older installs wrote {"until": None, "forced_disarm": True} on every ordinary on_demand stop. After switching to
+    live_mode=always that record (no "paused" key) must not read as a pause."""
+    svc = stub_service(live_mode="always")
+    svc.store.kv_set("arm_state", {"until": None, "forced_disarm": True})
+    info = svc.armed_info()
+    assert info["armed"] is True and info["state"] == "always" and info["paused"] is False
+    assert svc.live_label() == "Live: always on"
+    svc.store.kv_set("arm_state", {"until": None, "forced_disarm": True, "paused": True})     # explicit pause still pauses
+    assert svc.armed_info()["state"] == "paused"
+
+
 def test_on_demand_is_unchanged(stub_service, stub, clock):
     svc = stub_service()
     info = svc.arm(2, by="test")

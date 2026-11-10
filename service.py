@@ -455,7 +455,9 @@ class CarService:
         st = self.store.kv_get("arm_state", {}) or {}
         until = st.get("until")
         runtime = bool(until) and float(until) > wall
-        paused = bool(st.get("paused", st.get("forced_disarm")))
+        # Only an explicit always-mode pause pauses. Older installs wrote {"until": None, "forced_disarm": True}
+        # (no "paused" key) on every ordinary on_demand stop; that must not read as a pause once live_mode=always.
+        paused = bool(st.get("paused"))
         if mode == "always":
             armed = not paused
             state = "always" if armed else "paused"

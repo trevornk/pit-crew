@@ -307,7 +307,7 @@ class VehicleState:
         }
 
     def _source_info(self) -> Dict[str, Any]:
-        """Only when a second source is merged in (TeslaMate next to Home Assistant): which source each merged field came
+        """Only when a second source is merged in (TeslaMate next to a real command adapter): which source each merged field came
         from, and how that source's times are known."""
         sources = {n: f.source for n, f in self.fields.items() if f.available and f.source}
         if not sources:

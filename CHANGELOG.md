@@ -1,6 +1,13 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Choose your connections.** TeslaMate as a fresher state source now works next to **any** real command connection: Home
+  Assistant (every profile), Teslemetry or Tessie, merged per field by one shared implementation (never with the simulator).
+  Commands still take exactly one route (*Which car*), with no automatic fallback to another (a command whose outcome is unknown is
+  never resent another way). A TeslaMate car whose VIN differs from the commanded car is ignored, with a note naming *TeslaMate · Car
+  id*; times more than 2 min in the future are not trusted; TeslaMate alone refuses commands in plain words. `car_status` →
+  `adapter.state_sources` lists the sources. README: new "Choosing your connections" section (costs, freshness, tested status,
+  recommended setups, why no fallback, keep TeslaMateApi on your LAN).
 - **Fresher car state.** On Home Assistant's Tesla Fleet (which re-reads the car only every 10 minutes) Pit Crew now asks Home
   Assistant to re-read the car once, ~5 s after a command, and says "the car confirmed it" only when that fresh report shows the change
   (else "Tesla accepted it" with the reason). Adds up to ~10 s to the reply and one Tesla data request (~$0.002) per command; never for

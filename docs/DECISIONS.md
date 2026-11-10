@@ -469,7 +469,7 @@ The owner found a 10-minute-old picture of the car confusing. Two changes; neith
     (cooldown). That stamp would have looked like a car re-read and turned an optimistic write into "confirmed". The refresh entity is
     therefore never re-read evidence (`_not_evidence`), its own stamp is capped to the last real re-read, and it does not feed the
     "confirmed while online" promotion.
-* **TeslaMate as an optional fresher source next to Home Assistant.** When `teslamate_url` is set with the HA adapter, every state read
+* **TeslaMate as an optional fresher source next to Home Assistant** (generalized to every real command adapter by worker 15; see "Connections" below). When `teslamate_url` is set with the HA adapter, every state read
   also GETs TeslaMateApi `/api/v1/cars/:id/status` and merges, per field (locked, doors, windows, trunk, frunk, Sentry, shift/speed/moving,
   place, charging state/power, battery/range), whichever source reported more recently. TeslaMateApi (src/v1_TeslaMateAPICarsStatus.go @
   3e158df077165237130072c82d07878ab448f4f8) exposes **no per-field or per-poll time**, only `state` and `state_since`. So: asleep /
@@ -481,3 +481,46 @@ The owner found a 10-minute-old picture of the car confusing. Two changes; neith
   after the send (no 5 s skew allowance) to count. TeslaMate never commands (the client only has GET). `car_status` shows
   `freshness.field_sources` and `freshness.source_note`. TeslaMate down -> HA only, said in `source_note`. Without a TeslaMate URL
   nothing changes. HA's TeslaMate MQTT entities are not used (the owner's HA has only four).
+
+## Connections: one command route, optional extra state source (worker 15, council review accepted 2026-11-09)
+
+Owner complaint: TeslaMate as a fresher state source worked only next to Home Assistant. Decision (architecture council): three
+independent roles.
+
+* **Commands: exactly one writable connection** (*Which car*: Home Assistant, Teslemetry or Tessie), or none (`teslamate` standalone,
+  which refuses every command with "TeslaMate is read-only; pick Home Assistant, Teslemetry or Tessie under Which car to send
+  commands", and the simulator, which is pretend).
+* **State: that connection plus optional TeslaMate,** merged per field by the eligible newest observation, in ONE shared
+  implementation (`adapters/state_sources.py` `StateSources`, around the existing `TeslaMateOverlay.merge` reducer). Used by Home
+  Assistant (every profile), direct Teslemetry and direct Tessie. Never by the simulator (fiction must not mix with a real car) and
+  not when `adapter: teslamate` (it already is TeslaMate). Same `teslamate_url` / token / `teslamate_car_id` settings. Rules kept:
+  provenance per field (`freshness.field_sources`), an optimistic HA write counts as of HA's last real re-read, TeslaMate's estimated
+  stamps never prove "already" or "confirmed", motion from either source blocks, offline is unknown, overlay down -> primary alone.
+* **History: own / teslamate / import,** unchanged.
+
+Details:
+* **Honest stamps on the direct adapter.** Each Tesla `vehicle_data` section carries the car's own `timestamp`; that is the field's
+  time (for Tessie, whose `state(use_cache=True)` is a cache, it is still the car's report time, not the cache fetch). A section
+  without one is stamped with the fetch time **as an estimate** (`estimated=True`), so it can never prove "already" or confirm. The
+  merge runs on a copy: the adapter's cache never holds TeslaMate values. There are no optimistic writes on the direct path.
+* **Vehicle identity.** If both the primary and TeslaMate expose a VIN and they differ, nothing is merged and `source_note` /
+  `adapter.state_sources_note` name `teslamate_car_id`. The direct adapter knows its VIN (`tesla_vin`); TeslaMate's comes from
+  `/api/v1/cars` `car_details.vin` (looked up once; a failure retried after 10 min; `REDACTED` or missing = unknown, and unknown
+  identity merges as before). Home Assistant's `/api/states` has no VIN, so no check there (and no `/cars` request). VINs are only
+  compared, never logged, shown or stored. Fixtures use fake VINs.
+* **Future timestamps** (either source, every real adapter): a stamp up to 120 s ahead (`FUTURE_SKEW_S`) is clamped to now; further
+  ahead the reading is ignored and `source_note` says so, except a "moving" reading, which is kept (stamped now, estimated): motion
+  fails closed. A future TeslaMate `state_since` is ignored (values fall back to the awake estimate).
+* **Read-back:** unchanged paths. The base `after_send()` takes the TeslaMate baseline for any adapter with state sources; a
+  TeslaMate-sourced reading confirms only when stamped strictly after the send. tesla_fleet's one re-read and the quick read-back
+  work as before with the overlay.
+* `car_status` → `adapter.state_sources` lists the sources for every adapter (`["simulator"]`, `["home_assistant", "teslamate"]`,
+  `["tessie"]`, `["teslamate"]`).
+
+**No command fallback or rerouting between providers (deliberately deferred).** A command that timed out, lost its answer, or came
+back "accepted" may already have happened; resending it another way risks a double unlock or a trunk opening twice. Fallback would be
+defensible only when the adapter can prove nothing was submitted, and would have to re-run approval and safety checks. Auth failures,
+refusals, rate limits and safety rejections are terminal, not reasons to try elsewhere, and providers' idempotency keys do not span
+providers. Several connections also share Tesla's infrastructure, so a second route is weak redundancy. Also deferred: arbitrary
+source lists, priority editors, latency racing.
+

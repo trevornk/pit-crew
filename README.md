@@ -29,7 +29,8 @@ sleep. When it wants to touch the car it follows your Hermes approval setting: i
 *(Wording is illustrative; the behaviour is what the simulator and the tests exercise.)*
 
 **No car? No problem.** Pit Crew ships with a simulated car, so you can try all of this in a minute.
-It works with **Home Assistant** (Tesla, BMW, Kia/Hyundai and more), **Teslemetry**, **Tessie**, and **TeslaMate** history.
+It works with **Home Assistant** (Tesla, BMW, Kia/Hyundai and more), **Teslemetry**, **Tessie**, and **TeslaMate** (history, and
+fresher state next to any of them): see [Choosing your connections](#choosing-your-connections).
 
 ## Try it in 60 seconds (no car needed)
 
@@ -61,10 +62,50 @@ unlock my car                 Hermes asks YOU to approve, then reads the car bac
 Right after `drive … away`, unlock is correctly **refused** (it only works at home): read the reason, then try
 `/car sim park_home` and `/car sim plug_in`. `/car sim` lists everything the simulated car can do.
 
+## Choosing your connections
+
+Pit Crew keeps three jobs apart, and you choose each one:
+
+1. **Commands: one connection, or none.** *Connection · Which car* is the only route a command ever takes (Home Assistant,
+   Teslemetry or Tessie). With `teslamate` (read-only) or no car at all there are no real commands.
+2. **State: that connection, plus TeslaMate if you like.** Set *TeslaMate · URL* next to any real command connection and Pit Crew
+   reads both. For each field it keeps the newest reading it can trust, and `car_status` says which source each field came from.
+3. **History: your choice.** Pit Crew records it itself, or reads it from TeslaMate, or imports TeslaMate's once.
+
+| Source | Cost | Commands | How fresh is the state | Brands | History | Tested |
+|---|---|---|---|---|---|---|
+| **Home Assistant, Tesla Fleet** (`homeassistant` + `tesla_fleet`) | free (Tesla bills its API per use) | yes | Home Assistant re-reads the car **every 10 min** by default; Pit Crew asks for one re-read after a command | Tesla (other HA integrations: BMW, Kia/Hyundai, others) | own or TeslaMate | on a real Model Y |
+| **Home Assistant, Teslemetry / Tessie** (`teslemetry_ha`, `tessie_ha`) | that service's subscription | yes | Teslemetry streams (~5 s); Tessie serves a cache (~10 s) | Tesla | own or TeslaMate | checked against Home Assistant's source; **not tested on a real car** |
+| **Teslemetry, direct** (`teslemetry`) | Teslemetry subscription | yes | streams (~5 s) on Teslemetry's side; Pit Crew reads at most every 2 min (every 4 s for 45 s after a command) | Tesla | own or TeslaMate | **tested against mocks only** |
+| **Tessie, direct** (`tessie`) | Tessie subscription | yes | Tessie's cache (~10 s); same read limits as above | Tesla | own or TeslaMate | **tested against mocks only** |
+| **TeslaMate** (`teslamate`, or *TeslaMate · URL* next to one of the above) | free, self-hosted (you run it) | **never** (read-only) | streams while the car is awake; **no per-field times**, so Pit Crew treats its readings as older than they probably are | Tesla | yes: trips, charges, battery health | against recordings of a real TeslaMateApi |
+| **Simulator** (`simulator`, the default) | free | simulated only | instant (it is pretend) | none | simulated | it is what the demos and safety tests run on; it proves nothing about a real connection |
+
+**Recommended setups**
+
+* **No car, or just looking:** the simulator.
+* **You run Home Assistant:** Home Assistant for commands, plus TeslaMate for fresher state if you already run it.
+* **Fastest state and commands:** Teslemetry or Tessie (direct). Add TeslaMate if you want its history.
+
+**Why there is no automatic fallback between command routes.** If a command times out or its answer is lost, Pit Crew cannot
+know whether the car acted. Sending it again another way could unlock twice or open the trunk twice. So a command whose outcome
+is unknown is reported as unknown ("check the car before sending it again") and is never resent through another connection.
+Several connections also often share Tesla's servers, so a second route is not a real backup.
+
+**Rules for the merged state.** A source's reading counts only with an honest time. Home Assistant's own write right after a command
+is not the car's report. TeslaMate's estimated times never prove "already done" or "confirmed". A "moving" reading from either source
+blocks unlock/trunk/frunk/vent. An offline car is "unknown", never "parked". A time more than 2 minutes in the future is not trusted.
+If TeslaMate is a **different car** (its VIN differs from the one Pit Crew commands), its readings are ignored and Pit Crew tells you
+to fix *TeslaMate · Car id* (`teslamate_car_id`). If TeslaMate is down, the command connection's readings are used alone.
+
+**Keep TeslaMateApi on your LAN or VPN.** It has no authentication unless you set `API_TOKEN` on it, and it exposes your car's
+location and history. Never publish it to the internet.
+
 ## Connect your real car
 
-Pick one source for the car (**Settings → Plugins → Pit Crew → Connection · Which car**). Changes apply immediately: run
-`/car` to check. History needs nothing extra: Pit Crew records trips, charging and efficiency itself.
+Pick one connection for the car (**Settings → Plugins → Pit Crew → Connection · Which car**; see
+[Choosing your connections](#choosing-your-connections)). Changes apply immediately: run `/car` to check. History needs nothing
+extra: Pit Crew records trips, charging and efficiency itself.
 
 | Connection | Best if… | Setup | Costs | Commands? |
 |---|---|---|---|---|
@@ -72,7 +113,7 @@ Pick one source for the car (**Settings → Plugins → Pit Crew → Connection 
 | **homeassistant** | you already run Home Assistant with a car integration (Tesla Fleet, Teslemetry, Tessie, BMW, Kia/Hyundai…) | ~10 min | free | yes, through HA |
 | **teslemetry** | you have a Tesla and want the shortest path | ~5 min | Teslemetry subscription | yes |
 | **tessie** | you already use Tessie | ~5 min | Tessie subscription | yes |
-| **teslamate** | you run TeslaMate and want its past data | ~5 min | free | never (read-only) |
+| **teslamate** | you run TeslaMate and only want to read the car | ~5 min | free | never (read-only) |
 
 Your own Tesla Fleet API app works through Home Assistant's official Tesla Fleet integration (HA holds the Tesla tokens;
 Pit Crew holds none).
@@ -138,23 +179,28 @@ The `tesla-fleet-api` library is installed for you by `hermes plugins install` (
 </details>
 
 <details>
-<summary><b>TeslaMate (history, and fresher state next to Home Assistant)</b></summary>
+<summary><b>TeslaMate (history, and fresher state next to any command connection)</b></summary>
 
 Set *TeslaMate · URL* to your **TeslaMateApi** (the separate `teslamateapi` container, e.g. `http://teslamate-api:8080`; not the
 TeslaMate web UI on port 4000), and *TeslaMate · Access token* only if you set `API_TOKEN` on TeslaMateApi. *TeslaMate · Car id* is
-usually 1. Only read-only `GET` requests are ever made; TeslaMate never sends a command.
+usually 1. Only read-only `GET` requests are ever made; TeslaMate never sends a command. Keep TeslaMateApi on your LAN or VPN.
 
 * **History:** run `/car import teslamate 365` to backfill a year of trips and charges (safe to repeat), or set *Trip & charging
   history* = `teslamate` to read it live.
-* **Fresher state next to Home Assistant:** with *Which car* = `homeassistant` and a TeslaMate URL set, every status read also asks
-  TeslaMateApi (`/api/v1/cars/<id>/status`) and, field by field (locked, doors, windows, trunk, frunk, Sentry, gear/speed/moving,
-  place, charging state/power, battery/range), keeps **whichever source reported more recently**. `car_status` → `freshness.field_sources`
-  says which one each field came from. Commands still go only through Home Assistant. TeslaMateApi gives no per-field times, only the
-  car's state and when it last changed, so Pit Crew is careful: while the car sleeps its TeslaMate values count as of that change,
-  while awake as 60 s old, and a value that changed since Pit Crew's previous look as of that look. A command's read-back counts
-  TeslaMate only when it shows the change after the command was sent. Any reading of gear D/R/N or a speed, from either source,
-  still means "moving". If TeslaMate is unreachable, Home Assistant alone is used. Pit Crew does not use TeslaMate's MQTT sensors
-  in Home Assistant for this, so you don't need them.
+* **Fresher state next to Home Assistant, Teslemetry or Tessie:** with *Which car* = `homeassistant`, `teslemetry` or `tessie` and a
+  TeslaMate URL set, every status read also asks TeslaMateApi (`/api/v1/cars/<id>/status`) and, field by field (locked, doors, windows,
+  trunk, frunk, Sentry, gear/speed/moving, place, charging state/power, battery/range, asleep, someone in the car), keeps **whichever
+  source reported more recently**. `car_status` → `adapter.state_sources` lists the sources (e.g. `["teslemetry", "teslamate"]`) and
+  `freshness.field_sources` says which one each field came from. Commands still go only through *Which car*. TeslaMateApi gives no
+  per-field times, only the car's state and when it last changed, so Pit Crew is careful: while the car sleeps its TeslaMate values
+  count as of that change, while awake as 60 s old (an estimate, never proof), and a value that changed since Pit Crew's previous look
+  as of that look. A command's read-back counts TeslaMate only when it shows the change after the command was sent. Any reading of
+  gear D/R/N or a speed, from either source, still means "moving". With Teslemetry or Tessie, Pit Crew also checks that TeslaMate's car
+  has the same VIN (from `/api/v1/cars`; the VIN is never shown or logged) and ignores TeslaMate if it does not. If TeslaMate is
+  unreachable, the command connection alone is used. The simulator never mixes in TeslaMate. Pit Crew does not use TeslaMate's MQTT
+  sensors in Home Assistant for this, so you don't need them.
+* **TeslaMate alone** (*Which car* = `teslamate`): status, history and alerts work; every command is refused with "TeslaMate is
+  read-only; pick Home Assistant, Teslemetry or Tessie under Which car to send commands".
 </details>
 
 ### Update and restart

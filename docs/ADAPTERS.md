@@ -17,6 +17,12 @@ Built in: `simulator`, `homeassistant` (+ entity-mapping profiles), `tesla` (dir
 | `tesla` | `tesla-fleet-api` (lazy import) | via the library | modes `teslemetry`, `tessie` (static token via the secret scope); never wakes the car to poll; no plugin-held OAuth |
 | `teslamate` | TeslaMateApi (GET only) | none | optional; history import: `/car import teslamate` |
 
+**State sources.** A real command adapter can also carry `state_sources` (`adapters/state_sources.py`): its own reading plus the
+optional TeslaMate overlay, merged per field by one shared implementation (Home Assistant and the direct adapter both use it; the
+simulator and `teslamate` never do). Its `apply(state, now, vehicle_id)` quarantines future stamps and merges; the base
+`after_send()` takes TeslaMate's baseline; `vehicle_id()` (the VIN, when the adapter knows it) lets a different TeslaMate car be
+rejected. A third-party adapter gets none of this unless it sets `state_sources` itself; `describe()` lists `state_sources` either way.
+
 ### History is not the adapter's job
 
 Pit Crew records trips and charging sessions itself from whatever `fetch_state` returns (`history_store.py`). To get good

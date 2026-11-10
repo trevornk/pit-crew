@@ -285,7 +285,11 @@ class CarService:
     def describe_adapter(self) -> Dict[str, Any]:
         """Adapter description that never raises (a misconfigured adapter is reported, not thrown)."""
         try:
-            return self.adapter.describe()
+            desc = dict(self.adapter.describe())
+            if "state_sources" not in desc:        # (an adapter with its own describe(), e.g. a third-party one)
+                names = getattr(self.adapter, "state_source_names", None)
+                desc["state_sources"] = names() if callable(names) else [str(desc.get("kind") or "unknown")]
+            return desc
         except AdapterError as exc:
             return {"kind": str(self.settings.get("adapter")), "label": "not connected", "simulated": False,
                     "error": scrub(str(exc))}

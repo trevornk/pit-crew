@@ -105,13 +105,14 @@ class SafetyEngine:
             return {"ok": False, "status": "invalid", "message": str(exc), "spec": spec}
         try:
             supported = svc.capabilities().can_do(spec.name)
-            adapter_label = svc.adapter.label
+            why = getattr(svc.adapter, "unsupported_reason", None)
+            refusal = str(why(spec.name)) if callable(why) else f"{svc.adapter.label} cannot perform '{spec.name}'"
         except AdapterError as exc:
             return {"ok": False, "status": "blocked", "spec": spec, "args": args,
                     "message": f"the car adapter is not available ({exc})"}
         if not supported:
             return {"ok": False, "status": "unsupported", "spec": spec, "args": args,
-                    "message": f"{adapter_label} cannot perform '{spec.name}'"}
+                    "message": refusal}
         try:
             if cached_max_age_s is None:
                 state = svc.get_state(force=True)  # safety decisions never use a cached read

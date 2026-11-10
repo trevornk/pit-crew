@@ -129,13 +129,17 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
     ds = d.get("drive_state") or {}
     fields: Dict[str, FieldValue] = {}
 
-    def stamp(section: Mapping[str, Any]) -> float:
+    def stamp(section: Mapping[str, Any]) -> Optional[float]:
+        """The car's own report time for this section (Tesla's per-section ``timestamp``, ms); None when absent."""
         ts = _num(section.get("timestamp"))
-        return ts / 1000.0 if ts and ts > 1e11 else (ts if ts and ts > 1e9 else now)
+        return ts / 1000.0 if ts and ts > 1e11 else (ts if ts and ts > 1e9 else None)
 
     def put(fname: str, value: Any, section: Mapping[str, Any]) -> None:
         if value is not None:
-            fields[fname] = FieldValue(value, min(stamp(section), now))
+            at = stamp(section)
+            # No section time: only the time Pit Crew fetched it (a service cache may be older). Kept as an ESTIMATE, so
+            # it can never prove "already" or confirm a read-back. A time ahead of now is left for quarantine_future.
+            fields[fname] = FieldValue(value, now, estimated=True) if at is None else FieldValue(value, at)
 
     if cs:
         put("battery_pct", _num(cs.get("battery_level")), cs)
@@ -184,7 +188,8 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
             if bar is not None and bar > 0:
                 seen = _num(vs.get("tpms_last_seen_pressure_time_" + pos))
                 at = seen if seen and 1e9 < seen <= now else stamp(vs)
-                fields["tire_psi_" + pos] = FieldValue(round(bar * PSI_PER_BAR, 1), min(at, now))
+                fields["tire_psi_" + pos] = (FieldValue(round(bar * PSI_PER_BAR, 1), now, estimated=True) if at is None
+                                             else FieldValue(round(bar * PSI_PER_BAR, 1), at))
         # The car's own TPMS warnings: soft = low pressure, hard = very low. Either one means "this tire needs attention".
         for pos in ("fl", "fr", "rl", "rr"):
             flags = [vs.get(f"tpms_{kind}_warning_{pos}") for kind in ("soft", "hard")]
@@ -214,6 +219,8 @@ def tesla_data_to_state(data: Mapping[str, Any], now: float, *, name: str,
         if zones:
             put("location_zone", zone_for(ds.get("latitude"), ds.get("longitude"), zones), ds)
     fields["asleep"] = FieldValue(False, now)
+    from .state_sources import quarantine_future
+    quarantine_future(fields, now)      # a section time up to 120 s ahead is clamped to now; further ahead: ignored
     for f in FIELD_NAMES:
         fields.setdefault(f, FieldValue(None, None, False))
     # Teslas report their recommended pressure; older firmware may not, and a Model 3/Y placard is 42 psi (90% = 38)
@@ -497,6 +504,9 @@ class TeslaDirectAdapter(CarAdapter):
         self.label = {"teslemetry": "Tesla via Teslemetry",
                       "tessie": "Tesla via Tessie"}[cfg.mode]
         self.stats = {"state_calls": 0, "data_calls": 0, "wake_calls": 0}
+        #: the service's reading + the optional TeslaMate overlay, merged per field (adapters.state_sources; read-only)
+        from .state_sources import StateSources
+        self.state_sources = StateSources(cfg.mode)
 
     # -- capabilities ---------------------------------------------------------------------------------------
     def _can_command(self) -> bool:
@@ -523,7 +533,18 @@ class TeslaDirectAdapter(CarAdapter):
         st.fields["asleep"] = FieldValue(True, now)
         return st
 
+    def vehicle_id(self) -> Optional[str]:
+        return self._cfg.vin or None
+
     def fetch_state(self, now: float) -> VehicleState:
+        """The service's reading (cache-aware, see :meth:`_fetch_own`), then the shared merge with TeslaMate when
+        configured. The merge works on a copy: the adapter's own cache never holds TeslaMate values."""
+        st = self._fetch_own(now)
+        if st is self._cache:
+            st = st.copy()
+        return self.state_sources.apply(st, now, self.vehicle_id())
+
+    def _fetch_own(self, now: float) -> VehicleState:
         with self._lock:
             self._last_seen_now = now
             if now < self._backoff_until:
@@ -594,7 +615,8 @@ class TeslaDirectAdapter(CarAdapter):
             return CommandResult(True, "sent to " + self.label)
 
     def describe(self) -> Dict[str, Any]:
-        return {"kind": self.kind, "label": self.label, "simulated": False, "mode": self._cfg.mode}
+        return {"kind": self.kind, "label": self.label, "simulated": False, "mode": self._cfg.mode,
+                "tested": "against mocks only (not run on a real car)", **self.state_sources.describe()}
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -646,4 +668,7 @@ def build_tesla(ctx: BuildContext, *, client_factory: Any = None) -> TeslaDirect
     if not cfg.token:
         raise AdapterError(f"The {mode.title()} access token is missing. Paste it into Settings → Plugins → Pit Crew → “Tesla · Access token” (or set {ENV_TESLA_TOKEN} in the profile .env)")
     client = client_factory(cfg) if client_factory else LibraryClient(cfg, AsyncRunner())
-    return TeslaDirectAdapter(cfg, client)
+    adapter = TeslaDirectAdapter(cfg, client)
+    from .state_sources import build_state_sources
+    adapter.state_sources = build_state_sources(ctx, mode)
+    return adapter

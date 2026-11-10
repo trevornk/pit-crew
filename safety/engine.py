@@ -286,7 +286,7 @@ class SafetyEngine:
         # -- live: read-back ------------------------------------------------------------------------
         t1 = time.monotonic()
         try:
-            svc.adapter.after_send(svc.now())   # a second state source takes its baseline (TeslaMate next to HA)
+            svc.adapter.after_send(svc.now())   # a second state source takes its baseline (TeslaMate next to any real command adapter)
         except AdapterError as exc:
             logger.info("after_send baseline failed: %s", exc)
         refresh = self._refresh_after_send(spec, settings, already=self._already_fresh(spec, send_args, pre.get("state"))) \

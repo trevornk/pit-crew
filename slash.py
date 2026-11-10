@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from .adapters.base import AdapterError, SecretScopeUnavailable
 from .brain import tires
-from .brain.models import describe_state
+from .brain.models import describe_state, last_reported
 from .brain.timeparse import fmt_clock
 from .constants import DISPLAY_NAME, VERSION
 from .service import get_service
@@ -74,11 +74,17 @@ def _status_card(svc: Any) -> str:
                 "Want to try it first? Set Connection to “simulator” (Settings → Plugins → Pit Crew).")
     now = svc.now()
     v = state.value
+    limit = float(svc.settings.get("stale_after_s"))
+
+    def lr(*names: str) -> Optional[str]:
+        return last_reported(state, names, now, limit)
+
     tag = "  (demo)" if state.simulated and "simulated" not in state.name.lower() else ""
     lines: List[str] = [f"**{state.name}**{tag}"]
     bat = []
     if state.has("battery_pct"):
-        bat.append(f"Battery {v('battery_pct'):.0f}%" + (f" ({v('range_mi'):.0f} mi)" if state.has("range_mi") else ""))
+        bat.append(f"Battery {v('battery_pct'):.0f}%" + (f" ({v('range_mi'):.0f} mi)" if state.has("range_mi") else "")
+                   + (f" (last reported {lr('battery_pct', 'range_mi')})" if lr("battery_pct", "range_mi") else ""))
     cs = v("charging_state")
     if cs == "charging":
         extra = f"Charging {v('charge_power_kw'):.1f} kW" if state.has("charge_power_kw") else "Charging"
@@ -94,13 +100,19 @@ def _status_card(svc: Any) -> str:
         bat.append("Plugged in, NOT charging")
     elif cs == "disconnected":
         bat.append("Not plugged in")
+    cwhen = lr("charging_state", "plugged_in", "charge_power_kw")
+    if cwhen and len(bat) > 1:
+        bat[-1] += f" (last reported {cwhen})"
     if bat:
         lines.append(" · ".join(bat))
     sec = []
     if state.has("locked"):
-        sec.append("Locked" if v("locked") else "UNLOCKED")
+        lwhen = lr("locked")
+        word = "locked" if v("locked") else "unlocked"
+        sec.append(f"Last reported {word} {lwhen}" if lwhen else "Locked" if v("locked") else "UNLOCKED")
     if state.has("location_zone"):
-        sec.append(_where(v("location_zone")))
+        zwhen = lr("location_zone")
+        sec.append(_where(v("location_zone")) + (f" (last reported {zwhen})" if zwhen else ""))
     if state.has("cabin_temp_f"):
         t = f"cabin {v('cabin_temp_f'):.0f}°F"
         if state.has("outside_temp_f"):
@@ -117,7 +129,8 @@ def _status_card(svc: Any) -> str:
         opens.append("trunk open")
     if v("frunk_open"):
         opens.append("frunk open")
-    extras = [("; ".join(opens) if opens else "all closed")]
+    owhen = lr("doors_open", "windows_open", "trunk_open", "frunk_open")
+    extras = [("; ".join(opens) if opens else "all closed") + (f" (last reported {owhen})" if owhen else "")]
     tire_line = tires.summary_line(state, svc.watcher.engine.rule_config(RULES_BY_ID["tire_pressure_low"]).get("min_psi"))
     if tire_line:
         lines.append(tire_line)

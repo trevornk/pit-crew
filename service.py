@@ -308,7 +308,7 @@ class CarService:
                         "hint": "Check the adapter settings (URL, token, entity slug) or switch the adapter to 'simulator'."})
             return out
         now = self.now()
-        out.update({"ok": True, "summary": describe_state(state, now),
+        out.update({"ok": True, "summary": describe_state(state, now, float(self.settings.get("stale_after_s"))),
                     **state.to_public(now, float(self.settings.get("stale_after_s")), self.local_tz())})
         out["safety"] = self.safety_posture()
         warns = self.warnings(state)

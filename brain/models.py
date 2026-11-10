@@ -332,9 +332,49 @@ class VehicleState:
                    fields=fields, simulated=bool(data.get("simulated")))
 
 
-def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
-    """One plain-language, US-units sentence/paragraph about the car (no model turn needed)."""
+def age_text(seconds: float) -> str:
+    """'just now' / '35 min ago' / '3 h ago' / '2 days ago'."""
+    if seconds < 60:
+        return "just now"
+    if seconds < 5400:
+        return f"{int(round(seconds / 60))} min ago"
+    if seconds < 129600:
+        return f"{int(round(seconds / 3600))} h ago"
+    return f"{int(round(seconds / 86400))} days ago"
+
+
+def last_reported(state: VehicleState, names: Iterable[str], now: float, stale_after_s: float = 900.0) -> Optional[str]:
+    """None when every available reading in ``names`` is fresh. Otherwise plain words for how old the oldest stale one is
+    ("35 min ago, before the car went to sleep"; "at an unknown time" when there is no timestamp). Never wakes the car."""
+    worst: Optional[float] = None
+    unknown = False
+    for n in names:
+        fv = state.fields.get(n)
+        if not fv or not fv.available or fv.value is None:
+            continue
+        if fv.updated_at is None:
+            unknown = True
+            continue
+        age = max(0.0, now - fv.updated_at)
+        if age > stale_after_s and (worst is None or age > worst):
+            worst = age
+    if worst is None and not unknown:
+        return None
+    text = "at an unknown time" if worst is None else age_text(worst)
+    sleep = state.fields.get("asleep")
+    if state.value("asleep") is True and worst is not None:
+        # only "before it went to sleep" when the sleep reading is not older than the stale reading
+        slept_at = sleep.changed_at or sleep.updated_at if sleep else None
+        if slept_at is None or slept_at >= now - worst:
+            text += ", before the car went to sleep"
+    return text
+
+
+def describe_state(state: VehicleState, now: Optional[float] = None, stale_after_s: float = 900.0) -> str:
+    """One plain-language, US-units sentence/paragraph about the car (no model turn needed). A reading older than
+    ``stale_after_s`` is worded as "last reported ... ago", never as current fact."""
     now = time.time() if now is None else now
+    lr = lambda *names: last_reported(state, names, now, stale_after_s)  # noqa: E731
     v = state.value
     parts: List[str] = []
     label = plain(state.name, 40) or "The car"
@@ -342,10 +382,13 @@ def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
         bit = f"{label} is at {v('battery_pct'):.0f}% battery"
         if state.has("range_mi"):
             bit += f" ({v('range_mi'):.0f} mi of range)"
+        if lr("battery_pct", "range_mi"):
+            bit += f" (last reported {lr('battery_pct', 'range_mi')})"
         parts.append(bit)
     else:
         parts.append(f"{label}: battery level unknown")
     cs = v("charging_state")
+    n_before_charge = len(parts)
     if cs == "charging":
         bit = "charging"
         if state.has("charge_power_kw"):
@@ -362,10 +405,16 @@ def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
         parts.append("plugged in but not charging")
     elif cs == "disconnected" or v("plugged_in") is False:
         parts.append("not plugged in")
+    when = lr("charging_state", "plugged_in", "charge_power_kw")
+    if when and len(parts) > n_before_charge:
+        parts[-1] += f" (last reported {when})"
     if state.has("locked"):
-        parts.append("locked" if v("locked") else "UNLOCKED")
+        when = lr("locked")
+        word = "locked" if v("locked") else "unlocked"
+        parts.append(f"last reported {word} {when}" if when else word if v("locked") else "UNLOCKED")
     if state.has("location_zone"):
-        parts.append(f"at {plain(v('location_zone'), 40)}")
+        when = lr("location_zone")
+        parts.append(f"at {plain(v('location_zone'), 40)}" + (f" (last reported {when})" if when else ""))
     openings = []
     for key, label_ in (("doors_open", "door"), ("windows_open", "window")):
         val = v(key)
@@ -377,7 +426,10 @@ def describe_state(state: VehicleState, now: Optional[float] = None) -> str:
         openings.append("trunk open")
     if v("frunk_open"):
         openings.append("frunk open")
+    when = lr("doors_open", "windows_open", "trunk_open", "frunk_open")
+    if when:
+        openings = [o + f" (last reported {when})" for o in openings] or [f"nothing was reported open (last reported {when})"]
     parts.extend(openings)
     if state.has("cabin_temp_f"):
-        parts.append(f"cabin {v('cabin_temp_f'):.0f}°F")
+        parts.append(f"cabin {v('cabin_temp_f'):.0f}°F" + (f" (last reported {lr('cabin_temp_f')})" if lr("cabin_temp_f") else ""))
     return "; ".join(parts) + "."

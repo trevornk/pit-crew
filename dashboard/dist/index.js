@@ -70,6 +70,12 @@
   function inapplicable(id, st) {
     const sec = st.security || {}, chg = st.charging || {}, cli = st.climate || {};
     const charging = chg.charging_state === "charging" || chg.charging_state === "starting";
+    // A stale reading is not a reason to grey a button out ("Already locked" from a reading taken before the car slept).
+    const staleF = (st.freshness && st.freshness.stale_fields) || {};
+    const fieldsFor = { lock: ["locked"], unlock: ["locked"], close_windows: ["windows_open"], vent_windows: ["windows_open"], open_trunk: ["trunk_open"],
+      open_frunk: ["frunk_open"], sentry_on: ["sentry_on"], sentry_off: ["sentry_on"], climate_on: ["climate_on"], climate_off: ["climate_on"],
+      charge_start: ["charging_state", "plugged_in"], charge_stop: ["charging_state"] };
+    if ((fieldsFor[id] || []).some(function (f) { return staleF[f] != null; })) return null;
     const map = {
       lock: sec.locked === true && "Already locked", unlock: sec.locked === false && "Already unlocked",
       close_windows: Array.isArray(sec.windows_open) && !sec.windows_open.length && "Windows are already closed",

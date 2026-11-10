@@ -348,9 +348,16 @@ const CHECK_NAMES = { temperature_range: 'Temperature', charge_limit_range: 'Cha
 const plainRefusal = m => String(m || '').split(/\. (?:If the user|Ask the user|Give Pit Crew)/)[0].replace(/ \(Only if you accept.*$/, '').replace(/[.]+$/, '')
 const label = id => (COMMANDS.find(c => c.id === id) || { label: cap(id) }).label
 
+const INAPPLICABLE_FIELDS = {
+  lock: ['locked'], unlock: ['locked'], close_windows: ['windows_open'], vent_windows: ['windows_open'], open_trunk: ['trunk_open'],
+  open_frunk: ['frunk_open'], sentry_on: ['sentry_on'], sentry_off: ['sentry_on'], climate_on: ['climate_on'], climate_off: ['climate_on'],
+  charge_start: ['charging_state', 'plugged_in'], charge_stop: ['charging_state']
+}
 // Why a command makes no sense right now (null = applicable). Based only on what the car last reported.
 function inapplicable(id, v) {
   const { sec, chg, cli } = v
+  // A stale reading is not a reason to grey a button out ("Already locked" from a reading taken before the car slept).
+  if ((INAPPLICABLE_FIELDS[id] || []).some(f => v.staleAge(f))) return null
   const none = a => Array.isArray(a) && a.length === 0
   const charging = chg.charging_state === 'charging' || chg.charging_state === 'starting'
   switch (id) {
@@ -776,7 +783,7 @@ function ChipLabel() {
   }
   const { bat, sec, chg, isStale } = v
   const charging = chg.charging_state === 'charging'
-  const tip = `${v.st.vehicle.name}: ${num(bat.battery_pct)}%${sec.locked === false ? ', UNLOCKED' : ''}${charging ? ', charging' : ''}${isStale ? ' (stale)' : ''} — ${liveText(summary.armed)}`
+  const tip = `${v.st.vehicle.name}: ${num(bat.battery_pct)}%${sec.locked === false ? (v.staleAge('locked') ? `, last reported unlocked ${v.staleAge('locked')}` : ', UNLOCKED') : ''}${charging ? ', charging' : ''}${isStale ? ' (stale)' : ''} — ${liveText(summary.armed)}`
   return h('span', { title: tip, style: { display: 'inline-flex', alignItems: 'center', gap: 4, opacity: isStale ? 0.5 : 1 } },
     charging ? h(Codicon, { name: 'zap' }) : null,
     `${num(bat.battery_pct)}%`,

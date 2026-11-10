@@ -1,6 +1,12 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Old readings are no longer worded as current.** The `car_status` summary, the approval prompt's car line and the `/car` card said
+  "UNLOCKED", "all closed", "at home" and similar even when that reading was far older than *Stale after* (the 00:17 case: a lock
+  reading 36 min old, from before the car fell asleep). A stale or undated reading now reads "last reported unlocked 36 min ago,
+  before the car went to sleep" (fresh readings keep their wording; "UNLOCKED" in capitals only when fresh). The Desktop status-bar
+  tooltip does the same, and the Desktop and web pages no longer grey out Lock/Unlock/etc. from a stale "Already locked" reading.
+  Alerts already skipped stale inputs; the car is never woken to refresh. Safety decisions are unchanged.
 - **Docs.** Fresh simulator screenshots (banner, page, alert, confirmed result, out-of-date panel) in `docs/screenshots/` and the README; the demo script (`docs/DEMO.md`) now uses `live_mode`, any chat app for push alerts, and a field-sources beat.
 - **Choose your connections.** TeslaMate as a fresher state source now works next to **any** real command connection: Home
   Assistant (every profile), Teslemetry or Tessie, merged per field by one shared implementation (never with the simulator).

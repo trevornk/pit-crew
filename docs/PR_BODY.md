@@ -1,13 +1,17 @@
-# Catalog PR description (paste this into the `hermes-agent` PR that adds `plugin-catalog/pit-crew.yaml`)
+## New catalog entry: pit-crew 0.2.0
 
-> Owner checklist before opening the PR: make `trevornk/pit-crew` public; run `hermes plugins validate . --install-deps` in a
-> throwaway Hermes; the screenshots are in `docs/screenshots/`; replace `TODO-SHA` in the entry and fill `sha`.
+* **Repo:** https://github.com/trevornk/pit-crew
+* **Pinned sha:** `<PINNED_SHA>`
+* **requires_hermes:** `>=0.23.0`
+* **Tier / category / platforms / maintainer:** community / automation / all (`platforms: []`) / trevornk
+* **Image and screenshots:** pinned to `<PINNED_SHA>` under `docs/screenshots/` (banner.png, pit-crew-page.png, live-confirmed.png, alert.png)
+* **Demo video:** <VIDEO_URL>
 
-## Add Pit Crew (`pit-crew`) — proactive, safety-gated car agent
+### Add Pit Crew (`pit-crew`) — proactive, safety-gated car agent
 
 Live car state, a "will I be ready for tomorrow?" planner, a background watcher with twelve toggleable rules (including low tire pressure, fast air loss and the car's own tire warning), and commands
 that only run through safety checks enforced in code. Works with Home Assistant (any brand with an HA integration; the
-`tesla_fleet` mapping is built and tested against sanitized recordings of a real car; commands have not been run on a real car yet), direct Teslemetry/Tessie, read-only TeslaMate, or a built-in **simulated
+`tesla_fleet` mapping is built and tested against sanitized recordings of a real car, and its commands have been run on that car), direct Teslemetry/Tessie, read-only TeslaMate, or a built-in **simulated
 car** so a reviewer can try everything with no car. Ships a Desktop page, a web-dashboard page, a `/car` command, three cron
 blueprints and a bundled skill. Try it: `hermes plugins install trevornk/pit-crew`, enable, restart, then `/car` and the
 README quickstart.
@@ -27,10 +31,13 @@ README quickstart.
   every 2 min (15 min while it sleeps) and **never wakes the car**. It only reads; it has no command path.
 * **Storage** — a SQLite file in the plugin's data dir: audit log, alerts, recorded trips/charging sessions (zone names,
   distance, energy, temperature; **no coordinates, no VIN**), simulator state.
-* **Risk** — when live *and* approved this can unlock and open a real car. Commands are in practice mode (nothing sent) by default; going live is explicit,
-  time-boxed (72 h cap); unlock/trunk/frunk/window-vent/Sentry-off/honk/flash need the human's recorded *yes* in **Hermes' own
-  approval prompt** and fail closed when unattended; every command is policy-checked (not moving, fresh state, trusted zone,
-  rate limit, bounded values), read back, and audited.
+* **Risk** — when live this can unlock and open a real car. By default (`live_mode: on_demand`) commands are practice only
+  (nothing sent) until the user goes live, which lasts 1 h by default (15 min - 72 h with `/car live N`) and then switches back;
+  `live_mode: always` sends without going live first (`/car stop` pauses). The agent can never go live itself.
+  Unlock/trunk/frunk/window-vent/Sentry-off/honk/flash go through **Hermes' own approval gate** and follow the user's Hermes
+  approval setting (asked when approvals are on; not asked when off/yolo); the Advanced `require_human_for` setting forces a
+  recorded human *yes* for listed commands even then and refuses when no human answer is available. Unattended runs fail closed.
+  Every command is policy-checked (not moving, fresh state, trusted zone, rate limit, bounded values), read back, and audited.
 * **Optional alert push** — alerts are sent to a Hermes delivery target (`alert_target` / `/car notify`, same as a cron job's `deliver`)
   through Hermes' own cross-platform send: a plain message, no agent turn. With no target, alerts are stored and mentioned on the next turn.
 * **Dependency** — one bounded package, `tesla-fleet-api>=1.5,<2` (Apache-2.0), imported lazily and used only by the direct
@@ -49,10 +56,15 @@ README quickstart.
   mount the API without registering the plugin. `hermes plugins validate` reports "no core override" with no warnings.
 * **Rule 10.** CI (`.github/workflows/ci.yml`) resolves *test tooling* with a release-age quarantine; the plugin's own
   dependency is the single bounded `tesla-fleet-api>=1.5,<2`, checked against Hermes' pins with `pip install --dry-run -c`.
-* **Known limits** (also in the entry's `known_issues`): read-only status has been verified on a real Model Y through Home
-  Assistant, but no command has been run on a real car yet; the BMW and Kia/Hyundai HA profiles are verified against the
-  integrations' source and fixtures, not run on a real car (BMW's integration was removed from HA core in March 2026; the Kia
-  profile targets the kia_uvo HACS custom integration); the direct Tesla adapter is tested against mocks only; the live approval
-  round-trip has been exercised on the CLI and in CI through Hermes' real approval pipeline, not yet on every gateway surface.
-* 652 tests (CI installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins validate .` clean, no binaries,
-  scanner `safe`.
+* **Known limits** (also in the entry's `known_issues`): on the owner's real Model Y through Home Assistant (2026-11-09) twelve
+  no-approval commands and all seven approval-class commands (unlock, trunk, frunk, vent, Sentry off, honk, flash) were sent and
+  the car did each; the approval ones were sent with the owner at the car and Hermes approvals off, so Hermes did not prompt (as
+  designed; the audit records this). On 2026-11-10 the trunk was sent again with `live_mode: always`. The Desktop page and its
+  status-bar toggle (Desktop connected to a remote Hermes), the web-dashboard tab and an alert push to a phone were used live.
+  Not yet exercised live: Hermes' approval prompt with approvals on, on a real gateway surface (chat-app buttons); it is covered
+  in CI against Hermes v0.23.0's real approval pipeline with a scripted human. The BMW and Kia/Hyundai HA profiles are verified
+  against the integrations' source and fixtures, not run on a real car (BMW's integration was removed from HA core in March
+  2026; the Kia profile targets the kia_uvo HACS custom integration); the direct Tesla adapter (Teslemetry/Tessie) is tested
+  against mocks only.
+* 920 tests (CI runs Python 3.11 and 3.12, installs Hermes Agent v0.23.0 and runs them all, none skipped), `hermes plugins
+  validate .` clean, no binaries, scanner `safe`.

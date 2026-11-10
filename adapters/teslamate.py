@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 PAGE_SIZE = 100
 MAX_PAGES = 10
 SLEEPY_STATES = ("asleep", "offline", "suspended")
+ASLEEP_TM_STATES = ("asleep",)          # "suspended" is the car trying to sleep, still awake (existing semantics)
+AWAKE_TM_STATES = ("online", "charging", "driving", "updating", "suspended")
 PARKED_TM_STATES = ("asleep", "online", "charging", "suspended", "updating")   # same allowlist as the HA adapter
 
 
@@ -224,7 +226,12 @@ def status_to_state(data: Mapping[str, Any], name: str, now: float, source: str 
     if speed is not None:
         put("speed_mph", speed * mult_mi)
         put("moving", speed * mult_mi > 1.0)
-    put("asleep", tm_state in ("asleep", "offline"))
+    # asleep -> True; online/charging/driving/updating/suspended -> False. "offline" (and anything unknown) is NOT a
+    # reading: a moving car can lose coverage, so it is unknown, never "asleep" and never parked evidence (Nov 8 rule).
+    if tm_state in ASLEEP_TM_STATES:
+        put("asleep", True)
+    elif tm_state in AWAKE_TM_STATES:
+        put("asleep", False)
     if isinstance(ver.get("update_available"), bool):
         put("software_update_available", ver["update_available"])
     put("software_version", ver.get("version") or None)
@@ -262,7 +269,8 @@ class TeslaMateLive(CarAdapter):
 
 #: Fields the overlay may take from TeslaMate when its reading is newer than Home Assistant's.
 OVERLAY_FIELDS = ("locked", "doors_open", "windows_open", "trunk_open", "frunk_open", "sentry_on", "shift_state",
-                  "speed_mph", "moving", "location_zone", "charging_state", "charge_power_kw", "battery_pct", "range_mi")
+                  "speed_mph", "moving", "location_zone", "charging_state", "charge_power_kw", "battery_pct", "range_mi",
+                  "asleep", "user_present")
 MOTION_FIELDS = ("shift_state", "speed_mph", "moving")
 #: TeslaMateApi's /status has NO per-field or per-poll time (only ``state_since``, when the car's state last changed;
 #: verified in teslamateapi src/v1_TeslaMateAPICarsStatus.go @ 3e158df). While the car is awake TeslaMate keeps polling
@@ -318,6 +326,11 @@ class TeslaMateOverlay:
             for name in OVERLAY_FIELDS:
                 fv = st.fields.get(name)
                 if fv is None or not fv.available:
+                    continue
+                if name == "asleep" and since is not None:
+                    # the state itself changed at state_since: a real time (awake or asleep), not an estimate
+                    fv.updated_at, fv.estimated, fv.source = min(now, since), False, "teslamate"
+                    self._seen[name] = (fv.value, now, min(now, since))
                     continue
                 base = since if sleepy else now - TM_AWAKE_AGE_S
                 prev = self._seen.get(name)

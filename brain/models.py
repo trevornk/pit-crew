@@ -220,7 +220,9 @@ class VehicleState:
             vote("shift_state", shift.upper() in ("D", "R", "N"))
         if self.value("plugged_in") is True:
             vote("plugged_in", False)
-        if self.value("asleep") is True:
+        asleep_fv = self.fields.get("asleep")
+        if self.value("asleep") is True and not (asleep_fv is not None and asleep_fv.estimated):
+            # (an ESTIMATED stamp, e.g. TeslaMate without state_since, is not proof of when the car fell asleep)
             # A sleeping car is parked (a Tesla cannot sleep in drive), so a FRESH "asleep" reading is parked evidence
             # even when speed/gear are stale. Any reading saying D/R/N or speed > 0 (even a stale one) still wins above.
             vote("asleep", False)

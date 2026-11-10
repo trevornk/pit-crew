@@ -7,8 +7,6 @@ import pathlib
 import sys
 import tokenize
 
-import pytest
-
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
@@ -22,8 +20,12 @@ def test_every_file_parses_with_the_3_11_grammar():
         ast.parse(p.read_text(), str(p), feature_version=(3, 11))
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="3.11 itself rejects these at compile time (the parse test above)")
 def test_no_pep701_only_fstrings():
+    if sys.version_info < (3, 12):
+        # On 3.11 the running interpreter's own grammar is the authority: compile every file for real.
+        for p in repo_py_files():
+            compile(p.read_text(), str(p), "exec")
+        return
     bad = []
     for p in repo_py_files():
         stack = []                       # quote chars of the f-strings we are currently inside

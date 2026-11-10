@@ -205,7 +205,7 @@ class ApprovalGate:
         state = pre["state"]
         lines = [f"Pit Crew wants to send: {spec.name.upper().replace('_', ' ')}"
                  + (f" {', '.join(f'{k}={v}' for k, v in clean.items() if k not in ('override_zone', 'wake_ok'))}" if clean else ""),
-                 f"Car: {describe_state(state, svc.now(), float(svc.settings.get("stale_after_s")))}"]
+                 f"Car: {describe_state(state, svc.now(), float(svc.settings.get('stale_after_s')))}"]
         if reason:
             shown = " ".join(str(reason).split())[:120]
             lines.append(f"Model's stated reason (unverified): {shown}")

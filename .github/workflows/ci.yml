@@ -14,6 +14,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Hermes supports Python >= 3.11: run the tests on the oldest and a newer interpreter
+        python: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -34,7 +39,7 @@ jobs:
 
       - name: Python test tools with a release-age quarantine (catalog rule 10)
         run: |
-          uv venv --python 3.12 "$RUNNER_TEMP/ci-venv"
+          uv venv --python ${{ matrix.python }} "$RUNNER_TEMP/ci-venv"
           uv pip install --python "$RUNNER_TEMP/ci-venv/bin/python" --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
 
       - name: Hermes Agent ${{ env.HERMES_TAG }} (pinned commit, installed from its own uv.lock)

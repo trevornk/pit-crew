@@ -173,7 +173,7 @@ class SafetyEngine:
                    if paused else
                    "To send real commands, go live (`/car live`, or the Go live button on the Pit Crew page); or set "
                    "Safety · Live mode to 'always' in Pit Crew settings to skip this step.")
-            msg = (f"PRACTICE RUN — {label.replace("_", " ")} passed all safety checks, but {why}, so the car was NOT contacted.{need} "
+            msg = (f"PRACTICE RUN — {label.replace('_', ' ')} passed all safety checks, but {why}, so the car was NOT contacted.{need} "
                    + how)
             if spec.caution and args.get("on", True):
                 msg += " Heads-up: " + spec.caution

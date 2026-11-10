@@ -370,25 +370,43 @@ def last_reported(state: VehicleState, names: Iterable[str], now: float, stale_a
     return text
 
 
+def share_ages(items: List[Any]) -> Any:
+    """``items``: (text, when, solo) triples; ``when`` is None for a fresh reading, else its last_reported() words, and ``solo``
+    (default: ``text`` plus a "(last reported …)" tag) is how the part reads on its own. Returns ``(texts, shared)``. When two
+    or more stale parts have the same ``when``, that age is ``shared``: the caller says it ONCE for the whole sentence and
+    those parts keep their plain text; parts with a different age keep their own tag."""
+    counts: Dict[str, int] = {}
+    for _t, when, _s in items:
+        if when:
+            counts[when] = counts.get(when, 0) + 1
+    shared = max(counts, key=lambda k: counts[k]) if counts and max(counts.values()) >= 2 else None
+    out = []
+    for text, when, solo in items:
+        if not when or when == shared:
+            out.append(text)
+        else:
+            out.append(solo or f"{text} (last reported {when})")
+    return out, shared
+
+
 def describe_state(state: VehicleState, now: Optional[float] = None, stale_after_s: float = 900.0) -> str:
     """One plain-language, US-units sentence/paragraph about the car (no model turn needed). A reading older than
-    ``stale_after_s`` is worded as "last reported ... ago", never as current fact."""
+    ``stale_after_s`` is worded as "last reported ... ago", never as current fact; an age common to several parts is said once
+    at the end of the sentence."""
     now = time.time() if now is None else now
     lr = lambda *names: last_reported(state, names, now, stale_after_s)  # noqa: E731
     v = state.value
-    parts: List[str] = []
+    parts: List[Any] = []
     label = plain(state.name, 40) or "The car"
     if state.has("battery_pct"):
         bit = f"{label} is at {v('battery_pct'):.0f}% battery"
         if state.has("range_mi"):
             bit += f" ({v('range_mi'):.0f} mi of range)"
-        if lr("battery_pct", "range_mi"):
-            bit += f" (last reported {lr('battery_pct', 'range_mi')})"
-        parts.append(bit)
+        parts.append((bit, lr("battery_pct", "range_mi"), None))
     else:
-        parts.append(f"{label}: battery level unknown")
+        parts.append((f"{label}: battery level unknown", None, None))
     cs = v("charging_state")
-    n_before_charge = len(parts)
+    cwhen = lr("charging_state", "plugged_in", "charge_power_kw")
     if cs == "charging":
         bit = "charging"
         if state.has("charge_power_kw"):
@@ -398,23 +416,22 @@ def describe_state(state: VehicleState, now: Optional[float] = None, stale_after
         eta = v("charge_eta_min")
         if isinstance(eta, (int, float)) and eta > 0:
             bit += f", about {int(eta // 60)}h {int(eta % 60):02d}m to go"
-        parts.append(bit)
+        parts.append((bit, cwhen, None))
     elif cs == "complete":
-        parts.append("charging is complete")
+        parts.append(("charging is complete", cwhen, None))
     elif cs == "stopped" and v("plugged_in"):
-        parts.append("plugged in but not charging")
+        parts.append(("plugged in but not charging", cwhen, None))
     elif cs == "disconnected" or v("plugged_in") is False:
-        parts.append("not plugged in")
-    when = lr("charging_state", "plugged_in", "charge_power_kw")
-    if when and len(parts) > n_before_charge:
-        parts[-1] += f" (last reported {when})"
+        parts.append(("not plugged in", cwhen, None))
     if state.has("locked"):
         when = lr("locked")
         word = "locked" if v("locked") else "unlocked"
-        parts.append(f"last reported {word} {when}" if when else word if v("locked") else "UNLOCKED")
+        if when:
+            parts.append((word, when, f"last reported {word} {when}"))   # never a bare capitalised UNLOCKED when stale
+        else:
+            parts.append((word if v("locked") else "UNLOCKED", None, None))
     if state.has("location_zone"):
-        when = lr("location_zone")
-        parts.append(f"at {plain(v('location_zone'), 40)}" + (f" (last reported {when})" if when else ""))
+        parts.append((f"at {plain(v('location_zone'), 40)}", lr("location_zone"), None))
     openings = []
     for key, label_ in (("doors_open", "door"), ("windows_open", "window")):
         val = v(key)
@@ -426,10 +443,12 @@ def describe_state(state: VehicleState, now: Optional[float] = None, stale_after
         openings.append("trunk open")
     if v("frunk_open"):
         openings.append("frunk open")
-    when = lr("doors_open", "windows_open", "trunk_open", "frunk_open")
-    if when:
-        openings = [o + f" (last reported {when})" for o in openings] or [f"nothing was reported open (last reported {when})"]
-    parts.extend(openings)
+    owhen = lr("doors_open", "windows_open", "trunk_open", "frunk_open")
+    if owhen:
+        parts.extend((o, owhen, None) for o in (openings or ["nothing was reported open"]))
+    else:
+        parts.extend((o, None, None) for o in openings)
     if state.has("cabin_temp_f"):
-        parts.append(f"cabin {v('cabin_temp_f'):.0f}°F" + (f" (last reported {lr('cabin_temp_f')})" if lr("cabin_temp_f") else ""))
-    return "; ".join(parts) + "."
+        parts.append((f"cabin {v('cabin_temp_f'):.0f}°F", lr("cabin_temp_f"), None))
+    texts, shared = share_ages(parts)
+    return "; ".join(texts) + (f" — last reported {shared}." if shared else ".")

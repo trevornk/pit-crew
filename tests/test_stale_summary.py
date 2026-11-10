@@ -63,25 +63,47 @@ def test_before_sleep_clause_needs_the_sleep_to_be_newer_than_the_reading():
     assert last_reported(st, ["locked"], 10000.0).endswith("before the car went to sleep")
 
 
-def test_stale_openings_charging_battery_and_zone_are_hedged():
+def test_one_shared_age_is_said_once_at_the_end():
+    st = VehicleState(name="Lil T", source="t", captured_at=10000.0)
+    old = 10000.0 - 2130
+    st.fields.update(battery_pct=FieldValue(71, old), range_mi=FieldValue(198, old), plugged_in=FieldValue(False, old),
+                     locked=FieldValue(False, old), location_zone=FieldValue("home", old), cabin_temp_f=FieldValue(70, old),
+                     asleep=FieldValue(True, 10000.0 - 100))
+    text = describe_state(st, 10000.0)
+    assert text == ("Lil T is at 71% battery (198 mi of range); not plugged in; unlocked; at home; cabin 70°F"
+                    " — last reported 36 min ago, before the car went to sleep.")
+    assert text.count("last reported") == 1 and "UNLOCKED" not in text
+
+
+def test_parts_with_a_different_age_keep_their_own_tag():
     st = VehicleState(name="T", source="t", captured_at=10000.0)
     old = 10000.0 - 7200
     st.fields.update(doors_open=FieldValue(["front_left"], old), windows_open=FieldValue([], old), battery_pct=FieldValue(71, old),
                      charging_state=FieldValue("stopped", old), plugged_in=FieldValue(True, old),
-                     location_zone=FieldValue("home", old))
+                     location_zone=FieldValue("home", 10000.0 - 3600), locked=FieldValue(False, 10000.0 - 20))
     text = describe_state(st, 10000.0)
-    assert "door(s) open: front_left (last reported 2 h ago)" in text
-    assert "71% battery (last reported 2 h ago)" in text
-    assert "plugged in but not charging (last reported 2 h ago)" in text
-    assert "at home (last reported 2 h ago)" in text
+    assert text == ("T is at 71% battery; plugged in but not charging; UNLOCKED; at home (last reported 60 min ago);"
+                    " door(s) open: front_left — last reported 2 h ago.")
+
+
+def test_a_lone_stale_lock_stays_explicit():
+    st = VehicleState(name="T", source="t", captured_at=10000.0)
+    st.fields.update(battery_pct=FieldValue(71, 10000.0), locked=FieldValue(False, 10000.0 - 2130))
+    assert describe_state(st, 10000.0) == "T is at 71% battery; last reported unlocked 36 min ago."
 
 
 def test_slash_car_card_hedges_stale_lock_and_closed(stub_service, stub):
     svc_stale_unlocked(stub_service, stub)
     stub.ages["doors_open"] = stub.ages["windows_open"] = stub.ages["trunk_open"] = stub.ages["frunk_open"] = 2130.0
     card = slash.handle("")
+    assert "UNLOCKED" not in card and "Unlocked" in card and "all closed" in card
+    assert card.count("ast reported") == 1 and "Last reported 36 min ago, before the car went to sleep" in card
+
+
+def test_slash_card_lone_stale_lock_is_explicit(stub_service, stub):
+    svc_stale_unlocked(stub_service, stub)
+    card = slash.handle("")
     assert "Last reported unlocked 36 min ago, before the car went to sleep" in card and "UNLOCKED" not in card
-    assert "all closed (last reported 36 min ago" in card
 
 
 def test_slash_car_card_fresh_unchanged(stub_service, stub):

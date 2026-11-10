@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from .adapters.base import AdapterError, SecretScopeUnavailable
 from .brain import tires
-from .brain.models import describe_state, last_reported
+from .brain.models import describe_state, last_reported, share_ages
 from .brain.timeparse import fmt_clock
 from .constants import DISPLAY_NAME, VERSION
 from .service import get_service
@@ -83,9 +83,10 @@ def _status_card(svc: Any) -> str:
     lines: List[str] = [f"**{state.name}**{tag}"]
     bat = []
     if state.has("battery_pct"):
-        bat.append(f"Battery {v('battery_pct'):.0f}%" + (f" ({v('range_mi'):.0f} mi)" if state.has("range_mi") else "")
-                   + (f" (last reported {lr('battery_pct', 'range_mi')})" if lr("battery_pct", "range_mi") else ""))
+        bat.append((f"Battery {v('battery_pct'):.0f}%" + (f" ({v('range_mi'):.0f} mi)" if state.has("range_mi") else ""),
+                    lr("battery_pct", "range_mi"), None))
     cs = v("charging_state")
+    cwhen = lr("charging_state", "plugged_in", "charge_power_kw")
     if cs == "charging":
         extra = f"Charging {v('charge_power_kw'):.1f} kW" if state.has("charge_power_kw") else "Charging"
         if state.has("charge_limit_pct"):
@@ -93,33 +94,28 @@ def _status_card(svc: Any) -> str:
         eta = v("charge_eta_min")
         if isinstance(eta, (int, float)) and eta > 0:
             extra += f" (done ~{fmt_clock(svc.local_dt(now + eta * 60))})"
-        bat.append(extra)
+        bat.append((extra, cwhen, None))
     elif cs == "complete":
-        bat.append("Charge complete")
+        bat.append(("Charge complete", cwhen, None))
     elif cs == "stopped":
-        bat.append("Plugged in, NOT charging")
+        bat.append(("Plugged in, NOT charging", cwhen, None))
     elif cs == "disconnected":
-        bat.append("Not plugged in")
-    cwhen = lr("charging_state", "plugged_in", "charge_power_kw")
-    if cwhen and len(bat) > 1:
-        bat[-1] += f" (last reported {cwhen})"
-    if bat:
-        lines.append(" · ".join(bat))
+        bat.append(("Not plugged in", cwhen, None))
     sec = []
     if state.has("locked"):
         lwhen = lr("locked")
         word = "locked" if v("locked") else "unlocked"
-        sec.append(f"Last reported {word} {lwhen}" if lwhen else "Locked" if v("locked") else "UNLOCKED")
+        if lwhen:
+            sec.append((word.capitalize(), lwhen, f"Last reported {word} {lwhen}"))   # never a bare UNLOCKED when stale
+        else:
+            sec.append(("Locked" if v("locked") else "UNLOCKED", None, None))
     if state.has("location_zone"):
-        zwhen = lr("location_zone")
-        sec.append(_where(v("location_zone")) + (f" (last reported {zwhen})" if zwhen else ""))
+        sec.append((_where(v("location_zone")), lr("location_zone"), None))
     if state.has("cabin_temp_f"):
         t = f"cabin {v('cabin_temp_f'):.0f}°F"
         if state.has("outside_temp_f"):
             t += f", outside {v('outside_temp_f'):.0f}°F"
-        sec.append(t)
-    if sec:
-        lines.append(" · ".join(sec))
+        sec.append((t, lr("cabin_temp_f"), None))
     opens = []
     for key, name in (("doors_open", "doors"), ("windows_open", "windows")):
         val = v(key)
@@ -130,17 +126,26 @@ def _status_card(svc: Any) -> str:
     if v("frunk_open"):
         opens.append("frunk open")
     owhen = lr("doors_open", "windows_open", "trunk_open", "frunk_open")
-    extras = [("; ".join(opens) if opens else "all closed") + (f" (last reported {owhen})" if owhen else "")]
+    extras = [("; ".join(opens) if opens else "all closed", owhen, None)]
     tire_line = tires.summary_line(state, svc.watcher.engine.rule_config(RULES_BY_ID["tire_pressure_low"]).get("min_psi"))
+    if state.has("sentry_on"):
+        extras.append(("Sentry on" if v("sentry_on") else "Sentry off", lr("sentry_on"), None))
+    if v("software_update_available"):
+        extras.append(("software update waiting", lr("software_update_available"), None))
+    if v("asleep"):
+        extras.append(("asleep", None, None))
+    # an age several parts share is said once, below the readings; a part with a different age keeps its own tag
+    texts, shared = share_ages(bat + sec + extras)
+    bat_t, sec_t, extras_t = texts[:len(bat)], texts[len(bat):len(bat) + len(sec)], texts[len(bat) + len(sec):]
+    if bat_t:
+        lines.append(" · ".join(bat_t))
+    if sec_t:
+        lines.append(" · ".join(sec_t))
     if tire_line:
         lines.append(tire_line)
-    if state.has("sentry_on"):
-        extras.append("Sentry on" if v("sentry_on") else "Sentry off")
-    if v("software_update_available"):
-        extras.append("software update waiting")
-    if v("asleep"):
-        extras.append("asleep")
-    lines.append(" · ".join(extras))
+    lines.append(" · ".join(extras_t))
+    if shared:
+        lines.append(f"Last reported {shared}, for the readings above that are not marked otherwise.")
     info = svc.armed_info()
     if info["state"] == "always":
         lines.append("Mode: Live: always on — Hermes can send commands (unlock, trunk and similar follow your Hermes approval "

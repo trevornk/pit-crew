@@ -332,6 +332,9 @@ class VehicleState:
                    fields=fields, simulated=bool(data.get("simulated")))
 
 
+SLEEP_CLAUSE = ", before the car went to sleep"
+
+
 def age_text(seconds: float) -> str:
     """'just now' / '35 min ago' / '3 h ago' / '2 days ago'."""
     if seconds < 60:
@@ -366,13 +369,14 @@ def last_reported(state: VehicleState, names: Iterable[str], now: float, stale_a
         # only "before it went to sleep" when the sleep reading is not older than the stale reading
         slept_at = sleep.changed_at or sleep.updated_at if sleep else None
         if slept_at is None or slept_at >= now - worst:
-            text += ", before the car went to sleep"
+            text += SLEEP_CLAUSE
     return text
 
 
 def share_ages(items: List[Any]) -> Any:
     """``items``: (text, when, solo) triples; ``when`` is None for a fresh reading, else its last_reported() words, and ``solo``
-    (default: ``text`` plus a "(last reported …)" tag) is how the part reads on its own. Returns ``(texts, shared)``. When two
+    (default: ``text`` plus a "(last reported …)" tag) is how the part reads on its own. A part with an explicit ``solo`` (the
+    lock) is always shown that way, inline, and never folded into the shared tail (it still counts toward there being one). Returns ``(texts, shared)``. When two
     or more stale parts have the same ``when``, that age is ``shared``: the caller says it ONCE for the whole sentence and
     those parts keep their plain text; parts with a different age keep their own tag."""
     counts: Dict[str, int] = {}
@@ -382,7 +386,10 @@ def share_ages(items: List[Any]) -> Any:
     shared = max(counts, key=lambda k: counts[k]) if counts and max(counts.values()) >= 2 else None
     out = []
     for text, when, solo in items:
-        if not when or when == shared:
+        if when and solo is not None:
+            # the lock: ALWAYS inline, never folded into the tail; its sleep clause is dropped when the tail already says it
+            out.append(solo.replace(SLEEP_CLAUSE, "") if when == shared else solo)
+        elif not when or when == shared:
             out.append(text)
         else:
             out.append(solo or f"{text} (last reported {when})")

@@ -70,9 +70,23 @@ def test_one_shared_age_is_said_once_at_the_end():
                      locked=FieldValue(False, old), location_zone=FieldValue("home", old), cabin_temp_f=FieldValue(70, old),
                      asleep=FieldValue(True, 10000.0 - 100))
     text = describe_state(st, 10000.0)
-    assert text == ("Lil T is at 71% battery (198 mi of range); not plugged in; unlocked; at home; cabin 70°F"
+    assert text == ("Lil T is at 71% battery (198 mi of range); not plugged in; last reported unlocked 36 min ago; at home; cabin 70°F"
                     " — last reported 36 min ago, before the car went to sleep.")
-    assert text.count("last reported") == 1 and "UNLOCKED" not in text
+    assert "UNLOCKED" not in text and "; unlocked;" not in text
+
+
+def test_the_real_0017_case():
+    """Everything ~2130 s old, car asleep: lock inline and explicit, the rest share one tail, no repeated tags."""
+    st = VehicleState(name="Lil T", source="t", captured_at=100000.0)
+    old = 100000.0 - 2130
+    st.fields.update(battery_pct=FieldValue(71, old), range_mi=FieldValue(198, old), charging_state=FieldValue("disconnected", old),
+                     plugged_in=FieldValue(False, old), locked=FieldValue(False, old), doors_open=FieldValue([], old),
+                     windows_open=FieldValue([], old), trunk_open=FieldValue(False, old), frunk_open=FieldValue(False, old),
+                     location_zone=FieldValue("home", old), cabin_temp_f=FieldValue(70, old), asleep=FieldValue(True, 100000.0 - 60))
+    text = describe_state(st, 100000.0)
+    assert text == ("Lil T is at 71% battery (198 mi of range); not plugged in; last reported unlocked 36 min ago; "
+                    "at home; nothing was reported open; cabin 70°F — last reported 36 min ago, before the car went to sleep.")
+    assert "UNLOCKED" not in text and text.count("went to sleep") == 1 and text.count("— last reported") == 1
 
 
 def test_parts_with_a_different_age_keep_their_own_tag():
@@ -96,8 +110,9 @@ def test_slash_car_card_hedges_stale_lock_and_closed(stub_service, stub):
     svc_stale_unlocked(stub_service, stub)
     stub.ages["doors_open"] = stub.ages["windows_open"] = stub.ages["trunk_open"] = stub.ages["frunk_open"] = 2130.0
     card = slash.handle("")
-    assert "UNLOCKED" not in card and "Unlocked" in card and "all closed" in card
-    assert card.count("ast reported") == 1 and "Last reported 36 min ago, before the car went to sleep" in card
+    assert "UNLOCKED" not in card and "Last reported unlocked 36 min ago" in card and "all closed" in card
+    assert "Unlocked" not in card and card.count("went to sleep") == 1
+    assert "Last reported 36 min ago, before the car went to sleep" in card
 
 
 def test_slash_card_lone_stale_lock_is_explicit(stub_service, stub):

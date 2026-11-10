@@ -77,6 +77,9 @@ class CarAdapter(ABC):
     kind: str = "base"
     label: str = "Car"
     simulated: bool = False
+    #: the state side of a real command adapter (:class:`adapters.state_sources.StateSources`: its own reading plus the
+    #: optional TeslaMate overlay, merged per field). None for the simulator, TeslaMate itself and third-party adapters.
+    state_sources: Any = None
 
     @abstractmethod
     def capabilities(self) -> Capabilities: ...
@@ -85,7 +88,22 @@ class CarAdapter(ABC):
     def fetch_state(self, now: float) -> VehicleState: ...
 
     def send_command(self, command: str, args: Mapping[str, Any]) -> CommandResult:
-        raise CommandNotSupported(f"{self.label} cannot perform '{command}'")
+        raise CommandNotSupported(self.unsupported_reason(command))
+
+    def unsupported_reason(self, command: str) -> str:
+        """Plain words for a command this connection cannot send (shown to the user as is)."""
+        return f"{self.label} cannot perform '{command}'"
+
+    def vehicle_id(self) -> Optional[str]:
+        """A stable id of the car this adapter controls (its VIN), when it knows one; else None. Used only to make sure a
+        second state source describes the same car; never logged or shown."""
+        return None
+
+    def state_source_names(self) -> List[str]:
+        """Where this adapter's state comes from, e.g. ``["home_assistant", "teslamate"]``; default: its own kind."""
+        if self.state_sources is not None:
+            return self.state_sources.names()
+        return [self.kind]
 
     def clock(self) -> Optional[float]:
         """Adapters that run on their own clock (the simulator) return it; others return None."""
@@ -113,11 +131,14 @@ class CarAdapter(ABC):
         raise CommandNotSupported(f"{self.label} cannot request a re-read")
 
     def after_send(self, now: float) -> None:
-        """Called right after a command was accepted (before the read-back), with the current time. Adapters with a second state source take a
-        baseline there, so a later change can be proven to have been reported after the command. Default: nothing."""
+        """Called right after a command was accepted (before the read-back), with the current time. A second state source
+        (TeslaMate) takes a baseline there, so a later change can be proven to have been reported after the command."""
+        if self.state_sources is not None:
+            self.state_sources.baseline(now)
 
     def describe(self) -> Dict[str, Any]:
-        return {"kind": self.kind, "label": self.label, "simulated": self.simulated}
+        return {"kind": self.kind, "label": self.label, "simulated": self.simulated,
+                "state_sources": self.state_source_names()}
 
     def close(self) -> None:
         """Release threads / sessions. Called when the adapter is replaced or the plugin unloads. Default: nothing."""

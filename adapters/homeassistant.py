@@ -71,7 +71,7 @@ class HomeAssistantAdapter(CarAdapter):
 
     def __init__(self, base_url: str, token: Optional[str], profile: Dict[str, Any], slug: str,
                  name: str = "", overrides: Optional[Mapping[str, str]] = None, verify_tls: bool = True,
-                 timeout: float = 10.0, overlay: Any = None) -> None:
+                 timeout: float = 10.0, sources: Any = None) -> None:
         self._base = normalize_base_url(base_url, "Home Assistant")
         if not token:
             raise AdapterError("Home Assistant access token is missing. Paste a long-lived token into Settings → Plugins → Pit Crew → “Home Assistant · Access token” (or set "+ENV_HA_TOKEN+" in the profile .env)")
@@ -83,8 +83,9 @@ class HomeAssistantAdapter(CarAdapter):
         self._slug = slug
         self._name = name or self._slug.replace("_", " ").title()
         self._overrides = dict(overrides or {})
-        #: optional TeslaMate overlay (adapters.teslamate.TeslaMateOverlay): fresher readings merged per field; read-only
-        self._overlay = overlay
+        #: Home Assistant's reading + the optional TeslaMate overlay, merged per field (adapters.state_sources; read-only)
+        from .state_sources import StateSources
+        self.state_sources = sources if sources is not None else StateSources("home_assistant")
         self._verify = verify_tls
         self._timeout = timeout
         self._lock = threading.RLock()
@@ -382,7 +383,7 @@ class HomeAssistantAdapter(CarAdapter):
         absent = [e for _, e in wanted if e not in self._states]
         driving_eid = self._moving_state_entity()
         have_driving = bool(driving_eid and driving_eid in self._states)
-        if not absent or have_driving or (self._overlay is not None and self._overlay.last_error is None):
+        if not absent or have_driving or self.state_sources.overlay_ok:
             return []     # (TeslaMate next to HA reports speed and gear)
         return ["Unlock, trunk, frunk and window-vent are blocked until the car's motion can be confirmed. "
                 + self.motion_hint() + " Missing entities: " + ", ".join(absent) + "."]
@@ -465,37 +466,14 @@ class HomeAssistantAdapter(CarAdapter):
                 cstate is None or not cstate.available or cstate.value in ("stopped", "unknown")):
             fields["charging_state"] = FieldValue("disconnected", plug.updated_at)
         self._confirm_while_online(fields, now, self._refresh_fields())
-        if self._overlay is not None:
-            self._merge_overlay(fields, hints, now)
         for name in FIELD_NAMES:
             fields.setdefault(name, FieldValue(None, None, False))
         if self._profile.get("tire_min_psi_default"):
             hints["tire_min_psi"] = float(self._profile["tire_min_psi_default"])
-        return VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields, hints=hints)
-
-    def _merge_overlay(self, fields: Dict[str, FieldValue], hints: Dict[str, Any], now: float) -> None:
-        from .teslamate import MOTION_FIELDS, OVERLAY_FIELDS, SOURCE_NOTE, TM_AWAKE_AGE_S, _says_moving
-        tm = self._overlay.read(now)
-        if tm is None:
-            hints["source_note"] = (f"TeslaMate could not be read ({scrub(str(self._overlay.last_error))}); these "
-                                    "readings are Home Assistant's only.")
-            for n in OVERLAY_FIELDS:
-                if n in fields and fields[n].available:
-                    fields[n].source = "home_assistant"
-            return
-        self._overlay.merge(fields, tm, hints.get("car_reported_at"))
-        hints["source_note"] = SOURCE_NOTE.format(age=int(TM_AWAKE_AGE_S))
-        # any source saying moving wins (fail closed), whatever its age
-        moving = [fields[n] for n in MOTION_FIELDS if fields.get(n) is not None and fields[n].available
-                  and _says_moving(n, fields[n].value)]
-        if moving:
-            newest = max(moving, key=lambda f: f.updated_at or now)
-            fields["moving"] = FieldValue(True, newest.updated_at or now, source=newest.source, estimated=newest.estimated)
-
-    def after_send(self, now: float) -> None:
-        """TeslaMate baseline right after a command was accepted: a change TeslaMate shows later was reported after it."""
-        if self._overlay is not None:
-            self._overlay.baseline(now)
+        st = VehicleState(name=self._name, source=self.kind, captured_at=now, fields=fields, hints=hints)
+        # shared with every real adapter: future stamps quarantined, then TeslaMate merged per field when configured.
+        # HA's /api/states carries no VIN, so the identity check cannot run here (vehicle_id() is None).
+        return self.state_sources.apply(st, now, self.vehicle_id())
 
     # -- capabilities ---------------------------------------------------------------------
     def capabilities(self) -> Capabilities:
@@ -635,18 +613,17 @@ class HomeAssistantAdapter(CarAdapter):
     def describe(self) -> Dict[str, Any]:
         out = {"kind": self.kind, "label": self.label, "simulated": False, "tested_profile": self.tested,
                "profile": self._profile.get("name"), "host": scrub(self._base)}
-        if self._overlay is not None:
-            out["fresher_state_from"] = "teslamate (read-only)"
+        out.update(self.state_sources.describe())
         return out
 
 
 def build_homeassistant(ctx: BuildContext) -> HomeAssistantAdapter:
     s = ctx.settings
-    from .teslamate import build_teslamate_overlay
+    from .state_sources import build_state_sources
 
     profile = load_profile(str(s.get("ha_profile") or "tesla_fleet"))
     return HomeAssistantAdapter(
         base_url=str(s.get("ha_url") or ""), token=ctx.secret(ENV_HA_TOKEN), profile=profile,
         slug=str(s.get("ha_slug") or ""), name=str(s.get("car_name") or ""),
         overrides=s.get("ha_entity_overrides") or {}, verify_tls=bool(s.get("ha_verify_tls", True)),
-        overlay=build_teslamate_overlay(ctx))
+        sources=build_state_sources(ctx, "home_assistant"))

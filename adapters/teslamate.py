@@ -4,8 +4,9 @@ Only ``GET`` requests to ``/api/v1/cars``, ``/cars/:id/status``, ``/cars/:id/dri
 ``/cars/:id/charges`` and ``/cars/:id/battery-health`` are ever made. TeslaMateApi's command
 endpoints are never called (there is intentionally no code path that can), which the tests assert.
 
-It can serve as a history provider next to a Home Assistant live adapter, or alone as a read-only
-live-state adapter (no commands).
+Three uses: a history provider; an optional fresher *state* source next to any real command connection (Home
+Assistant, direct Teslemetry, direct Tessie; merged by :mod:`adapters.state_sources`); or alone as a read-only live-state
+adapter (no commands).
 """
 
 from __future__ import annotations
@@ -19,8 +20,8 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from ..brain.commands import Capabilities
 from ..brain.models import FIELD_NAMES, FieldValue, VehicleState
 from ..constants import ENV_TESLAMATE_TOKEN
-from .base import (AdapterError, BatteryHealth, BuildContext, CarAdapter, ChargeRecord, DriveRecord,
-                   HistoryProvider)
+from .base import (AdapterError, BatteryHealth, BuildContext, CarAdapter, ChargeRecord, CommandNotSupported,
+                   DriveRecord, HistoryProvider)
 from .http import json_request, normalize_base_url
 
 logger = logging.getLogger(__name__)
@@ -243,8 +244,13 @@ def status_to_state(data: Mapping[str, Any], name: str, now: float, source: str 
     return VehicleState(name=name, source=source, captured_at=now, fields=fields)
 
 
+READ_ONLY_REASON = ("TeslaMate is read-only; pick Home Assistant, Teslemetry or Tessie under Which car to send "
+                    "commands")
+
+
 class TeslaMateLive(CarAdapter):
-    """Read-only live state from TeslaMateApi ``/status`` (no commands)."""
+    """Read-only live state from TeslaMateApi ``/status`` (no commands: every command is refused with
+    :data:`READ_ONLY_REASON`)."""
 
     kind = "teslamate"
     label = "TeslaMate (read-only)"
@@ -254,8 +260,13 @@ class TeslaMateLive(CarAdapter):
         self._name = name
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(frozenset(FIELD_NAMES), frozenset(), history=True,
-                            notes="TeslaMate is read-only: no commands. Pair it with Home Assistant for control.")
+        return Capabilities(frozenset(FIELD_NAMES), frozenset(), history=True, notes=READ_ONLY_REASON + ".")
+
+    def unsupported_reason(self, command: str) -> str:
+        return READ_ONLY_REASON
+
+    def send_command(self, command: str, args: Mapping[str, Any]) -> Any:
+        raise CommandNotSupported(READ_ONLY_REASON)
 
     def fetch_state(self, now: float) -> VehicleState:
         data = self._client.status()
@@ -264,7 +275,10 @@ class TeslaMateLive(CarAdapter):
         name = self._name or str((data.get("car") or {}).get("car_name") or "Car")
         if name == "REDACTED":
             name = self._name or "Car"
-        return status_to_state(data, name, now)
+        st = status_to_state(data, name, now)
+        from .state_sources import quarantine_future
+        quarantine_future(st.fields, now)
+        return st
 
 
 #: Fields the overlay may take from TeslaMate when its reading is newer than Home Assistant's.
@@ -290,8 +304,13 @@ def _says_moving(name: str, value: Any) -> bool:
     return isinstance(value, str) and value.upper() in ("D", "R", "N")
 
 
+#: how long a failed /cars look (for the VIN) waits before it is tried again
+IDENTITY_RETRY_S = 600.0
+
+
 class TeslaMateOverlay:
-    """Read-only fresher-state source next to Home Assistant (never commands; :class:`TeslaMateClient` only GETs).
+    """Read-only fresher-state source next to a real command connection (never commands; :class:`TeslaMateClient` only
+    GETs). Merged into the primary's reading by :class:`adapters.state_sources.StateSources`.
 
     Each read stamps every overlay field honestly (see :data:`SOURCE_NOTE`). Pit Crew remembers what it last saw per
     field: a value that differs from the previous look was published by TeslaMate *after* that look, so its time is at
@@ -303,6 +322,40 @@ class TeslaMateOverlay:
         self._seen: Dict[str, Tuple[Any, float, float]] = {}    # field -> (value, time of that look, changed no earlier than)
         self._lock = threading.Lock()
         self.last_error: Optional[str] = None
+        #: set when TeslaMate's car is not the primary's car (VINs differ): its readings are then ignored
+        self.mismatch: Optional[str] = None
+        #: set when the last /status had an implausible future ``state_since`` (ignored)
+        self.future_note: Optional[str] = None
+        self._vin: Optional[str] = None
+        self._vin_known = False
+        self._vin_tried_at: Optional[float] = None
+
+    @property
+    def car_id(self) -> int:
+        return self._client.car_id
+
+    def vehicle_id(self, now: float) -> Optional[str]:
+        """The VIN TeslaMate has for ``car_id`` (from ``/api/v1/cars``: ``car_details.vin``), None when unknown (redacted,
+        missing, or the look failed). Looked up once; a failure is retried after :data:`IDENTITY_RETRY_S`. The VIN is
+        only compared, never logged or shown."""
+        from .state_sources import normalize_vin
+        with self._lock:
+            if self._vin_known or (self._vin_tried_at is not None and now - self._vin_tried_at < IDENTITY_RETRY_S):
+                return self._vin
+            self._vin_tried_at = now
+        try:
+            cars = self._client.cars()
+        except AdapterError as exc:
+            logger.info("TeslaMate car list unavailable (identity unknown): %s", exc)
+            return None
+        vin = None
+        for car in cars:
+            if isinstance(car, dict) and str(car.get("car_id")) == str(self._client.car_id):
+                vin = normalize_vin((car.get("car_details") or {}).get("vin"))
+                break
+        with self._lock:
+            self._vin, self._vin_known = vin, True
+        return vin
 
     def baseline(self, at: float) -> None:
         self.read(at)
@@ -321,6 +374,16 @@ class TeslaMateOverlay:
         status = data.get("status") or {}
         tm_state = str(status.get("state") or "").lower()
         since = _ts(status.get("state_since"))
+        from .state_sources import FUTURE_SKEW_S
+        self.future_note = None
+        if since is not None and since > now + FUTURE_SKEW_S:
+            # implausible (a broken clock): not a time at all. Values fall back to the awake-car estimate.
+            self.future_note = (f"TeslaMate's state_since was more than {int(FUTURE_SKEW_S)} s in the future and is "
+                                "ignored (check the clocks).")
+            since = None
+            for fv in st.fields.values():      # (status_to_state stamped a sleeping car's values with it)
+                if fv.available and fv.updated_at is not None and fv.updated_at > now:
+                    fv.updated_at = now
         sleepy = tm_state in SLEEPY_STATES and since is not None
         with self._lock:
             for name in OVERLAY_FIELDS:
@@ -344,16 +407,18 @@ class TeslaMateOverlay:
         return st
 
     @staticmethod
-    def merge(fields: Dict[str, FieldValue], tm: VehicleState, car_reported_at: Optional[float]) -> None:
-        """Per field, keep whichever source reported more recently. A Home Assistant value that is only the integration's
-        optimistic write counts as of HA's last real re-read. Motion fails closed: if either source says moving (D/R/N,
-        speed > 1), that reading is kept whatever its age, as everywhere else in Pit Crew."""
+    def merge(fields: Dict[str, FieldValue], tm: VehicleState, car_reported_at: Optional[float],
+              primary: str = "home_assistant") -> None:
+        """Per field, keep whichever source reported more recently. A primary value that is only the integration's
+        optimistic write (Home Assistant) counts as of the primary's last real re-read (``car_reported_at``). Motion fails
+        closed: if either source says moving (D/R/N, speed > 1), that reading is kept whatever its age, as everywhere else
+        in Pit Crew. ``primary`` names the command connection's source on the fields it keeps."""
         for name in OVERLAY_FIELDS:
             t = tm.fields.get(name)
             h = fields.get(name)
             if t is None or not t.available:
                 if h is not None and h.available:
-                    h.source = "home_assistant"
+                    h.source = primary
                 continue
             if h is None or not h.available:
                 fields[name] = t
@@ -366,7 +431,7 @@ class TeslaMateOverlay:
             if take_tm:
                 fields[name] = t
             else:
-                h.source = "home_assistant"
+                h.source = primary
 
 
 class TeslaMateHistory(HistoryProvider):
@@ -413,8 +478,8 @@ def _client(ctx: BuildContext) -> TeslaMateClient:
 
 
 def build_teslamate_overlay(ctx: BuildContext) -> Optional[TeslaMateOverlay]:
-    """The optional TeslaMate overlay next to Home Assistant: only when ``teslamate_url`` is set. A TeslaMate problem never
-    stops Home Assistant from working (logged; Pit Crew then reads Home Assistant only)."""
+    """The optional TeslaMate overlay next to a real command connection: only when ``teslamate_url`` is set. A TeslaMate
+    problem never stops the command connection from working (logged; Pit Crew then reads that connection only)."""
     if not str(ctx.settings.get("teslamate_url") or "").strip():
         return None
     try:

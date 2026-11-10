@@ -6,11 +6,11 @@ repo: https://github.com/trevornk/pit-crew
 sha: "0000000000000000000000000000000000000000"   # FILL AT SUBMISSION: exact 40-hex commit
 title: Pit Crew
 description: "Proactive, safety-gated car agent: live state, a \"will I be ready?\" planner, a background watcher and approval-gated commands, with Home Assistant, Teslemetry/Tessie, TeslaMate or a built-in simulated car."
-image: "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/banner.png"   # TODO(owner): 2:1 image; replace TODO-SHA with the pinned sha
-screenshots:   # TODO(owner): add the files (docs/screenshots/README.md), then replace TODO-SHA with the pinned sha
+image: "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/banner.png"   # 1200x600; replace TODO-SHA with the pinned sha at submission
+screenshots:   # files are in docs/screenshots/; replace TODO-SHA with the pinned sha at submission
   - "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/pit-crew-page.png"
-  - "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/approval-prompt.png"
-  - "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/alert-push.png"
+  - "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/live-confirmed.png"
+  - "https://raw.githubusercontent.com/trevornk/pit-crew/TODO-SHA/docs/screenshots/alert.png"
 readme: true
 maintainer: trevornk
 tier: community

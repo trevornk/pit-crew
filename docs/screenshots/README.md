@@ -1,14 +1,12 @@
-# Screenshots (owner to supply)
+# Screenshots
 
-The catalog entry (`catalog/pit-crew.yaml`) and the README point at these files. They are intentionally **not** committed as
-placeholders (no binaries in the repo until real ones exist). Add them, then set the catalog URLs to the final commit SHA
-(`TODO-SHA` in the entry) in the same commit/PR that pins `sha`.
+All captured on the built-in simulator (no VIN, Home Assistant URL or named zones on screen). The README and
+`catalog/pit-crew.yaml` reference these files; the catalog URLs carry `TODO-SHA` until the owner pins the submitted commit.
 
 | File | What | Size |
 |---|---|---|
-| `banner.png` | Catalog card image: "Pit Crew — a car agent that watches your car, warns you, and acts within your Hermes approval settings" over the car page | 2:1, e.g. 1200×600 |
-| `pit-crew-page.png` | The Desktop page next to the chat (hero, tiles, alert with its fix button). Use the simulator; blur zone names | any |
-| `approval-prompt.png` | Hermes' own approval prompt for "Unlock my car" (the policy checklist visible), taken with Hermes approvals set to `manual` (with approvals off there is no prompt) | any |
-| `alert-push.png` | The proactive alert arriving in a chat app (Matrix, Telegram, Discord or any other Hermes delivery target), then "lock it" → "Locked — confirmed" | any |
-
-Capture on the simulator in practice mode or after `/car live 1`. No VIN, HA URL, or named home zones on screen.
+| `banner.png` | Catalog card / README banner | 1200×600 (2:1) |
+| `pit-crew-page.png` | The Pit Crew page: state, readiness, history | 1440×1790 |
+| `alert.png` | A proactive alert with its fix button | 1040×340 |
+| `live-confirmed.png` | A live command and the car's read-back confirmation | 1200×786 |
+| `outdated-panel.png` | The "reading may be out of date" panel | 1040×529 |

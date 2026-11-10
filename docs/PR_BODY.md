@@ -1,7 +1,7 @@
 # Catalog PR description (paste this into the `hermes-agent` PR that adds `plugin-catalog/pit-crew.yaml`)
 
 > Owner checklist before opening the PR: make `trevornk/pit-crew` public; run `hermes plugins validate . --install-deps` in a
-> throwaway Hermes; add the screenshots (`docs/screenshots/README.md`); replace `TODO-SHA` in the entry and fill `sha`.
+> throwaway Hermes; the screenshots are in `docs/screenshots/`; replace `TODO-SHA` in the entry and fill `sha`.
 
 ## Add Pit Crew (`pit-crew`) — proactive, safety-gated car agent
 

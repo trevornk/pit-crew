@@ -1,5 +1,7 @@
 # Pit Crew
 
+![Pit Crew: a car agent that watches your car, warns you, and acts within your Hermes approval settings](docs/screenshots/banner.png)
+
 **Your car, looked after: inside Hermes.**
 
 Pit Crew gives your Hermes agent a car it can actually take care of. It knows how charged, locked and warm the car is
@@ -8,9 +10,13 @@ sleep. When it wants to touch the car it follows your Hermes approval setting: i
 
 *A skill can't watch your car at 2 AM. This does.*
 
-<!-- TODO(owner): add docs/screenshots/pit-crew-page.png (see docs/screenshots/README.md), then remove these comment markers.
-![The Pit Crew page in Hermes Desktop](docs/screenshots/pit-crew-page.png)
--->
+![The Pit Crew page in Hermes Desktop: car state, readiness and the history of commands](docs/screenshots/pit-crew-page.png)
+
+| A proactive alert with its fix button | A command, sent and confirmed by the car |
+|---|---|
+| ![Alert: the car is unlocked and away from home, with a Lock it button](docs/screenshots/alert.png) | ![Result of a live command, read back and confirmed](docs/screenshots/live-confirmed.png) |
+
+*(Screenshots are from the built-in simulator; no real car, VIN or address is shown.)*
 
 [![CI](https://github.com/trevornk/pit-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/trevornk/pit-crew/actions/workflows/ci.yml) ![Hermes 0.23+](https://img.shields.io/badge/Hermes-%E2%89%A50.23-blue) ![MIT](https://img.shields.io/badge/license-MIT-green) ![Works with no car](https://img.shields.io/badge/works%20with-no%20car-lightgrey)
 

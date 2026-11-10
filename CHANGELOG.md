@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Docs.** Fresh simulator screenshots (banner, page, alert, confirmed result, out-of-date panel) in `docs/screenshots/` and the README; the demo script (`docs/DEMO.md`) now uses `live_mode`, any chat app for push alerts, and a field-sources beat.
 - **Choose your connections.** TeslaMate as a fresher state source now works next to **any** real command connection: Home
   Assistant (every profile), Teslemetry or Tessie, merged per field by one shared implementation (never with the simulator).
   Commands still take exactly one route (*Which car*), with no automatic fallback to another (a command whose outcome is unknown is

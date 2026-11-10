@@ -412,3 +412,63 @@ def test_estimated_stamps_are_flagged_only_for_the_awake_assumption(make_service
     assert tm_fields and not any(f.estimated for f in tm_fields)         # state_since is a real time
     pub = svc.get_state(force=True).to_public(now=clock.t)["freshness"]
     assert "estimated_times" not in pub
+
+
+# == 4. TeslaMate also merges asleep / user_present (19:38 real-install case) =========================================
+def test_awake_teslamate_beats_stale_ha_asleep_and_no_wake_is_asked(make_service, ha, clock, tm):
+    """HA: status off (asleep) last written 30 min ago. TeslaMate: online since 4 min ago, user present."""
+    coordinator_pass(ha, NOW - 1800, awake=False)
+    tm.status["state"] = "online"
+    tm.status["state_since"] = iso(NOW - 240)
+    tm.status["car_status"].update(is_user_present=True)
+    svc = with_tm(make_service, ha, clock, tm, refresh_after_command=False)
+    st = svc.get_state(force=True)
+    assert st.value("asleep") is False and st.fields["asleep"].source == "teslamate"
+    assert st.fields["asleep"].updated_at == NOW - 240 and not st.fields["asleep"].estimated      # state_since: a real time
+    assert st.value("user_present") is True and st.fields["user_present"].source == "teslamate"
+    ha.set_state(TRUNK, "closed")
+    stamp(ha, TRUNK, NOW - 10)
+    res = svc.run_command("open_trunk", {}, surface="tool", approval=AUTO)
+    assert res["status"] != "blocked" and "asleep" not in str(res.get("message", "")).lower()
+    assert any(c[1] == {"entity_id": TRUNK} for c in ha.service_calls)        # sent, no wake question
+
+
+def test_without_teslamate_stale_ha_asleep_is_unchanged(make_service, ha, clock):
+    coordinator_pass(ha, NOW - 1800, awake=False)
+    st = live(make_service, ha, clock).get_state(force=True)
+    assert st.value("asleep") is True and st.fields["asleep"].source is None
+
+
+def test_teslamate_offline_never_establishes_asleep_or_parked(make_service, ha, clock, tm):
+    from pit_crew.adapters.teslamate import status_to_state
+    tm.status["state"] = "offline"
+    tm.status["state_since"] = iso(NOW - 600)
+    tm.status["driving_details"]["shift_state"] = None
+    tm_st = status_to_state(tm.data["data"], "c", NOW)
+    assert not tm_st.fields["asleep"].available and tm_st.value("shift_state") is None
+    ha.set_state(STATUS, "on")
+    svc = with_tm(make_service, ha, clock, tm)
+    st = svc.get_state(force=True)
+    assert st.value("asleep") is False and st.fields["asleep"].source in (None, "home_assistant")   # HA's own word stays
+    from pit_crew.brain.models import FieldValue, VehicleState
+    only = VehicleState(name="c", source="x", captured_at=NOW, fields={"asleep": FieldValue(None, None, False)})
+    assert only.motion(NOW, 600) is None
+
+
+def test_teslamate_asleep_with_state_since_is_parked_evidence_and_estimated_is_not():
+    from pit_crew.brain.models import FieldValue, VehicleState
+    real = VehicleState(name="c", source="x", captured_at=NOW,
+                        fields={"asleep": FieldValue(True, NOW - 120, source="teslamate")})
+    assert real.motion(NOW, 600) is False
+    est = VehicleState(name="c", source="x", captured_at=NOW,
+                       fields={"asleep": FieldValue(True, NOW - 60, source="teslamate", estimated=True)})
+    assert est.motion(NOW, 600) is None
+
+
+def test_teslamate_asleep_reading_has_real_stamp_and_wins_over_older_ha_awake(make_service, ha, clock, tm):
+    coordinator_pass(ha, NOW - 1800, awake=True)
+    tm.status["state"] = "asleep"
+    tm.status["state_since"] = iso(NOW - 120)
+    svc = with_tm(make_service, ha, clock, tm)
+    st = svc.get_state(force=True)
+    assert st.value("asleep") is True and st.fields["asleep"].source == "teslamate" and not st.fields["asleep"].estimated

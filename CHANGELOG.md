@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **Docs accuracy pass.** README, STATUS, the catalog entry, the PR body and the compliance table now state what was run on a real car (all no-approval and approval-class commands, 2026-11-09/10), the live-mode and approval wording, and the current test count (920, Python 3.11 and 3.12). No code change, no version bump.
 - **Old readings are no longer worded as current.** The `car_status` summary, the approval prompt's car line and the `/car` card said
   "UNLOCKED", "all closed", "at home" and similar even when that reading was far older than *Stale after* (the 00:17 case: a lock
   reading 36 min old, from before the car fell asleep). A stale or undated reading now reads "last reported unlocked 36 min ago,

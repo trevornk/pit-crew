@@ -3,13 +3,20 @@
 _Last updated: pre-submission gap-closing pass (version 0.2.0). Hackathon submission deadline: Wed Nov 11 2026 4 PM US/Central._
 
 ## What is verified now
+_The "Pass N" sections below are historical: each describes the state at that pass, not today._
+
 * **Live, read-only:** the Home Assistant `tesla_fleet` connection has read the status of the owner's **real Model Y** (state,
   charging, lock, climate, place). The sanitized recordings of it are the test fixtures. Its Odometer showed "unavailable" because
   Home Assistant ships that entity disabled; the mapping itself matches HA core's source.
-* **Not live-tested yet (the owner will do this separately): commands.** Lock/climate/charge from `/car live`, the unlock approval
-  round-trip on a real surface (Telegram/Discord/Desktop), chat pushes, and both pages inside the real apps.
-* **In CI on every push** (`.github/workflows/ci.yml`): all 652 tests with none skipped: Python 3.12 test tools resolved with a
-  3-day release-age quarantine, Node 22 with pinned `react`/`react-dom`/`jsdom` (`tests/node`, `npm ci`), and **Hermes Agent v0.23.0
+* **Live, commands (2026-11-09):** on the same real car, twelve no-approval commands were sent and seen; then all seven
+  approval-class commands (unlock, trunk, frunk, vent, Sentry off, honk, flash) were sent with the owner at the car and Hermes
+  approvals turned off (so Hermes did not prompt, as designed; the audit records this), and the car did each. 2026-11-10: trunk
+  again with `live_mode: always` (no `/car live` first), confirmed by the car. Also used live in the real apps: the Desktop page
+  and its status-bar toggle (Desktop connected to a remote Hermes), the web-dashboard Pit Crew tab, and an alert push to a phone.
+* **Not yet exercised live:** Hermes' approval prompt with approvals ON on a real gateway surface (chat-app buttons); covered in
+  CI against Hermes v0.23.0's real approval pipeline with a scripted human. Teslemetry/Tessie direct: mocks only.
+* **In CI on every push** (`.github/workflows/ci.yml`): all 920 tests with none skipped, on Python 3.11 and 3.12 (test tools
+  resolved with a 3-day release-age quarantine), Node 22 with pinned `react`/`react-dom`/`jsdom` (`tests/node`, `npm ci`), and **Hermes Agent v0.23.0
   installed from its own `uv.lock` (Python 3.14)** so the real `PluginManager` load and the real approval pipeline run; then
   `hermes plugins validate .`. A job step fails the build if any test was skipped. Locally the Node and Hermes tests skip with a
   clear reason when those are absent (point `HERMES_NODE_MODULES` / `HERMES_PY` at them).

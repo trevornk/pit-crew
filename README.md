@@ -364,13 +364,14 @@ Honesty matters more than a long feature list.
   had been read as the car's confirmation and that a 5-minute-old "unlocked" was read as "already unlocked". Both are fixed.
 * **Tested without a car:** the safety engine, the approval flow (against Hermes' real approval pipeline, run in CI against Hermes
   v0.23.0, with a scripted human), the watcher, readiness math, history, both pages (rendered and clicked through in Node/jsdom),
-  and the plugin loading in real Hermes. See `tests/` (about 650 tests, no network; CI fails if any is skipped).
+  and the plugin loading in real Hermes. See `tests/` (about 920 tests, no network; CI fails if any is skipped).
 * **Checked against source, not run on a car:** the Kia/Hyundai profile (the `kia_uvo` HACS integration, v4) and the BMW profile
   (Home Assistant's last version of the since-removed integration), against each project's entity names and test data.
   The tire-pressure and odometer entities of `tesla_fleet` are checked against Home Assistant core's source.
 * **Mocks only:** Teslemetry and Tessie are tested against mocks of the `tesla-fleet-api` library.
-* **Not yet exercised live:** Telegram/Discord approval buttons and chat pushes, and the pages inside the real apps. If a
-  surface doesn't deliver Hermes' approval response, the audit shows "approved by Hermes (no prompt)" instead of "you approved"; let us know.
+* **Not yet exercised live:** Hermes' approval prompt with approvals ON on a real gateway surface (Telegram/Discord/etc. buttons);
+  it is covered in CI against Hermes' real approval pipeline. (The pages in the real apps and a chat push to a phone have been
+  used live.) If a surface doesn't deliver Hermes' approval response, the audit shows "approved by Hermes (no prompt)" instead of "you approved"; let us know.
 
 Start with the simulator; stay in practice mode until `/car` matches the car's own app.
 
@@ -442,5 +443,10 @@ hermes plugins validate .                      # catalog admission checks
 The plugin id (`pit-crew`) is defined in `constants.py`, `plugin.yaml`, `dashboard/manifest.json` and `desktop/plugin.js`,
 mostly; `grep -rn pit-crew` finds the rest. Design notes: [docs/DECISIONS.md](docs/DECISIONS.md) · [docs/STATUS.md](docs/STATUS.md) ·
 catalog entry: [catalog/pit-crew.yaml](catalog/pit-crew.yaml).
+
+## Credits
+
+Demo video music: "Walking Away (Lofi, Peaceful, Motivating)" by HoliznaCC0, public domain (CC0),
+https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/walking-away-lofi-peaceful-motivating
 
 MIT licensed.

@@ -116,14 +116,24 @@ def hermes_send(target: str, text: str) -> Tuple[bool, str, Optional[str]]:
 
 
 def list_targets() -> Optional[str]:
-    """The targets Hermes can send to (``send_message``'s own ``list``), or None when unavailable."""
+    """The targets Hermes can send to, or None when unavailable. Read-only: never sends, never binds a target.
+
+    Prefers Hermes' channel-directory formatter (a pure read of the on-disk directory); falls back to ``send_message``'s
+    legacy ``list`` action on older Hermes (newer Hermes removes it in favour of ``hermes send --list``)."""
+    try:
+        from gateway.channel_directory import format_directory_for_display
+        text = format_directory_for_display()
+        if isinstance(text, str) and text.strip():
+            return _one_line(text, 1500)
+    except Exception:                                           # noqa: BLE001
+        pass
     try:
         from tools.send_message_tool import send_message_tool
         res = json.loads(send_message_tool({"action": "list"}))
     except Exception:                                           # noqa: BLE001
         return None
     t = res.get("targets") if isinstance(res, dict) else None
-    return _one_line(t, 1500) if t else None
+    return _one_line(t, 1500) if t and isinstance(t, str) else None
 
 
 def session_env(name: str) -> str:

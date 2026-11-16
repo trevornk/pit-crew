@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.2.0 (unreleased)
+- **`/car notify list` survives Hermes dropping `send_message action=list`.** It now reads Hermes' channel directory (`gateway.channel_directory.format_directory_for_display`, a read-only formatter) and only falls back to the old `action=list` on older Hermes; if neither works it prints the generic examples as before. Discovery never sends a message or sets a target. Tests: `tests/test_list_targets_compat.py`.
 - **Docs accuracy pass.** README, STATUS, the catalog entry, the PR body and the compliance table now state what was run on a real car (all no-approval and approval-class commands, 2026-11-09/10), the live-mode and approval wording, and the current test count (920, Python 3.11 and 3.12). No code change, no version bump.
 - **Old readings are no longer worded as current.** The `car_status` summary, the approval prompt's car line and the `/car` card said
   "UNLOCKED", "all closed", "at home" and similar even when that reading was far older than *Stale after* (the 00:17 case: a lock

@@ -115,10 +115,13 @@ def test_tool_search_call_is_unwrapped_by_hermes_before_the_hook_and_gets_the_ap
 #    directly, which is NOT what the v0.23.0 agent loop does; it proves the gate's defence-in-depth handling. ---------
 def test_bridge_human_approves_once_then_unlock_is_confirmed():
     out = run("bridge_once")
-    assert out["prompted"] == 1 and "UNLOCK" in out["prompt_text"]
+    # Hermes >= v0.23.2 re-fires pre_tool_call for the re-dispatched car_command (a second ticket, a second prompt), so this
+    # fallback-only path asks twice there; it asks once on older Hermes. The real agent loop unwraps first and asks once
+    # (see test_tool_search_call_is_unwrapped_...).
+    assert out["prompted"] == (2 if out["redispatch_refires_hook"] else 1) and "UNLOCK" in out["prompt_text"]
     assert out["block_message"] is None
     assert out["result"]["status"] == "confirmed" and out["result"]["approval"] == "confirmed", out["result"]
-    assert out["second_prompted"] == 1
+    assert out["second_prompted"] == (2 if out["redispatch_refires_hook"] else 1)
 
 
 def test_bridge_human_denies_means_nothing_is_sent():

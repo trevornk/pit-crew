@@ -70,7 +70,12 @@ if scenario == "executor":
 if BRIDGE:
     # Tool Search path: Hermes fires pre_tool_call ONCE for the bridge name, then re-dispatches the underlying tool
     # with skip_pre_tool_call_hook=True (model_tools._dispatch_bridge_tool). Reproduce exactly that sequence.
+    import inspect  # noqa: E402
+    import model_tools  # noqa: E402
     from model_tools import handle_function_call  # noqa: E402
+    # Hermes >= v0.23.2 re-dispatches the unwrapped tool with skip_pre_tool_call_hook=False (the caller's skip flag
+    # described the wrapper only), so the hook fires a second time for car_command; older Hermes honoured skip=True.
+    out["redispatch_refires_hook"] = "skip_pre_tool_call_hook=False, skip_tool_request_middleware=False" in inspect.getsource(model_tools)
     entries = [{"name": "car_command", "arguments": args}]
     if scenario == "batch":
         entries.append({"name": "car_command", "arguments": {"command": "honk"}})

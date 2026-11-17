@@ -126,3 +126,40 @@ def test_slash_notify_list_falls_back_to_examples_when_nothing_is_available(serv
     out = slash.handle("notify list")
     assert "Hermes gave no list of targets" in out and "matrix:!room:server" in out
     assert service.watcher.deliverer.target() is None
+
+
+def _send_modules(monkeypatch, outbound=None, legacy=None):
+    """Hermes' ``send_message_tool`` at the v0.23.2+ path (``gateway.outbound.send``) and/or the old ``tools`` path."""
+    for name, obj in (("gateway.outbound.send", outbound), ("tools.send_message_tool", legacy)):
+        parts = name.split(".")
+        if obj is None:
+            monkeypatch.setitem(sys.modules, name, None)
+            continue
+        for i in range(1, len(parts)):
+            monkeypatch.setitem(sys.modules, ".".join(parts[:i]), types.ModuleType(".".join(parts[:i])))
+        mod = types.ModuleType(name)
+        mod.send_message_tool = obj
+        monkeypatch.setitem(sys.modules, name, mod)
+
+
+# hermes_send itself is replaced by conftest's fake sender in every test, so these check the resolver it uses.
+
+def test_hermes_v0232_send_resolves_to_gateway_outbound_not_the_old_path(monkeypatch):
+    from pit_crew.watcher.delivery import _send_message_tool
+    new, old = Legacy(json.dumps({"success": True})), Legacy(json.dumps({"success": True}))
+    _send_modules(monkeypatch, outbound=new, legacy=old)
+    assert _send_message_tool() is new
+
+
+def test_older_hermes_send_falls_back_to_tools_send_message_tool(monkeypatch):
+    from pit_crew.watcher.delivery import _send_message_tool
+    old = Legacy(json.dumps({"success": True}))
+    _send_modules(monkeypatch, outbound=None, legacy=old)
+    assert _send_message_tool() is old
+
+
+def test_no_send_module_at_all_raises_so_hermes_send_reports_unavailable(monkeypatch):
+    from pit_crew.watcher.delivery import _send_message_tool
+    _send_modules(monkeypatch, outbound=None, legacy=None)
+    with pytest.raises(ImportError):
+        _send_message_tool()

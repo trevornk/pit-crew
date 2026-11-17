@@ -6,7 +6,8 @@ Three layers, strongest last:
 2. **Next turn** — a ``pre_llm_call`` context injection hands unseen alerts to the model the next time the user
    talks to Hermes (no permissions needed). This is also the only layer a Desktop/CLI-only user with no messaging
    platform gets.
-3. **Push** — Hermes' own cross-platform send (``tools.send_message_tool.send_message_tool``, the function behind
+3. **Push** — Hermes' own cross-platform send (``send_message_tool``: ``gateway.outbound.send`` on Hermes v0.23.2+,
+   ``tools.send_message_tool`` before; the function behind
    cron ``deliver=``, ``hermes send`` and the kanban notifier) to a *delivery target* such as ``telegram``,
    ``discord:#car`` or ``matrix:!room:server``. A plain message to the platform: no agent turn, no gateway session
    entry, no live gateway needed in this process.
@@ -62,7 +63,7 @@ def format_context(alerts: List[Dict[str, Any]]) -> str:
 NO_TARGET_HINT = ("No place is set for pushed alerts. Run `/car notify here` in the chat you want, or "
                   "`/car notify telegram` / `discord:#car` / `matrix:!room:server` (same as a cron job's deliver), "
                   "or set alert_target in the plugin settings. Until then alerts are in `/car alerts` and mentioned on your next turn.")
-UNAVAILABLE_HINT = ("This Hermes cannot do a cross-platform send from here (tools.send_message_tool is not importable), so "
+UNAVAILABLE_HINT = ("This Hermes cannot do a cross-platform send from here (neither gateway.outbound.send nor tools.send_message_tool is importable), so "
                     "pushes cannot be delivered; alerts stay in `/car alerts` and are mentioned on your next turn.")
 TEST_LINE = "Pit Crew test alert: delivery works"
 TEST_MESSAGE = TEST_LINE + ". There is no real alert and nothing to do."
@@ -86,6 +87,26 @@ def valid_target(text: str) -> bool:
     return bool(_TARGET_RE.match((text or "").strip()))
 
 
+#: where Hermes keeps ``send_message_tool``, newest first. Hermes v0.23.2 moved ``tools/send_message_tool.py`` to
+#: ``gateway/outbound/send.py`` with no old-path shim; older Hermes only has the ``tools`` path.
+SEND_MODULES = ("gateway.outbound.send", "tools.send_message_tool")
+
+
+def _send_message_tool():
+    """Hermes' ``send_message_tool`` from whichever module this Hermes has. Raises the last import error if none."""
+    import importlib
+    err: Optional[BaseException] = None
+    for name in SEND_MODULES:
+        try:
+            fn = getattr(importlib.import_module(name), "send_message_tool")
+        except Exception as exc:                                # noqa: BLE001
+            err = exc
+            continue
+        if callable(fn):
+            return fn
+    raise err if err is not None else ImportError("send_message_tool not found")
+
+
 def hermes_send(target: str, text: str) -> Tuple[bool, str, Optional[str]]:
     """Send ``text`` to ``target`` through Hermes' own cross-platform send. Returns ``(ok, reason, kind)``.
 
@@ -94,7 +115,7 @@ def hermes_send(target: str, text: str) -> Tuple[bool, str, Optional[str]]:
     Runs in the caller's context, so the secret scope the watcher polled the car in is the scope the platform tokens are
     read in (``agent.secret_scope.get_secret`` / ``gateway.config._getenv``)."""
     try:
-        from tools.send_message_tool import send_message_tool
+        send_message_tool = _send_message_tool()
     except Exception as exc:                                    # noqa: BLE001 - not running inside a Hermes with the tool
         return False, f"send_message is not available ({type(exc).__name__})", KIND_UNAVAILABLE
     try:
@@ -128,8 +149,7 @@ def list_targets() -> Optional[str]:
     except Exception:                                           # noqa: BLE001
         pass
     try:
-        from tools.send_message_tool import send_message_tool
-        res = json.loads(send_message_tool({"action": "list"}))
+        res = json.loads(_send_message_tool()({"action": "list"}))
     except Exception:                                           # noqa: BLE001
         return None
     t = res.get("targets") if isinstance(res, dict) else None

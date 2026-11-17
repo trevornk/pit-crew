@@ -1,6 +1,6 @@
 """Run inside the Hermes venv: drive the plugin's REAL delivery code against Hermes' REAL send_message_tool (target
 parsing, platform config, home channel, relay guard, secret scope, session context). Only the network sender
-(``tools.send_message_tool._send_to_platform``) is replaced. Prints one JSON line. Invoked by test_delivery_hermes.py."""
+(``_send_to_platform`` in ``gateway.outbound.send`` on Hermes v0.23.2+, ``tools.send_message_tool`` before) is replaced. Prints one JSON line. Invoked by test_delivery_hermes.py."""
 import asyncio
 import contextvars
 import importlib.util
@@ -26,7 +26,16 @@ sys.modules["pit_crew"] = mod
 spec.loader.exec_module(mod)
 from pit_crew.watcher import delivery  # noqa: E402
 
-import tools.send_message_tool as smt  # noqa: E402
+import importlib  # noqa: E402
+
+smt = None
+for _name in delivery.SEND_MODULES:  # the module the plugin itself resolves to, so the patch hits the real send path
+    try:
+        smt = importlib.import_module(_name)
+        break
+    except ImportError:
+        continue
+assert smt is not None, "no Hermes send_message_tool module importable"
 
 calls = []
 behaviour = {"result": None}

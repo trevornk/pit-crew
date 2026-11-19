@@ -4,12 +4,6 @@ on: [push, pull_request]
 permissions:
   contents: read
 
-env:
-  # Hermes Agent release the real-Hermes tests (plugin load + approval pipeline) run against.
-  # Must satisfy requires_hermes in plugin.yaml. Bump deliberately, after reading the release notes.
-  HERMES_TAG: v0.23.0
-  HERMES_COMMIT: 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,6 +13,14 @@ jobs:
       matrix:
         # Hermes supports Python >= 3.11: run the tests on the oldest and a newer interpreter
         python: ["3.11", "3.12"]
+        # Hermes Agent releases the real-Hermes tests (plugin load + approval pipeline) run against: the requires_hermes
+        # minimum in plugin.yaml, and the newest release. Each is pinned by tag AND commit (the clone step verifies they match).
+        # Bump deliberately, after reading the release notes.
+        hermes:
+          - tag: v0.23.0
+            commit: 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
+          - tag: v0.23.2
+            commit: ae2a81ccc00e9b7c06301523e5bb09608397149c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -42,7 +44,10 @@ jobs:
           uv venv --python ${{ matrix.python }} "$RUNNER_TEMP/ci-venv"
           uv pip install --python "$RUNNER_TEMP/ci-venv/bin/python" --exclude-newer "3 days" pytest pytest-asyncio pyyaml fastapi httpx
 
-      - name: Hermes Agent ${{ env.HERMES_TAG }} (pinned commit, installed from its own uv.lock)
+      - name: Hermes Agent ${{ matrix.hermes.tag }} (pinned commit, installed from its own uv.lock)
+        env:
+          HERMES_TAG: ${{ matrix.hermes.tag }}
+          HERMES_COMMIT: ${{ matrix.hermes.commit }}
         run: |
           git clone --quiet --depth 1 --branch "$HERMES_TAG" https://github.com/NousResearch/hermes-agent.git "$RUNNER_TEMP/hermes-src"
           test "$(git -C "$RUNNER_TEMP/hermes-src" rev-parse HEAD)" = "$HERMES_COMMIT"

@@ -161,17 +161,68 @@ def clean_require_human_for(value: Any) -> List[str]:
 SettingsProvider = Callable[[], Mapping[str, Any]]
 
 
+def launch_home() -> Optional[str]:
+    """The Hermes home this process was launched with (``HERMES_HOME`` / the host's pinned home), ignoring any
+    per-task profile scope. ``None`` when Hermes' constants are unavailable (tests, standalone)."""
+    try:
+        from hermes_constants import get_routing_process_hermes_home
+
+        return str(get_routing_process_hermes_home())
+    except Exception:
+        return None
+
+
+class _WarnOnce:
+    """Log a failure once per distinct message, and a single recovery line when reads work again."""
+
+    def __init__(self) -> None:
+        self._last: Optional[str] = None
+
+    def failed(self, msg: str) -> None:
+        if msg != self._last:
+            self._last = msg
+            logger.warning("%s; using plugin defaults until it recovers", msg)
+
+    def ok(self) -> None:
+        if self._last is not None:
+            self._last = None
+            logger.info("Hermes config readable again; plugin settings restored")
+
+
 def hermes_settings_provider(plugin_id: str = PLUGIN_ID) -> SettingsProvider:
-    """Read ``plugins.entries.<id>.settings`` through the documented ``load_config_readonly``."""
+    """Read ``plugins.entries.<id>.settings`` through the documented ``load_config_readonly``.
+
+    Always against the launch home, never whatever profile scope happened to be bound when the plugin registered or
+    the watcher started (a multiplex gateway loads plugins under a transient profile's scope; when that profile is
+    deleted a scope-following read fails forever). A config that really is unreadable still warns, once per distinct
+    error rather than on every read."""
+    warn = _WarnOnce()
 
     def provider() -> Mapping[str, Any]:
+        token = None
+        pop = None
+        home = launch_home()
         try:
+            if home:
+                try:
+                    from hermes_scope import pop_state, push_state
+
+                    token, pop = push_state(home=home), pop_state
+                except Exception:  # older Hermes without scope state: read the ambient home
+                    logger.debug("hermes_scope unavailable; reading the ambient home", exc_info=True)
             from hermes_cli.config import load_config_readonly
 
             cfg = load_config_readonly() or {}
-        except Exception as exc:  # config unreadable: run on defaults, but say so
-            logger.warning("could not read Hermes config (%s); using plugin defaults", exc)
+        except Exception as exc:  # config unreadable: run on defaults, but say so (once)
+            warn.failed(f"could not read Hermes config ({exc})")
             return {}
+        finally:
+            if token is not None and pop is not None:
+                try:
+                    pop(token)
+                except Exception:
+                    logger.debug("could not restore the profile scope state", exc_info=True)
+        warn.ok()
         entry = ((cfg.get("plugins") or {}).get("entries") or {}).get(plugin_id) or {}
         settings = entry.get("settings")
         return settings if isinstance(settings, dict) else {}

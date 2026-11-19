@@ -189,6 +189,26 @@ class _WarnOnce:
             logger.info("Hermes config readable again; plugin settings restored")
 
 
+def _bind_home(home: str) -> Optional[Callable[[], None]]:
+    """Bind ``home`` for the current context; return the undo, or ``None`` if this Hermes can't bind one.
+    Prefers ``hermes_scope.push_state`` (v0.23.2+); v0.23.0 only has the ``hermes_constants`` ContextVar override."""
+    try:
+        from hermes_scope import pop_state, push_state
+
+        token = push_state(home=home)
+        return lambda: pop_state(token)
+    except Exception:
+        logger.debug("hermes_scope unavailable; trying the hermes_constants home override", exc_info=True)
+    try:
+        from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+
+        token = set_hermes_home_override(home)
+        return lambda: reset_hermes_home_override(token)
+    except Exception:
+        logger.debug("no home override available; reading the ambient home", exc_info=True)
+        return None
+
+
 def hermes_settings_provider(plugin_id: str = PLUGIN_ID) -> SettingsProvider:
     """Read ``plugins.entries.<id>.settings`` through the documented ``load_config_readonly``.
 
@@ -199,17 +219,11 @@ def hermes_settings_provider(plugin_id: str = PLUGIN_ID) -> SettingsProvider:
     warn = _WarnOnce()
 
     def provider() -> Mapping[str, Any]:
-        token = None
-        pop = None
+        restore: Optional[Callable[[], None]] = None
         home = launch_home()
         try:
             if home:
-                try:
-                    from hermes_scope import pop_state, push_state
-
-                    token, pop = push_state(home=home), pop_state
-                except Exception:  # older Hermes without scope state: read the ambient home
-                    logger.debug("hermes_scope unavailable; reading the ambient home", exc_info=True)
+                restore = _bind_home(home)
             from hermes_cli.config import load_config_readonly
 
             cfg = load_config_readonly() or {}
@@ -217,9 +231,9 @@ def hermes_settings_provider(plugin_id: str = PLUGIN_ID) -> SettingsProvider:
             warn.failed(f"could not read Hermes config ({exc})")
             return {}
         finally:
-            if token is not None and pop is not None:
+            if restore is not None:
                 try:
-                    pop(token)
+                    restore()
                 except Exception:
                     logger.debug("could not restore the profile scope state", exc_info=True)
         warn.ok()

@@ -225,7 +225,7 @@ hermes gateway restart               # then restart the gateway ...
   gateway for you.
 * No command-line install/update/enable reloads a running process on Hermes 0.23 (`install --force` and `enable` don't either).
 * Then, in Hermes Desktop, run **Reload desktop plugins** (⌘K). That also refreshes the `/car` autocomplete.
-* Not sure which version is running? `/car help` (or any unknown subcommand) prints it: "Pit Crew 0.2.0".
+* Not sure which version is running? `/car help` (or any unknown subcommand) prints it: "Pit Crew 0.2.1".
 
 ### Hermes Desktop on a different machine
 

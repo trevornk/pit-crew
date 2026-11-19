@@ -1,9 +1,12 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.1
+- **CI tests Hermes v0.23.0 and v0.23.2.** The real-Hermes steps (plugin load, approval pipeline, delivery, `plugins validate`) run on both the `requires_hermes` minimum and v0.23.2, each pinned by tag and verified commit.
 - **Approval test models Hermes v0.23.2's Tool Search re-dispatch.** v0.23.2 re-fires `pre_tool_call` for the re-dispatched `car_command` (it no longer honours `skip_pre_tool_call_hook=True` for the underlying tool). The real agent loop unwraps `tool_call` first, so a person is still asked once; only the defence-in-depth `tool_call` fallback path asks twice on v0.23.2. The bridge e2e probe/test now expect that per Hermes version. No plugin change.
 - **Pushes work again on Hermes v0.23.2.** Hermes moved `tools/send_message_tool.py` to `gateway/outbound/send.py` with no old-path shim, so every push reported "send_message is not available (ModuleNotFoundError)". Delivery now resolves `send_message_tool` from `gateway.outbound.send` first and falls back to `tools.send_message_tool` on older Hermes; the real-Hermes delivery probe patches whichever module the plugin resolved. Tests: `tests/test_list_targets_compat.py`, `tests/test_delivery_hermes.py`.
 - **`/car notify list` survives Hermes dropping `send_message action=list`.** It now reads Hermes' channel directory (`gateway.channel_directory.format_directory_for_display`, a read-only formatter) and only falls back to the old `action=list` on older Hermes; if neither works it prints the generic examples as before. Discovery never sends a message or sets a target. Tests: `tests/test_list_targets_compat.py`.
+
+## 0.2.0
 - **Docs accuracy pass.** README, STATUS, the catalog entry, the PR body and the compliance table now state what was run on a real car (all no-approval and approval-class commands, 2026-11-09/10), the live-mode and approval wording, and the current test count (920, Python 3.11 and 3.12). No code change, no version bump.
 - **Old readings are no longer worded as current.** The `car_status` summary, the approval prompt's car line and the `/car` card said
   "UNLOCKED", "all closed", "at home" and similar even when that reading was far older than *Stale after* (the 00:17 case: a lock

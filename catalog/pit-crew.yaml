@@ -16,7 +16,7 @@ maintainer: trevornk
 tier: community
 category: automation
 requires_hermes: ">=0.23.0"
-version: "0.2.0"
+version: "0.2.1"
 docs_url: https://github.com/trevornk/pit-crew#readme
 platforms: []
 known_issues:

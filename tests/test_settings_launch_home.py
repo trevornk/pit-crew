@@ -2,69 +2,43 @@
 
 Regression: a multiplex gateway loaded plugins under a transient profile's scope; when that profile was deleted every
 settings read raised "Named profile home does not exist" and silently fell back to defaults, on every poll tick.
-Needs real Hermes modules (skipped without them)."""
+Runs against REAL Hermes (``tests/_launch_home_probe.py`` in the Hermes venv, v0.23.0 and v0.23.2)."""
 
-import logging
+import json
+import os
+import subprocess
+from pathlib import Path
 
 import pytest
 
-pytest.importorskip("hermes_scope")
-pytest.importorskip("hermes_cli.config")
+ROOT = Path(__file__).resolve().parents[1]
+HERMES_PY = Path(os.environ.get("HERMES_PY", Path.home() / ".hermes" / "hermes-agent" / "venv" / "bin" / "python3"))
 
-from pit_crew import settings as S  # noqa: E402
-
-PLUGIN_SETTING = {"plugins": {"entries": {"pit-crew": {"settings": {"poll_interval_s": 123}}}}}
+pytestmark = pytest.mark.skipif(not HERMES_PY.exists(), reason="Hermes venv not available on this machine")
 
 
-@pytest.fixture
-def homes(tmp_path, monkeypatch):
-    import yaml
-    from hermes_constants import reset_hermes_home_key_cache
-
-    root = tmp_path / ".hermes"
-    launch = root
-    ghost = root / "profiles" / "ghost"
-    ghost.mkdir(parents=True)
-    (ghost / "config.yaml").write_text("plugins: {}\n")
-    (launch / "config.yaml").write_text(yaml.safe_dump(PLUGIN_SETTING))
-    monkeypatch.setenv("HERMES_HOME", str(launch))
-    reset_hermes_home_key_cache()
-    return launch, ghost
+@pytest.fixture(scope="module")
+def probe(tmp_path_factory):
+    home = tmp_path_factory.mktemp("launch-home") / "home"
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    proc = subprocess.run([str(HERMES_PY), "-I", str(ROOT / "tests" / "_launch_home_probe.py"), str(home), str(ROOT)],
+                          capture_output=True, text=True, timeout=180, env=env)
+    for line in (proc.stdout + "\n" + proc.stderr).splitlines():
+        if line.startswith("PROBE_JSON:"):
+            return json.loads(line[len("PROBE_JSON:"):])
+    pytest.fail(f"probe produced no result:\n{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}")
 
 
-def _delete(ghost):
-    for f in ghost.iterdir():
-        f.unlink()
-    ghost.rmdir()
+def test_reads_launch_home_after_registering_profile_is_deleted(probe):
+    want = {"poll_interval_s": 123}
+    assert probe["before_delete"] == want
+    assert probe["after_delete"] == [want] * 5
+    assert not [w for w in probe["ghost_warnings"] if "could not read" in w], probe["ghost_warnings"]
 
 
-def test_reads_launch_home_after_registering_profile_is_deleted(homes, caplog):
-    from hermes_scope import push_state
-
-    launch, ghost = homes
-    provider = S.hermes_settings_provider()
-    token = push_state(home=str(ghost))  # registered/started under the transient profile's scope
-    try:
-        assert provider() == {"poll_interval_s": 123}
-        _delete(ghost)
-        with caplog.at_level(logging.WARNING, logger=S.logger.name):
-            for _ in range(5):
-                assert provider() == {"poll_interval_s": 123}
-        assert not [r for r in caplog.records if "could not read" in r.getMessage()]
-    finally:
-        token.reset()
-
-
-def test_unreadable_launch_home_warns_once_then_recovers(homes, caplog):
-    launch, _ = homes
-    cfg = launch / "config.yaml"
-    body = cfg.read_text()
-    cfg.write_text("plugins: [unclosed\n")
-    provider = S.hermes_settings_provider()
-    with caplog.at_level(logging.INFO, logger=S.logger.name):
-        results = [provider() for _ in range(6)]
-        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert all(r == {} for r in results) or len(warnings) <= 1
-        assert len(warnings) <= 1
-        cfg.write_text(body + "\n# touched\n")
-        assert provider() == {"poll_interval_s": 123}
+def test_unreadable_launch_home_warns_once_then_recovers(probe):
+    # Hermes may serve its last-known-good copy for a broken file (no error) or fail; either way: at most one warning.
+    assert all(r in ({}, {"poll_interval_s": 123}) for r in probe["broken"]), probe["broken"]
+    assert len(probe["broken_warnings"]) <= 1, probe["broken_warnings"]
+    assert probe["recovered"] == {"poll_interval_s": 123}
+    assert probe["recovery_logged"] is bool(probe["broken_warnings"])
